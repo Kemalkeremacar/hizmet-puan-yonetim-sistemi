@@ -51,15 +51,32 @@ export default function ImportPreviewDialog({ open, onClose, previewData, onConf
 
   if (!previewData) return null;
 
-  const { summary, comparison, uyarilar, onizleme } = previewData;
+  const { summary, comparison, uyarilar, onizleme, listeTipi } = previewData;
+  
+  // Liste tipi backend'den geliyor (HUV veya SUT)
+  const isSUT = listeTipi === 'SUT';
+  const isHUV = listeTipi === 'HUV';
+  
+  const kodLabel = isSUT ? 'SUT Kodu' : 'HUV Kodu';
+  const kodField = isSUT ? 'SutKodu' : 'HuvKodu';
+  const birimLabel = isSUT ? 'Puan' : 'Birim';
+  const eskiBirimField = isSUT ? 'EskiPuan' : 'EskiBirim';
+  const yeniBirimField = isSUT ? 'YeniPuan' : 'YeniBirim';
+  const birimField = isSUT ? 'Puan' : 'Birim';
 
   const handleTabChange = (event, newValue) => {
     setActiveTab(newValue);
   };
 
   const formatBirim = (value) => {
-    if (!value) return '-';
-    return `₺${parseFloat(value).toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    if (!value && value !== 0) return '-';
+    if (isSUT) {
+      // SUT için puan formatı
+      return parseFloat(value).toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    } else {
+      // HUV için birim formatı (TL)
+      return `₺${parseFloat(value).toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    }
   };
 
   const calculateChange = (oldVal, newVal) => {
@@ -120,7 +137,26 @@ export default function ImportPreviewDialog({ open, onClose, previewData, onConf
               <Typography variant="caption" color="text.secondary">Değişmeyen</Typography>
               <Typography variant="h6" fontWeight="700" color="text.secondary">{summary?.degismeyen || 0}</Typography>
             </Box>
+            {summary?.hiyerarsi > 0 && (
+              <>
+                <Divider orientation="vertical" flexItem />
+                <Box>
+                  <Typography variant="caption" color="text.secondary">Hiyerarşi</Typography>
+                  <Typography variant="h6" fontWeight="700" color="grey.500">{summary?.hiyerarsi || 0}</Typography>
+                </Box>
+              </>
+            )}
           </Stack>
+          {summary?.hiyerarsi > 0 && previewData.hiyerarsiSatirlari && (
+            <Alert severity="info" sx={{ mt: 2 }}>
+              <Typography variant="body2" fontWeight="600" gutterBottom>
+                📂 {previewData.hiyerarsiSatirlari.toplam} adet hiyerarşi satırı tespit edildi
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                {previewData.hiyerarsiSatirlari.aciklama}
+              </Typography>
+            </Alert>
+          )}
         </Paper>
 
         {/* Uyarılar */}
@@ -183,16 +219,16 @@ export default function ImportPreviewDialog({ open, onClose, previewData, onConf
             <Table size="small" stickyHeader>
               <TableHead>
                 <TableRow>
-                  <TableCell sx={{ fontWeight: 600 }}>HUV Kodu</TableCell>
+                  <TableCell sx={{ fontWeight: 600 }}>{kodLabel}</TableCell>
                   <TableCell sx={{ fontWeight: 600 }}>İşlem Adı</TableCell>
-                  <TableCell align="right" sx={{ fontWeight: 600 }}>Birim</TableCell>
-                  <TableCell sx={{ fontWeight: 600 }}>Bölüm</TableCell>
+                  <TableCell align="right" sx={{ fontWeight: 600 }}>{birimLabel}</TableCell>
+                  {!isSUT && <TableCell sx={{ fontWeight: 600 }}>Bölüm</TableCell>}
                 </TableRow>
               </TableHead>
               <TableBody>
                 {onizleme?.eklenenler?.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={4} align="center" sx={{ py: 3 }}>
+                    <TableCell colSpan={isSUT ? 3 : 4} align="center" sx={{ py: 3 }}>
                       <Typography variant="body2" color="text.secondary">
                         Eklenecek kayıt yok
                       </Typography>
@@ -202,7 +238,7 @@ export default function ImportPreviewDialog({ open, onClose, previewData, onConf
                   onizleme?.eklenenler?.map((item, index) => (
                     <TableRow key={index} hover>
                       <TableCell>
-                        <Chip label={item.HuvKodu} size="small" variant="outlined" />
+                        <Chip label={item[kodField]} size="small" variant="outlined" />
                       </TableCell>
                       <TableCell>
                         <Typography variant="body2" fontSize="0.85rem">
@@ -211,17 +247,19 @@ export default function ImportPreviewDialog({ open, onClose, previewData, onConf
                       </TableCell>
                       <TableCell align="right">
                         <Chip 
-                          label={formatBirim(item.Birim)} 
+                          label={formatBirim(item[birimField])} 
                           size="small" 
                           color="info"
                           icon={<AddIcon />}
                         />
                       </TableCell>
-                      <TableCell>
-                        <Typography variant="caption" color="text.secondary">
-                          {item.BolumAdi || '-'}
-                        </Typography>
-                      </TableCell>
+                      {!isSUT && (
+                        <TableCell>
+                          <Typography variant="caption" color="text.secondary">
+                            {item.BolumAdi || '-'}
+                          </Typography>
+                        </TableCell>
+                      )}
                     </TableRow>
                   ))
                 )}
@@ -241,10 +279,10 @@ export default function ImportPreviewDialog({ open, onClose, previewData, onConf
             <Table size="small" stickyHeader>
               <TableHead>
                 <TableRow>
-                  <TableCell sx={{ fontWeight: 600 }}>HUV Kodu</TableCell>
+                  <TableCell sx={{ fontWeight: 600 }}>{kodLabel}</TableCell>
                   <TableCell sx={{ fontWeight: 600 }}>İşlem Adı</TableCell>
-                  <TableCell align="right" sx={{ fontWeight: 600 }}>Eski Birim</TableCell>
-                  <TableCell align="right" sx={{ fontWeight: 600 }}>Yeni Birim</TableCell>
+                  <TableCell align="right" sx={{ fontWeight: 600 }}>Eski {birimLabel}</TableCell>
+                  <TableCell align="right" sx={{ fontWeight: 600 }}>Yeni {birimLabel}</TableCell>
                   <TableCell align="center" sx={{ fontWeight: 600 }}>Değişim</TableCell>
                 </TableRow>
               </TableHead>
@@ -259,13 +297,15 @@ export default function ImportPreviewDialog({ open, onClose, previewData, onConf
                   </TableRow>
                 ) : (
                   onizleme?.guncellenenler?.map((item, index) => {
-                    const change = calculateChange(item.oldBirim, item.newBirim);
+                    const oldVal = item[eskiBirimField];
+                    const newVal = item[yeniBirimField];
+                    const change = calculateChange(oldVal, newVal);
                     const isIncrease = change > 0;
                     
                     return (
                       <TableRow key={index} hover>
                         <TableCell>
-                          <Chip label={item.HuvKodu} size="small" variant="outlined" />
+                          <Chip label={item[kodField]} size="small" variant="outlined" />
                         </TableCell>
                         <TableCell>
                           <Typography variant="body2" fontSize="0.85rem">
@@ -274,12 +314,12 @@ export default function ImportPreviewDialog({ open, onClose, previewData, onConf
                         </TableCell>
                         <TableCell align="right">
                           <Typography variant="body2" color="text.secondary">
-                            {formatBirim(item.oldBirim)}
+                            {formatBirim(oldVal)}
                           </Typography>
                         </TableCell>
                         <TableCell align="right">
                           <Typography variant="body2" fontWeight="600">
-                            {formatBirim(item.newBirim)}
+                            {formatBirim(newVal)}
                           </Typography>
                         </TableCell>
                         <TableCell align="center">
@@ -312,16 +352,16 @@ export default function ImportPreviewDialog({ open, onClose, previewData, onConf
             <Table size="small" stickyHeader>
               <TableHead>
                 <TableRow>
-                  <TableCell sx={{ fontWeight: 600 }}>HUV Kodu</TableCell>
+                  <TableCell sx={{ fontWeight: 600 }}>{kodLabel}</TableCell>
                   <TableCell sx={{ fontWeight: 600 }}>İşlem Adı</TableCell>
-                  <TableCell align="right" sx={{ fontWeight: 600 }}>Birim</TableCell>
-                  <TableCell sx={{ fontWeight: 600 }}>Bölüm</TableCell>
+                  <TableCell align="right" sx={{ fontWeight: 600 }}>{birimLabel}</TableCell>
+                  {!isSUT && <TableCell sx={{ fontWeight: 600 }}>Bölüm</TableCell>}
                 </TableRow>
               </TableHead>
               <TableBody>
                 {onizleme?.silinecekler?.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={4} align="center" sx={{ py: 3 }}>
+                    <TableCell colSpan={isSUT ? 3 : 4} align="center" sx={{ py: 3 }}>
                       <Typography variant="body2" color="text.secondary">
                         Silinecek kayıt yok
                       </Typography>
@@ -331,7 +371,7 @@ export default function ImportPreviewDialog({ open, onClose, previewData, onConf
                   onizleme?.silinecekler?.map((item, index) => (
                     <TableRow key={index} hover sx={{ bgcolor: 'error.lighter' }}>
                       <TableCell>
-                        <Chip label={item.HuvKodu} size="small" variant="outlined" color="error" />
+                        <Chip label={item[kodField]} size="small" variant="outlined" color="error" />
                       </TableCell>
                       <TableCell>
                         <Typography variant="body2" fontSize="0.85rem" color="error.main">
@@ -340,14 +380,16 @@ export default function ImportPreviewDialog({ open, onClose, previewData, onConf
                       </TableCell>
                       <TableCell align="right">
                         <Typography variant="body2" color="error.main">
-                          {formatBirim(item.Birim)}
+                          {formatBirim(item[eskiBirimField] || item[birimField])}
                         </Typography>
                       </TableCell>
-                      <TableCell>
-                        <Typography variant="caption" color="text.secondary">
-                          {item.BolumAdi || '-'}
-                        </Typography>
-                      </TableCell>
+                      {!isSUT && (
+                        <TableCell>
+                          <Typography variant="caption" color="text.secondary">
+                            {item.BolumAdi || '-'}
+                          </Typography>
+                        </TableCell>
+                      )}
                     </TableRow>
                   ))
                 )}

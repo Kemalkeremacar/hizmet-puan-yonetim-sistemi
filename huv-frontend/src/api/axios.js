@@ -228,7 +228,7 @@ api.interceptors.response.use(
       }
     }
     
-    // Backend'den gelen response.data'yı direkt döndür
+    // Backend'den gelen response.data'yı direkt döndür (eski davranış)
     return fixedData;
   },
   (error) => {
@@ -262,7 +262,9 @@ importApi.interceptors.response.use(
     // Türkçe karakterleri düzelt (optimize edilmiş)
     const fixedData = fixTurkishChars(response.data);
     
-    return fixedData;
+    // Import API için response nesnesini döndür (status, headers vs. gerekli)
+    response.data = fixedData;
+    return response;
   },
   (error) => {
     console.error('Import Error:', {

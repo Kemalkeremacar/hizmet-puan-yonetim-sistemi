@@ -15,9 +15,16 @@ const {
   deactivateIslem,
   copyUnchangedIslemToVersion
 } = require('../services/versionManager');
+// Batch import removed - using synchronous import only
 const { success, error } = require('../utils/response');
 const { getPool, sql } = require('../config/database');
 const fs = require('fs');
+const crypto = require('crypto');
+
+// UUID oluştur (crypto kullanarak, uuid paketi yerine)
+const generateJobId = () => {
+  return crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+};
 
 // ============================================
 // POST /api/admin/import/preview
@@ -34,7 +41,8 @@ const previewImport = async (req, res, next) => {
     }
     
     uploadedFile = req.file.path;
-    const dosyaAdi = req.file.originalname;
+    // Türkçe karakter desteği için dosya adını düzgün decode et
+    const dosyaAdi = Buffer.from(req.file.originalname, 'latin1').toString('utf8');
     
     // Parse et
     const parseResult = parseHuvExcel(uploadedFile);
@@ -66,13 +74,14 @@ const previewImport = async (req, res, next) => {
     const comparison = compareHuvLists(mevcutData, normalizedData);
     const report = generateComparisonReport(comparison);
     
-    // Dosyayı sil
-    if (uploadedFile && fs.existsSync(uploadedFile)) {
-      fs.unlinkSync(uploadedFile);
-    }
+    // Dosyayı SAKLAMA - İmport geçmişi için
+    // if (uploadedFile && fs.existsSync(uploadedFile)) {
+    //   fs.unlinkSync(uploadedFile);
+    // }
     
     return success(res, {
       dosyaAdi,
+      listeTipi: 'HUV',
       summary: {
         toplamOkunan: parseResult.rowCount,
         gecerli: validation.stats.valid,
@@ -100,7 +109,8 @@ const previewImport = async (req, res, next) => {
 
 // ============================================
 // POST /api/admin/import/huv
-// HUV listesini Excel'den yükle
+// HUV listesini Excel'den yükle (Batch processing ile)
+// Query param: useBatch=true (default: true)
 // ============================================
 const importHuvList = async (req, res, next) => {
   const startTime = Date.now();
@@ -119,10 +129,12 @@ const importHuvList = async (req, res, next) => {
     }
     
     uploadedFile = req.file.path;
-    const dosyaAdi = req.file.originalname;
+    // Türkçe karakter desteği için dosya adını düzgün decode et
+    const dosyaAdi = Buffer.from(req.file.originalname, 'latin1').toString('utf8');
+    
+    // Synchronous import - basitleştirilmiş
     
     // Dosya boyutu kontrolü
-    const fileSizeMB = (req.file.size / 1024 / 1024).toFixed(2);
     if (req.file.size > 10 * 1024 * 1024) {
       return error(res, `Dosya boyutu çok büyük (${fileSizeMB} MB)`, 400, {
         tip: 'DOSYA_BOYUTU',
@@ -186,15 +198,10 @@ const importHuvList = async (req, res, next) => {
     
     if (!yuklemeTarihi) {
       const extractedDate = extractDateFromFilename(dosyaAdi);
-      if (extractedDate) {
-        yuklemeTarihi = extractedDate;
-        console.log(`📅 Dosya adından tarih çıkarıldı: ${yuklemeTarihi}`);
-      } else {
-        yuklemeTarihi = new Date();
-        console.log(`📅 Bugünün tarihi kullanılıyor: ${yuklemeTarihi}`);
-      }
+      yuklemeTarihi = extractedDate ? new Date(extractedDate) : new Date();
     } else {
-      console.log(`📅 Frontend'den gelen tarih: ${yuklemeTarihi}`);
+      // String ise Date objesine çevir
+      yuklemeTarihi = new Date(yuklemeTarihi);
     }
     
     const versionID = await createListeVersiyon(
@@ -261,7 +268,6 @@ const importHuvList = async (req, res, next) => {
     }
     
     // Değişmeyenleri yeni versiyona kopyala (IslemVersionlar'a da kaydet!)
-    console.log(`📋 Değişmeyen kayıt sayısı: ${comparison.unchanged.length}`);
     let progressCounter = 0;
     for (const item of comparison.unchanged) {
       try {
@@ -269,11 +275,6 @@ const importHuvList = async (req, res, next) => {
         await copyUnchangedIslemToVersion(eskiIslem.IslemID, eskiIslem, versionID, yuklemeTarihi);
         kopyalananSayisi++;
         progressCounter++;
-        
-        // Her 1000 kayıtta bir progress göster
-        if (progressCounter % 1000 === 0) {
-          console.log(`⏳ Progress: ${progressCounter}/${comparison.unchanged.length} (${((progressCounter/comparison.unchanged.length)*100).toFixed(1)}%)`);
-        }
       } catch (err) {
         console.error(`❌ Kopyalama hatası [${item.HuvKodu}]:`, err.message);
         hatalar.push({
@@ -282,7 +283,6 @@ const importHuvList = async (req, res, next) => {
         });
       }
     }
-    console.log(`✅ Değişmeyen kayıtlar kopyalandı: ${kopyalananSayisi}`);
     
     // 9. Rapor oluştur
     const report = generateComparisonReport(comparison);
@@ -315,24 +315,13 @@ const importHuvList = async (req, res, next) => {
       versionID,
       dosyaAdi,
       summary: {
-        toplamOkunan: parseResult.rowCount,
-        gecerli: validation.stats.valid,
-        gecersiz: validation.stats.invalid,
-        uyarilar: validation.warnings.length,
-        eklenen: eklenenSayisi,
-        guncellenen: guncellenenSayisi,
-        kopyalanan: kopyalananSayisi,
-        pasifYapilan: pasifYapilanSayisi,
-        degismeyen: comparison.summary.unchanged,
-        hata: hatalar.length
+        added: eklenenSayisi,
+        updated: guncellenenSayisi,
+        deleted: pasifYapilanSayisi,
+        unchanged: kopyalananSayisi
       },
-      comparison: report,
-      uyarilar: validation.warnings.length > 0 ? validation.warnings.slice(0, 10) : undefined,
-      hatalar: hatalar.length > 0 ? hatalar : undefined,
-      sure: `${duration} saniye`,
-      mesaj: hatalar.length > 0 
-        ? `Import tamamlandı ancak ${hatalar.length} kayıtta hata oluştu` 
-        : 'Import başarıyla tamamlandı'
+      duration: `${duration} saniye`,
+      errors: hatalar.length > 0 ? hatalar : undefined
     }, 'HUV listesi başarıyla yüklendi', 201);
     
   } catch (err) {
@@ -548,7 +537,6 @@ const getImportReport = async (req, res, next) => {
     next(err);
   }
 };
-
 module.exports = {
   importHuvList,
   getImportHistory,

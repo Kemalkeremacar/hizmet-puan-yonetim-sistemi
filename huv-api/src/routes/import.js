@@ -7,6 +7,7 @@
 const express = require('express');
 const router = express.Router();
 const { uploadSingle } = require('../middleware/uploadMiddleware');
+const { importLock, checkImportStatus } = require('../middleware/importLock');
 const {
   importHuvList,
   getImportHistory,
@@ -15,23 +16,34 @@ const {
 } = require('../controllers/importController');
 
 // ============================================
+// GET /api/admin/import/status
+// Import durumunu kontrol et (lock var mı?)
+// ============================================
+router.get('/status', checkImportStatus);
+
+// ============================================
 // POST /api/admin/import/huv
 // HUV listesini Excel'den yükle
 // Body: multipart/form-data (file)
+// LOCK: Aynı anda sadece 1 import
 // ============================================
-router.post('/huv', uploadSingle, importHuvList);
+router.post('/huv', uploadSingle, importLock, importHuvList);
 
 // ============================================
 // POST /api/admin/import/sut
 // SUT listesini Excel'den yükle
 // Body: multipart/form-data (file)
+// LOCK: Aynı anda sadece 1 import
 // ============================================
-router.post('/sut', uploadSingle, (req, res) => {
-  res.status(501).json({
-    success: false,
-    message: 'SUT import özelliği henüz aktif değil. Yakında eklenecek.'
-  });
-});
+const { importSutList, previewSutImport } = require('../controllers/sutImportController');
+router.post('/sut', uploadSingle, importLock, importSutList);
+
+// ============================================
+// POST /api/admin/import/sut/preview
+// SUT Excel önizleme ve karşılaştırma (dry-run)
+// Body: multipart/form-data (file)
+// ============================================
+router.post('/sut/preview', uploadSingle, previewSutImport);
 
 // ============================================
 // POST /api/admin/import/preview

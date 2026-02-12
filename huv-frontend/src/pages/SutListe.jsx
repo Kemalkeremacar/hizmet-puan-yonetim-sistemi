@@ -124,19 +124,27 @@ function SutListe() {
       return [];
     }
 
-    const rootNode = flatList.find(item => item.ParentID === null);
-    const rootId = rootNode?.HiyerarsiID;
+    // Ana başlığı bul (ParentID null, undefined, boş string veya 0)
+    const rootNode = flatList.find(item => 
+      item.ParentID === null || 
+      item.ParentID === undefined || 
+      item.ParentID === '' || 
+      item.ParentID === 0
+    );
+    
+    if (!rootNode) {
+      console.warn('Ana başlık bulunamadı!', flatList);
+      return [];
+    }
+    
+    const rootId = rootNode.HiyerarsiID;
+    console.log('Ana başlık bulundu:', rootId, rootNode.Adi);
 
     const map = {};
     const roots = [];
 
-    // Tüm node'ları map'e ekle (ana başlık hariç)
+    // Tüm node'ları map'e ekle
     flatList.forEach(node => {
-      // Ana başlığı atla
-      if (node.ParentID === null) {
-        return;
-      }
-
       map[node.HiyerarsiID] = { 
         HiyerarsiID: node.HiyerarsiID,
         ParentID: node.ParentID,
@@ -154,21 +162,33 @@ function SutListe() {
     // Parent-child ilişkilerini kur
     flatList.forEach(node => {
       // Ana başlığı atla
-      if (node.ParentID === null) {
+      const isRoot = node.ParentID === null || 
+                     node.ParentID === undefined || 
+                     node.ParentID === '' || 
+                     node.ParentID === 0;
+      
+      if (isRoot) {
         return;
       }
 
       const mappedNode = map[node.HiyerarsiID];
       if (!mappedNode) return;
       
+      // Ana başlığa doğrudan bağlı node'lar root olarak ekle
       if (node.ParentID === rootId) {
         roots.push(mappedNode);
       }
+      // Diğer node'ları parent'larına ekle
       else if (map[node.ParentID]) {
         map[node.ParentID].children.push(mappedNode);
       }
+      // Parent bulunamazsa uyarı ver
+      else {
+        console.warn('Parent bulunamadı:', node.ParentID, 'için node:', node.Adi);
+      }
     });
 
+    console.log('Ağaç oluşturuldu:', roots.length, 'root node');
     return roots;
   };
 
@@ -246,6 +266,11 @@ function SutListe() {
     const isSelected = selectedSut?.IslemID === node.IslemID;
     const isIslem = node.Tip === 'ISLEM';
 
+    // Debug log
+    if (level === 0) {
+      console.log('Root node:', node.Adi, 'children:', node.children?.length || 0);
+    }
+
     // Node tiplerine göre renk ve ikon
     const getNodeStyle = () => {
       switch (node.Tip) {
@@ -261,6 +286,12 @@ function SutListe() {
           return { 
             icon: <FolderIcon color="secondary" fontSize="small" />,
             fontWeight: 500,
+            fontSize: '0.875rem'
+          };
+        case 'HIYERARSI':
+          return { 
+            icon: <FolderIcon color="primary" fontSize="small" />,
+            fontWeight: 600,
             fontSize: '0.875rem'
           };
         case 'ISLEM':

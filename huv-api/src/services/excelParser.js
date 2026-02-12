@@ -116,31 +116,119 @@ const fixTurkishEncodingLocal = (str) => {
 
 // ============================================
 // Kolon isimlerini normalize et (Excel -> DB)
+// ESNEK EŞLEŞTİRME: Büyük/küçük harf duyarsız, boşluk toleransı
 // ============================================
 const normalizeColumnNames = (data) => {
+  if (!data || data.length === 0) return [];
+  
+  // İlk satırdan kolon isimlerini al ve normalize et
+  const firstRow = data[0];
+  const actualColumns = Object.keys(firstRow);
+  
+  // Kolon eşleştirme map'i (esnek eşleştirme için)
+  const columnMap = {
+    'Huv Kodu': 'HuvKodu',
+    'HuvKodu': 'HuvKodu',
+    'HUV Kodu': 'HuvKodu',
+    'HUVKODU': 'HuvKodu',
+    'İşlem': 'IslemAdi',
+    'Islem': 'IslemAdi',
+    'İŞLEM': 'IslemAdi',
+    'İşlem Adı': 'IslemAdi',
+    'İşlem Adi': 'IslemAdi',
+    'Birim': 'Birim',
+    'BİRİM': 'Birim',
+    'Bölüm': 'BolumAdi',
+    'Bolum': 'BolumAdi',
+    'BÖLÜM': 'BolumAdi',
+    'Sut Kodu': 'SutKodu',
+    'SutKodu': 'SutKodu',
+    'SUT Kodu': 'SutKodu',
+    'SUTKODU': 'SutKodu',
+    'Güncelleme Tarihi': 'GuncellemeTarihi',
+    'Guncelleme Tarihi': 'GuncellemeTarihi',
+    'GÜNCELLEME TARİHİ': 'GuncellemeTarihi',
+    'Ekleme Tarihi': 'EklemeTarihi',
+    'EKLEME TARİHİ': 'EklemeTarihi',
+    'Üst Başlık': 'UstBaslik',
+    'Ust Baslik': 'UstBaslik',
+    'ÜST BAŞLIK': 'UstBaslik',
+    'Not': 'Not',
+    'NOT': 'Not',
+    'Açıklama Güncelleme Tarihi': 'AciklamaGuncellemeTarihi',
+    'Açıklama Guncelleme Tarihi': 'AciklamaGuncellemeTarihi',
+    'Durum': 'Durum',
+    'DURUM': 'Durum',
+    'Hiyerarşi Seviyesi': 'HiyerarsiSeviyesi',
+    'Hiyerarsi Seviyesi': 'HiyerarsiSeviyesi',
+    'HİYERARŞİ SEVİYESİ': 'HiyerarsiSeviyesi'
+  };
+  
+  // Esnek kolon eşleştirme fonksiyonu
+  const findColumnMatch = (excelColName) => {
+    // Önce tam eşleşme
+    if (columnMap[excelColName]) {
+      return columnMap[excelColName];
+    }
+    
+    // Normalize et (trim, lowercase, Türkçe karakter düzeltme)
+    const normalized = fixTurkishEncoding(excelColName.trim());
+    const lower = normalized.toLowerCase();
+    
+    // Esnek eşleştirme
+    for (const [key, value] of Object.entries(columnMap)) {
+      const keyNormalized = fixTurkishEncoding(key.trim().toLowerCase());
+      if (keyNormalized === lower) {
+        return value;
+      }
+    }
+    
+    // Kısmi eşleştirme (ör: "Huv" içeren -> "HuvKodu")
+    if (lower.includes('huv') && lower.includes('kod')) return 'HuvKodu';
+    if (lower.includes('işlem') || lower.includes('islem')) return 'IslemAdi';
+    if (lower.includes('birim')) return 'Birim';
+    if (lower.includes('bölüm') || lower.includes('bolum')) return 'BolumAdi';
+    if (lower.includes('sut') && lower.includes('kod')) return 'SutKodu';
+    if (lower.includes('güncelleme') || lower.includes('guncelleme')) {
+      if (lower.includes('tarih')) return 'GuncellemeTarihi';
+    }
+    if (lower.includes('ekleme') && lower.includes('tarih')) return 'EklemeTarihi';
+    if (lower.includes('üst') || lower.includes('ust')) {
+      if (lower.includes('başlık') || lower.includes('baslik')) return 'UstBaslik';
+    }
+    if (lower === 'not' || lower === 'açıklama' || lower === 'aciklama') return 'Not';
+    if (lower.includes('hiyerarşi') || lower.includes('hiyerarsi')) {
+      if (lower.includes('seviye')) return 'HiyerarsiSeviyesi';
+    }
+    
+    return null;
+  };
+  
+  // Kolon mapping'i oluştur (bir kere hesapla, tüm satırlarda kullan)
+  const columnMapping = {};
+  actualColumns.forEach(excelCol => {
+    const dbCol = findColumnMatch(excelCol);
+    if (dbCol) {
+      columnMapping[excelCol] = dbCol;
+    }
+  });
+  
+  // Tüm satırları normalize et
   return data.map(row => {
     const normalized = {};
     
-    // Kolon eşleştirmeleri (Excel'deki gerçek kolonlar)
-    const columnMap = {
-      'Huv Kodu': 'HuvKodu',
-      'İşlem': 'IslemAdi',
-      'Birim': 'Birim',
-      'Bölüm': 'BolumAdi',
-      'Sut Kodu': 'SutKodu',
-      'Güncelleme Tarihi': 'GuncellemeTarihi',
-      'Ekleme Tarihi': 'EklemeTarihi',
-      'Üst Başlık': 'UstBaslik',
-      'Not': 'Not',
-      'Açıklama Güncelleme Tarihi': 'AciklamaGuncellemeTarihi',
-      'Durum': 'Durum',
-      'Hiyerarşi Seviyesi': 'HiyerarsiSeviyesi'
-    };
-    
-    // Her kolonu eşleştir
-    for (const [excelCol, dbCol] of Object.entries(columnMap)) {
+    // Eşleşen kolonları kopyala
+    for (const [excelCol, dbCol] of Object.entries(columnMapping)) {
       if (row[excelCol] !== undefined) {
         normalized[dbCol] = row[excelCol];
+      }
+    }
+    
+    // Eşleşmeyen kolonları da ekle (debug için)
+    for (const excelCol of actualColumns) {
+      if (!columnMapping[excelCol] && row[excelCol] !== undefined) {
+        // Eşleşmeyen kolonları da ekle (ileride kullanılabilir)
+        normalized[`_${excelCol}`] = row[excelCol];
       }
     }
     
@@ -156,23 +244,29 @@ const validateHuvData = (data) => {
   const warnings = [];
   const validData = [];
   
-  // Gerekli kolonlar (Excel formatında)
-  const requiredColumns = ['Huv Kodu', 'İşlem'];
+  // Kolon isimlerini önce normalize et (esnek eşleştirme için)
+  const normalizedData = normalizeColumnNames(data);
   
-  // İlk satırda kolonları kontrol et
-  if (data.length > 0) {
-    const firstRow = data[0];
-    const missingColumns = requiredColumns.filter(col => !(col in firstRow));
+  // Gerekli kolonları kontrol et (normalize edilmiş veri üzerinde)
+  const requiredColumns = ['HuvKodu', 'IslemAdi'];
+  
+  if (normalizedData.length > 0) {
+    const firstRow = normalizedData[0];
+    const missingColumns = requiredColumns.filter(col => !(col in firstRow) || firstRow[col] === undefined || firstRow[col] === null);
     
     if (missingColumns.length > 0) {
+      // Orijinal Excel kolonlarını bul
+      const originalColumns = Object.keys(data[0] || {});
       return {
         valid: false,
         validData: [],
         errors: [{
           row: 0,
           type: 'KOLON_EKSIK',
-          message: `Gerekli kolonlar eksik: ${missingColumns.join(', ')}`,
-          severity: 'critical'
+          message: `Gerekli kolonlar bulunamadı: ${missingColumns.join(', ')}. Excel'deki kolonlar: ${originalColumns.join(', ')}`,
+          severity: 'critical',
+          excelColumns: originalColumns,
+          missingColumns: missingColumns
         }],
         warnings: [],
         stats: {
@@ -184,9 +278,6 @@ const validateHuvData = (data) => {
       };
     }
   }
-  
-  // Kolon isimlerini normalize et
-  const normalizedData = normalizeColumnNames(data);
   
   // Duplicate kontrolü için set
   const seenHuvKodlari = new Set();
@@ -375,8 +466,8 @@ const validateHuvData = (data) => {
 // Türkçe karakterleri koru
 // ============================================
 const normalizeHuvData = async (data) => {
-  // Eğer data zaten normalize edilmişse direkt kullan
-  const sourceData = data[0] && data[0].HuvKodu !== undefined ? data : normalizeColumnNames(data);
+  // Eğer data zaten normalize edilmişse direkt kullan, değilse normalize et
+  const sourceData = (data[0] && data[0].HuvKodu !== undefined) ? data : normalizeColumnNames(data);
   
   // Ana dal mapping'i için veritabanından çek
   const { getPool } = require('../config/database');
@@ -388,9 +479,7 @@ const normalizeHuvData = async (data) => {
   anaDallarResult.recordset.forEach(ad => {
     anaDalMap[ad.AnaDalKodu] = ad.BolumAdi;
   });
-  
-  console.log(`📋 Ana Dal sayısı: ${anaDallarResult.recordset.length}`);
-  
+
   return sourceData.map(row => {
     // String alanları temizle ve Türkçe karakterleri düzelt
     const cleanString = (value) => {

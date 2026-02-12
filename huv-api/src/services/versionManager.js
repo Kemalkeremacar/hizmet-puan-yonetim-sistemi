@@ -5,11 +5,12 @@
 // ============================================
 
 const { getPool, sql } = require('../config/database');
+const { autoMatchSutKodu } = require('./autoMatchService');
 
 // ============================================
 // Yeni liste versiyonu oluştur
 // ============================================
-const createListeVersiyon = async (dosyaAdi, kayitSayisi, aciklama, kullaniciAdi = null, yuklemeTarihi = null) => {
+const createListeVersiyon = async (dosyaAdi, kayitSayisi, aciklama, kullaniciAdi = null, yuklemeTarihi = null, listeTipi = 'HUV') => {
   try {
     const pool = await getPool();
     
@@ -22,7 +23,7 @@ const createListeVersiyon = async (dosyaAdi, kayitSayisi, aciklama, kullaniciAdi
     const tarih = yuklemeTarihi ? new Date(yuklemeTarihi) : new Date();
     
     const result = await pool.request()
-      .input('ListeTipi', sql.NVarChar, 'HUV')
+      .input('ListeTipi', sql.NVarChar, listeTipi)
       .input('YuklemeTarihi', sql.DateTime, tarih)
       .input('DosyaAdi', sql.NVarChar, dosyaAdi)
       .input('KayitSayisi', sql.Int, kayitSayisi)
@@ -137,9 +138,9 @@ const updateIslemWithVersion = async (islemID, yeniData, versionID, yuklemeTarih
     const pool = await getPool();
     const baslangicTarihi = yuklemeTarihi ? new Date(yuklemeTarihi) : new Date();
     
-    // Transaction başlat
+    // Transaction başlat (DEADLOCK PROTECTION)
     const transaction = pool.transaction();
-    await transaction.begin();
+    await transaction.begin(sql.ISOLATION_LEVEL.READ_COMMITTED);
     
     try {
       // 1. Eski aktif versiyonu kapat (IslemVersionlar)
@@ -196,6 +197,19 @@ const updateIslemWithVersion = async (islemID, yeniData, versionID, yuklemeTarih
           WHERE IslemID = @IslemID
         `);
       
+      // 4. SutKodu değiştiyse yeni eşleştirme oluştur
+      if (yeniData.SutKodu && yeniData.SutKodu.trim() !== '') {
+        try {
+          const matchResult = await autoMatchSutKodu(islemID, yeniData.SutKodu, transaction);
+          if (matchResult.matched && matchResult.action === 'created') {
+            console.log(`✅ SUT eşleştirme güncellendi: HUV ${yeniData.HuvKodu} → SUT ${matchResult.sutKodu}`);
+          }
+        } catch (matchError) {
+          console.error(`❌ SUT eşleştirme hatası: ${matchError.message}`);
+          // Eşleştirme hatası güncellemeyi durdurmaz
+        }
+      }
+      
       await transaction.commit();
       return true;
     } catch (error) {
@@ -216,7 +230,7 @@ const addNewIslem = async (yeniData, versionID, yuklemeTarihi) => {
   const transaction = pool.transaction();
   
   try {
-    await transaction.begin();
+    await transaction.begin(sql.ISOLATION_LEVEL.READ_COMMITTED);
     
     // HUV kodu daha önce kullanılmış mı kontrol et (aktif veya pasif)
     const mevcutIslemResult = await transaction.request()
@@ -340,6 +354,21 @@ const addNewIslem = async (yeniData, versionID, yuklemeTarihi) => {
         INSERT INTO IslemAudit (IslemID, IslemTipi, EskiBirim, YeniBirim, DegisiklikTarihi, DegistirenKullanici, Aciklama)
         VALUES (@IslemID, @IslemTipi, @EskiBirim, @YeniBirim, GETDATE(), @DegistirenKullanici, @Aciklama)
       `);
+    
+    // 4. SutKodu varsa otomatik eşleştir
+    if (yeniData.SutKodu && yeniData.SutKodu.trim() !== '') {
+      try {
+        const matchResult = await autoMatchSutKodu(nextId, yeniData.SutKodu, transaction);
+        if (matchResult.matched) {
+          console.log(`✅ SUT eşleştirme: HUV ${yeniData.HuvKodu} → SUT ${matchResult.sutKodu} (${matchResult.action})`);
+        } else {
+          console.warn(`⚠️ SUT eşleştirme başarısız: HUV ${yeniData.HuvKodu} → SUT ${yeniData.SutKodu} (${matchResult.reason})`);
+        }
+      } catch (matchError) {
+        console.error(`❌ SUT eşleştirme hatası: ${matchError.message}`);
+        // Eşleştirme hatası import'u durdurmaz
+      }
+    }
     
     await transaction.commit();
     return nextId;

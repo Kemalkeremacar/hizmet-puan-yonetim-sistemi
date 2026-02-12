@@ -1,7 +1,7 @@
 // ============================================
 // SUT EXCEL IMPORT TAB
 // ============================================
-// SUT Excel import arayüzü
+// SUT listesi için Excel import arayüzü
 // ============================================
 
 import { useState, useEffect } from 'react';
@@ -22,10 +22,16 @@ import {
 } from '@mui/icons-material';
 import { adminService } from '../../services/adminService';
 import { showError, showSuccess, showWarning } from '../../utils/toast';
+import ImportPreviewDialog from './ImportPreviewDialog';
 
 export default function SutExcelImportTab() {
   const [selectedFile, setSelectedFile] = useState(null);
   const [uploading, setUploading] = useState(false);
+  const [previewing, setPreviewing] = useState(false);
+  
+  // Dialog states
+  const [previewDialogOpen, setPreviewDialogOpen] = useState(false);
+  const [previewData, setPreviewData] = useState(null);
 
   useEffect(() => {
     // Cleanup on unmount
@@ -53,12 +59,38 @@ export default function SutExcelImportTab() {
     }
   };
 
-  const handleUpload = async () => {
+  const handlePreview = async () => {
     if (!selectedFile) {
       showWarning('Lütfen bir dosya seçin');
       return;
     }
 
+    try {
+      setPreviewing(true);
+      const formData = new FormData();
+      formData.append('file', selectedFile);
+
+      const response = await adminService.previewSutImport(formData);
+      
+      if (response.data) {
+        setPreviewData(response.data);
+        setPreviewDialogOpen(true);
+      }
+    } catch (err) {
+      console.error('Önizleme hatası:', err);
+      const errorData = err.response?.data;
+      
+      if (errorData?.tip === 'VALIDATION_HATASI') {
+        showError(`Validation hatası: ${errorData.istatistik?.invalid || 0} geçersiz kayıt bulundu`);
+      } else {
+        showError(errorData?.message || 'Önizleme sırasında hata oluştu');
+      }
+    } finally {
+      setPreviewing(false);
+    }
+  };
+
+  const handleConfirmImport = async () => {
     try {
       setUploading(true);
       const formData = new FormData();
@@ -66,17 +98,24 @@ export default function SutExcelImportTab() {
 
       const response = await adminService.importSutList(formData);
       
+      // Synchronous import - direkt sonuç
       if (response.data?.success !== false) {
-        const summary = response.data?.summary;
-        const eklenen = summary?.eklenen || 0;
-        const guncellenen = summary?.guncellenen || 0;
+        const summary = response.data?.summary || {};
+        const parts = [];
+        if (summary.added > 0) parts.push(`${summary.added} eklendi`);
+        if (summary.updated > 0) parts.push(`${summary.updated} güncellendi`);
+        if (summary.deleted > 0) parts.push(`${summary.deleted} silindi`);
+        if (summary.unchanged > 0) parts.push(`${summary.unchanged} değişmedi`);
         
         showSuccess(
-          `Import başarılı! ${eklenen} eklendi, ${guncellenen} güncellendi.`,
+          `Import başarılı! ${parts.join(', ')}`,
           { duration: 5000 }
         );
         
         setSelectedFile(null);
+        setPreviewDialogOpen(false);
+        setPreviewData(null);
+        
         const fileInput = document.getElementById('sut-excel-file-input');
         if (fileInput) fileInput.value = '';
       } else {
@@ -94,9 +133,9 @@ export default function SutExcelImportTab() {
     <Box>
       {/* Upload Section */}
       <Paper elevation={2}>
-        <Box sx={{ p: 3, bgcolor: 'success.light' }}>
+        <Box sx={{ p: 3, bgcolor: 'info.light' }}>
           <Stack direction="row" spacing={1} alignItems="center">
-            <CloudUploadIcon color="success" />
+            <CloudUploadIcon color="info" />
             <Typography variant="h6" fontWeight="600">
               SUT Excel Dosyası Yükle
             </Typography>
@@ -106,9 +145,10 @@ export default function SutExcelImportTab() {
         <Box sx={{ p: 3 }}>
           <Alert severity="info" sx={{ mb: 3 }}>
             <Typography variant="body2">
-              <strong>İş Akışı:</strong> Dosyayı seçin → Yükle butonuna tıklayın
+              <strong>Yeni İş Akışı:</strong> Dosyayı seçin → Önizleme yapın → Değişiklikleri kontrol edin → Onaylayın
             </Typography>
             <Typography variant="caption" display="block" sx={{ mt: 1 }}>
+              • Önizleme ile hangi kayıtların ekleneceğini, güncelleneceğini veya silineceğini görebilirsiniz<br />
               • Import geçmişini ve detaylı raporları "Versiyon Geçmişi" sekmesinden görüntüleyebilirsiniz
             </Typography>
           </Alert>
@@ -121,20 +161,20 @@ export default function SutExcelImportTab() {
                 fullWidth
                 slotProps={{ htmlInput: { accept: '.xlsx,.xls' } }}
                 onChange={handleFileChange}
-                disabled={uploading}
+                disabled={uploading || previewing}
               />
             </Box>
             <Stack direction="row" spacing={1} sx={{ width: { xs: '100%', md: 'auto' } }}>
               <Button
-                variant="contained"
-                color="success"
+                variant="outlined"
+                color="info"
                 fullWidth
-                startIcon={<CloudUploadIcon />}
-                onClick={handleUpload}
-                disabled={!selectedFile || uploading}
+                startIcon={<VisibilityIcon />}
+                onClick={handlePreview}
+                disabled={!selectedFile || uploading || previewing}
                 size="large"
               >
-                {uploading ? 'Yükleniyor...' : 'Yükle'}
+                {previewing ? 'Yükleniyor...' : 'Önizle'}
               </Button>
             </Stack>
           </Stack>
@@ -150,16 +190,28 @@ export default function SutExcelImportTab() {
             </Box>
           )}
 
-          {uploading && (
+          {previewing && (
             <Box sx={{ mt: 2 }}>
               <LinearProgress />
               <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block', textAlign: 'center' }}>
-                Dosya yükleniyor, lütfen bekleyin...
+                Dosya analiz ediliyor, lütfen bekleyin...
               </Typography>
             </Box>
           )}
         </Box>
       </Paper>
+
+      {/* Dialogs */}
+      <ImportPreviewDialog
+        open={previewDialogOpen}
+        onClose={() => {
+          setPreviewDialogOpen(false);
+          setPreviewData(null);
+        }}
+        previewData={previewData}
+        onConfirm={handleConfirmImport}
+        loading={uploading}
+      />
     </Box>
   );
 }

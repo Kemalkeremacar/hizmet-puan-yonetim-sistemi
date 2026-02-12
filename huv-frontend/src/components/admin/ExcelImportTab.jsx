@@ -102,14 +102,17 @@ export default function ExcelImportTab() {
 
       const response = await adminService.importHuvList(formData);
       
+      // Synchronous import - direkt sonuç
       if (response.data?.success !== false) {
-        const summary = response.data?.summary;
-        const eklenen = summary?.eklenen || 0;
-        const guncellenen = summary?.guncellenen || 0;
-        const pasifYapilan = summary?.pasifYapilan || 0;
+        const summary = response.data?.summary || {};
+        const parts = [];
+        if (summary.added > 0) parts.push(`${summary.added} eklendi`);
+        if (summary.updated > 0) parts.push(`${summary.updated} güncellendi`);
+        if (summary.deleted > 0) parts.push(`${summary.deleted} silindi`);
+        if (summary.unchanged > 0) parts.push(`${summary.unchanged} değişmedi`);
         
         showSuccess(
-          `Import başarılı! ${eklenen} eklendi, ${guncellenen} güncellendi, ${pasifYapilan} pasif yapıldı.`,
+          `Import başarılı! ${parts.join(', ')}`,
           { duration: 5000 }
         );
         
@@ -123,11 +126,7 @@ export default function ExcelImportTab() {
         showError(response.data?.message || 'Import başarısız');
       }
     } catch (err) {
-      console.error('Import hatası:', {
-        message: err.message,
-        response: err.response?.data,
-        timestamp: new Date().toISOString()
-      });
+      console.error('Import hatası:', err);
       showError(err.response?.data?.message || 'Import sırasında hata oluştu');
     } finally {
       setUploading(false);

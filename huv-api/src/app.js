@@ -13,11 +13,27 @@ require('dotenv').config();
 const { getPool } = require('./config/database');
 const { errorHandler, notFound } = require('./middleware/errorHandler');
 const { success } = require('./utils/response');
+const { cleanupOldUploads } = require('./utils/fileCleanup');
 
 // ============================================
 // Create Express app
 // ============================================
 const app = express();
+
+// ============================================
+// SCHEDULED TASKS
+// ============================================
+// Her 1 saatte bir upload klasörünü temizle
+setInterval(() => {
+  console.log('🧹 Upload klasörü temizleniyor...');
+  const result = cleanupOldUploads('uploads', 1); // 1 saatten eski dosyalar
+  console.log(`✅ Cleanup tamamlandı: ${result.deleted} dosya silindi`);
+}, 60 * 60 * 1000); // 1 saat
+
+// İlk başlangıçta da temizle
+setTimeout(() => {
+  cleanupOldUploads('uploads', 1);
+}, 5000); // 5 saniye sonra
 
 // ============================================
 // Middleware
@@ -71,6 +87,9 @@ app.use(`${API_PREFIX}/sut`, require('./routes/sut'));
 // Tarihsel Sorgular API (HUV Tarihsel için)
 app.use(`${API_PREFIX}/tarihsel`, require('./routes/tarihsel'));
 
+// SUT Tarihsel Sorgular API (SUT Tarihsel için)
+app.use(`${API_PREFIX}/tarihsel/sut`, require('./routes/sutTarihsel'));
+
 // HUV-SUT Eşleştirme API (Her iki liste için)
 app.use(`${API_PREFIX}/eslestirme`, require('./routes/eslestirme'));
 
@@ -79,6 +98,9 @@ app.use(`${API_PREFIX}/admin/import`, require('./routes/import'));
 
 // Versiyonlar API (HUV ve SUT Yönetimi için)
 app.use(`${API_PREFIX}/admin/versiyonlar`, require('./routes/versiyonlar'));
+
+// Admin API (Bakım ve yönetim işlemleri)
+app.use(`${API_PREFIX}/admin`, require('./routes/admin'));
 
 // ============================================
 // Welcome route

@@ -38,5 +38,45 @@ export const tarihselService = {
   // ============================================
   getVersionlar: (islemId) => {
     return api.get(`/tarihsel/versiyonlar/${islemId}`);
+  },
+
+  // ============================================
+  // SUT TARİHSEL SORGULAR
+  // ============================================
+
+  // GET /api/tarihsel/sut/stats
+  // SUT tarihsel istatistikler
+  getSutStats: () => {
+    return api.get('/tarihsel/sut/stats');
+  },
+
+  // GET /api/tarihsel/sut/puan
+  // Belirli tarihteki SUT puan
+  getSutPuanByTarih: (params) => {
+    return api.get('/tarihsel/sut/puan', { params });
+  },
+
+  // GET /api/tarihsel/sut/degisen
+  // Tarih aralığında değişen SUT kodları
+  getSutDegişenler: (params) => {
+    return api.get('/tarihsel/sut/degisen', { params });
+  },
+
+  // GET /api/tarihsel/sut/gecmis/:identifier
+  // SUT kodunun puan geçmişi
+  getSutPuanGecmisi: (identifier) => {
+    return api.get(`/tarihsel/sut/gecmis/${identifier}`);
+  },
+
+  // GET /api/tarihsel/sut/versiyonlar/:sutId
+  // SUT kodunun versiyonları
+  getSutVersionlar: (sutId) => {
+    return api.get(`/tarihsel/sut/versiyonlar/${sutId}`);
+  },
+
+  // GET /api/tarihsel/sut/karsilastir
+  // İki SUT versiyonunu karşılaştır
+  karsilastirSutVersiyonlar: (params) => {
+    return api.get('/tarihsel/sut/karsilastir', { params });
   }
 };

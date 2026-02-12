@@ -5,6 +5,7 @@
 // ============================================
 
 import axios from '../api/axios';
+import { importApi } from '../api/axios';
 
 export const adminService = {
   // ============================================
@@ -42,6 +43,7 @@ export const adminService = {
       headers: {
         'Content-Type': 'multipart/form-data',
       },
+      timeout: 60000, // 60 saniye timeout
     });
   },
 
@@ -50,7 +52,7 @@ export const adminService = {
   // HUV Excel dosyasını import et
   // ============================================
   importHuvList: (formData) => {
-    return axios.post('/admin/import/huv', formData, {
+    return importApi.post('/admin/import/huv', formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
       },
@@ -62,10 +64,23 @@ export const adminService = {
   // SUT Excel dosyasını import et
   // ============================================
   importSutList: (formData) => {
-    return axios.post('/admin/import/sut', formData, {
+    return importApi.post('/admin/import/sut', formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
       },
+    });
+  },
+
+  // ============================================
+  // POST /api/admin/import/sut/preview
+  // SUT Excel dosyasını önizle (import yapmadan)
+  // ============================================
+  previewSutImport: (formData) => {
+    return axios.post('/admin/import/sut/preview', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+      timeout: 60000, // 60 saniye timeout
     });
   },
 };

@@ -48,10 +48,11 @@ const getIslemEslesmeler = async (req, res, next) => {
           s.SutKodu,
           s.IslemAdi as SutIslemAdi,
           s.Puan,
-          k.KategoriAdi as SutKategoriAdi
+          s.Aciklama,
+          h.Baslik as HiyerarsiAdi
         FROM HuvSutEslestirme e
         INNER JOIN SutIslemler s ON e.SutID = s.SutID
-        LEFT JOIN SutKategoriler k ON s.KategoriID = k.KategoriID
+        LEFT JOIN SutHiyerarsi h ON s.HiyerarsiID = h.HiyerarsiID
         WHERE e.IslemID = @id AND e.AktifMi = 1
         ORDER BY e.GuvenilirlikSkoru DESC
       `);
