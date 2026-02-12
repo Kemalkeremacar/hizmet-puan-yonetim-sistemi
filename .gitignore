@@ -1,0 +1,156 @@
+# ============================================
+# HUV YÖNETİM SİSTEMİ - GITIGNORE
+# ============================================
+
+# ============================================
+# NODE.JS
+# ============================================
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json
+.pnpm-debug.log*
+
+# ============================================
+# ENVIRONMENT VARIABLES
+# ============================================
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# ============================================
+# LOGS
+# ============================================
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+
+# ============================================
+# OPERATING SYSTEM
+# ============================================
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+*.lnk
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# Linux
+*~
+.directory
+
+# ============================================
+# IDE / EDITOR
+# ============================================
+# Visual Studio Code
+.vscode/
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+
+# JetBrains (WebStorm, IntelliJ, etc.)
+.idea/
+*.iml
+*.iws
+*.ipr
+
+# Sublime Text
+*.sublime-project
+*.sublime-workspace
+
+# ============================================
+# BUILD / DIST
+# ============================================
+dist/
+build/
+out/
+.next/
+.nuxt/
+.cache/
+
+# ============================================
+# TESTING
+# ============================================
+coverage/
+.nyc_output/
+*.lcov
+
+# ============================================
+# TEMPORARY FILES
+# ============================================
+*.tmp
+*.temp
+*.swp
+*.swo
+*~
+
+# ============================================
+# DATABASE
+# ============================================
+# Backup dosyaları
+*.bak
+*.backup
+
+# SQL Server geçici dosyaları
+*.mdf
+*.ldf
+
+# ============================================
+# EXCEL / OFFICE
+# ============================================
+~$*.xlsx
+~$*.xls
+~$*.docx
+~$*.doc
+
+# ============================================
+# PROJE ÖZEL
+# ============================================
+# Geliştirme notları
+NOTES.md
+TODO.md
+TEMP/
+temp/
+
+# Test dosyaları
+test-data/
+mock-data/
+
+# ============================================
+# FRONTEND (React)
+# ============================================
+# Production build
+/build
+/dist
+
+# Dependencies
+/node_modules
+/.pnp
+.pnp.js
+
+# Testing
+/coverage
+
+# Misc
+.DS_Store
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
