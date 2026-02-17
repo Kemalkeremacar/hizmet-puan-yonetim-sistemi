@@ -10,7 +10,8 @@ const {
   getFiyatByTarih,
   getDegişenler,
   getFiyatGecmisi,
-  getVersionlar
+  getVersionlar,
+  getYasamDongusu
 } = require('../controllers/tarihselController');
 
 // ============================================
@@ -40,5 +41,13 @@ router.get('/gecmis/:identifier', getFiyatGecmisi);
 // Param: islemId (int)
 // ============================================
 router.get('/versiyonlar/:islemId', getVersionlar);
+
+// ============================================
+// GET /api/tarihsel/yasam-dongusu/:identifier
+// HUV işleminin yaşam döngüsü (eklenme, güncellenme, silinme olayları)
+// Fiyat geçmişinden farklı: Sadece yaşam döngüsü olaylarını gösterir
+// Param: identifier (HUV Kodu veya İşlem ID)
+// ============================================
+router.get('/yasam-dongusu/:identifier', getYasamDongusu);
 
 module.exports = router;

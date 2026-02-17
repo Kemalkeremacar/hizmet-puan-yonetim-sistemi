@@ -110,18 +110,38 @@ function SutTarihsel() {
         tarih: puanForm.tarih
       });
       
-      if (response.data) {
-        setPuanResult(response.data);
+      // API response formatı: { success: true, data: {...}, message: "..." }
+      const result = response.data?.data || response.data;
+      if (result) {
+        setPuanResult(result);
         showSuccess('Puan bilgisi başarıyla getirildi');
       } else {
         setPuanResult(null);
-        showError('Bu tarihte puan bulunamadı');
+        // Backend'den gelen detaylı hata mesajını göster
+        const errorDetail = response.data?.detay || response.data?.message;
+        if (errorDetail) {
+          showError(errorDetail);
+        } else {
+          showError('Bu tarihte puan bulunamadı');
+        }
       }
     } catch (err) {
       console.error('Puan sorgu hatası:', err);
       setError(err);
       setPuanResult(null);
-      showError(err.response?.data?.message || 'Puan sorgulanamadı');
+      
+      // Detaylı hata mesajı
+      const errorMessage = err.response?.data?.message || 
+                          err.response?.data?.detay || 
+                          err.message || 
+                          'Puan sorgulanamadı';
+      
+      // En eski tarih bilgisi varsa göster
+      if (err.response?.data?.enEskiTarih) {
+        showError(`${errorMessage} (En eski kayıt: ${err.response.data.enEskiTarih})`);
+      } else {
+        showError(errorMessage);
+      }
     } finally {
       setLoading(false);
     }
@@ -133,16 +153,23 @@ function SutTarihsel() {
       return;
     }
 
-    const data = [{
-      'SUT Kodu': puanResult.SutKodu,
-      'İşlem Adı': puanResult.IslemAdi,
-      'Puan': puanResult.Puan || '-',
-      'Tarih': formatDateShort(puanForm.tarih),
-      'Hiyerarşi Seviyesi': puanResult.HiyerarsiSeviyesi || '-'
-    }];
+    try {
+      const data = [{
+        'SUT Kodu': puanResult.SutKodu || '-',
+        'İşlem Adı': puanResult.IslemAdi || '-',
+        'Puan': puanResult.Puan || '-',
+        'Tarih': formatDateShort(puanForm.tarih),
+        'Geçerlilik Başlangıç': puanResult.GecerlilikBaslangic ? formatDateShort(puanResult.GecerlilikBaslangic) : '-',
+        'Geçerlilik Bitiş': puanResult.GecerlilikBitis ? formatDateShort(puanResult.GecerlilikBitis) : 'Devam Ediyor',
+        'Değişiklik Sebebi': puanResult.DegisiklikSebebi || '-'
+      }];
 
-    exportToExcel(data, 'tarihteki_sut_puan');
-    showSuccess('Excel dosyası başarıyla indirildi');
+      exportToExcel(data, 'tarihteki_sut_puan');
+      showSuccess('Excel dosyası başarıyla indirildi');
+    } catch (err) {
+      console.error('Export hatası:', err);
+      showError('Excel dosyası oluşturulamadı');
+    }
   };
 
   // ============================================
@@ -163,11 +190,14 @@ function SutTarihsel() {
         bitis: degişenlerForm.bitis
       });
 
-      const data = response.data || [];
+      // API response formatı: { success: true, data: [...], message: "..." }
+      const data = response.data?.data || response.data || [];
       setDegişenlerResult(data);
       
       if (data.length === 0) {
-        showInfo('Bu tarih aralığında değişiklik bulunamadı');
+        // Backend'den gelen uyarı mesajını göster
+        const uyari = response.data?.uyari || 'Bu tarih aralığında değişiklik bulunamadı';
+        showInfo(uyari);
       } else {
         showSuccess(`${data.length} değişiklik bulundu`);
       }
@@ -175,7 +205,22 @@ function SutTarihsel() {
       console.error('Değişenler sorgu hatası:', err);
       setError(err);
       setDegişenlerResult([]);
-      showError(err.response?.data?.message || 'Değişiklikler sorgulanamadı');
+      // Backend'den gelen detaylı hata mesajı
+      const errorData = err.response?.data;
+      const errorMessage = errorData?.message || 
+                          errorData?.errors?.cozum || 
+                          errorData?.detay || 
+                          err.message || 
+                          'Değişiklikler sorgulanamadı';
+      
+      // Başlangıç tarihi hatası için özel mesaj
+      if (errorData?.errors?.tip === 'TARIH_BASLANGIC_ONDEN' || errorData?.errors?.tip === 'GECERSIZ_TARIH_ARALIGI') {
+        const cozum = errorData.errors.cozum || '';
+        const baslangicTarihi = errorData.errors.baslangicTarihi || '2026-01-01';
+        showError(`${errorMessage}\n${cozum}\nBaşlangıç tarihi: ${baslangicTarihi}`);
+      } else {
+        showError(errorMessage);
+      }
     } finally {
       setLoading(false);
     }
@@ -187,18 +232,25 @@ function SutTarihsel() {
       return;
     }
 
-    const data = degişenlerResult.map(item => ({
-      'SUT Kodu': item.SutKodu,
-      'İşlem Adı': item.IslemAdi,
-      'Eski Puan': item.EskiPuan || '-',
-      'Yeni Puan': item.YeniPuan || '-',
-      'Fark': item.Fark || '-',
-      'Değişim %': item.DegisimYuzdesi ? `${item.DegisimYuzdesi.toFixed(2)}%` : '-',
-      'Değişiklik Tarihi': item.DegisiklikTarihi ? formatDateShort(item.DegisiklikTarihi) : '-'
-    }));
+    try {
+      const data = degişenlerResult.map(item => ({
+        'SUT Kodu': item.SutKodu || '-',
+        'İşlem Adı': item.IslemAdi || '-',
+        'Eski Puan': item.EskiPuan || item.IlkPuan || '-',
+        'Yeni Puan': item.YeniPuan || item.SonPuan || '-',
+        'Fark': item.Fark || item.PuanDegisimi || '-',
+        'Değişim %': item.DegisimYuzdesi ? `${parseFloat(item.DegisimYuzdesi).toFixed(2)}%` : '-',
+        'İlk Değişiklik': item.IlkDegisiklik ? formatDateShort(item.IlkDegisiklik) : '-',
+        'Son Değişiklik': item.SonDegisiklik ? formatDateShort(item.SonDegisiklik) : item.DegisiklikTarihi ? formatDateShort(item.DegisiklikTarihi) : '-',
+        'Değişiklik Sayısı': item.DegisiklikSayisi || 1
+      }));
 
-    exportToExcel(data, 'degisen_sut_kodlari');
-    showSuccess('Excel dosyası başarıyla indirildi');
+      exportToExcel(data, 'degisen_sut_kodlari');
+      showSuccess('Excel dosyası başarıyla indirildi');
+    } catch (err) {
+      console.error('Export hatası:', err);
+      showError('Excel dosyası oluşturulamadı');
+    }
   };
 
   // ============================================
@@ -215,12 +267,24 @@ function SutTarihsel() {
       setError(null);
       const response = await tarihselService.getSutPuanGecmisi(gecmisForm.sutKodu);
 
-      if (response.data) {
-        setGecmisResult(response.data);
+      // API response formatı: { success: true, data: {...}, message: "..." }
+      const result = response.data?.data || response.data;
+      if (result) {
+        // API'den gelen 'islem' field'ını 'sut' olarak map et
+        setGecmisResult({
+          ...result,
+          sut: result.islem || result.sut // islem varsa sut'a map et
+        });
         showSuccess('Puan geçmişi başarıyla getirildi');
       } else {
         setGecmisResult(null);
-        showError('Puan geçmişi bulunamadı');
+        // Backend'den gelen detaylı hata mesajını göster
+        const errorDetail = response.data?.detay || response.data?.message;
+        if (errorDetail) {
+          showError(errorDetail);
+        } else {
+          showError('Puan geçmişi bulunamadı');
+        }
       }
     } catch (err) {
       console.error('Geçmiş sorgu hatası:', err);
@@ -238,27 +302,36 @@ function SutTarihsel() {
       return;
     }
 
-    const versiyonData = gecmisResult.versiyonlar.map((versiyon, index) => {
-      const oncekiVersiyon = gecmisResult.versiyonlar[index + 1];
-      const fark = oncekiVersiyon && versiyon.Puan && oncekiVersiyon.Puan 
-        ? versiyon.Puan - oncekiVersiyon.Puan 
-        : null;
-      
-      return {
-        'Versiyon ID': versiyon.VersionID,
-        'SUT Kodu': gecmisResult.sut?.SutKodu || '-',
-        'İşlem Adı': gecmisResult.sut?.IslemAdi || '-',
-        'Puan': versiyon.Puan || '-',
-        'Fark': fark || '-',
-        'Geçerlilik Başlangıç': versiyon.GecerlilikBaslangic ? formatDateShort(versiyon.GecerlilikBaslangic) : '-',
-        'Geçerlilik Bitiş': versiyon.GecerlilikBitis ? formatDateShort(versiyon.GecerlilikBitis) : 'Devam Ediyor',
-        'Durum': versiyon.AktifMi && !versiyon.GecerlilikBitis ? 'Aktif' : 'Geçmiş',
-        'Değişiklik Sebebi': versiyon.DegisiklikSebebi || '-'
-      };
-    });
+    try {
+      const versiyonData = gecmisResult.versiyonlar.map((versiyon, index) => {
+        const oncekiVersiyon = gecmisResult.versiyonlar[index + 1];
+        // PuanDegisimi varsa onu kullan, yoksa hesapla
+        const fark = versiyon.PuanDegisimi !== null && versiyon.PuanDegisimi !== undefined
+          ? versiyon.PuanDegisimi
+          : (oncekiVersiyon && versiyon.Puan && oncekiVersiyon.Puan 
+            ? versiyon.Puan - oncekiVersiyon.Puan 
+            : null);
+        
+        return {
+          'Versiyon ID': versiyon.SutVersionID || versiyon.VersionID || '-',
+          'SUT Kodu': gecmisResult.sut?.SutKodu || '-',
+          'İşlem Adı': gecmisResult.sut?.IslemAdi || '-',
+          'Puan': versiyon.Puan || '-',
+          'Fark': fark !== null ? (fark > 0 ? '+' : '') + fark.toFixed(2) : '-',
+          'Değişim %': versiyon.PuanDegisimYuzdesi ? `${parseFloat(versiyon.PuanDegisimYuzdesi).toFixed(2)}%` : '-',
+          'Geçerlilik Başlangıç': versiyon.GecerlilikBaslangic ? formatDateShort(versiyon.GecerlilikBaslangic) : '-',
+          'Geçerlilik Bitiş': versiyon.GecerlilikBitis ? formatDateShort(versiyon.GecerlilikBitis) : 'Devam Ediyor',
+          'Durum': versiyon.AktifMi && !versiyon.GecerlilikBitis ? 'Aktif' : 'Geçmiş',
+          'Değişiklik Sebebi': versiyon.DegisiklikSebebi || '-'
+        };
+      });
 
-    exportToExcel(versiyonData, `sut_puan_gecmisi_${gecmisResult.sut?.SutKodu}`);
-    showSuccess('Excel dosyası başarıyla indirildi');
+      exportToExcel(versiyonData, `sut_puan_gecmisi_${gecmisResult.sut?.SutKodu || 'bilinmeyen'}`);
+      showSuccess('Excel dosyası başarıyla indirildi');
+    } catch (err) {
+      console.error('Export hatası:', err);
+      showError('Excel dosyası oluşturulamadı');
+    }
   };
 
   return (
@@ -266,7 +339,7 @@ function SutTarihsel() {
       <PageHeader 
         title="SUT Tarihsel Sorgular" 
         subtitle="SUT kodları için geçmiş puan sorgulamaları ve değişiklik takibi"
-        Icon={HistoryIcon}
+        icon={HistoryIcon}
       />
 
       {/* Tabs */}
@@ -318,8 +391,15 @@ function SutTarihsel() {
               <Typography variant="h5" gutterBottom fontWeight="600">
                 Belirli Tarihteki Puan Sorgulama
               </Typography>
-              <Alert severity="info" icon={<InfoIcon />} sx={{ mt: 2 }}>
+              <Alert severity="info" icon={<InfoIcon />} sx={{ mt: 2, mb: 2 }}>
                 Bir SUT kodunun geçmişteki belirli bir tarihteki puanını sorgulayın
+              </Alert>
+              <Alert severity="warning" sx={{ mb: 2 }}>
+                <Typography variant="body2" fontWeight="600">Başlangıç Tarihi: 01.01.2026</Typography>
+                <Typography variant="body2">
+                  SUT listesi için sorgu yapılabilecek en eski tarih <strong>01.01.2026</strong> tarihidir. 
+                  Bu tarih, sistemdeki ilk import tarihidir.
+                </Typography>
               </Alert>
             </Box>
 
@@ -656,6 +736,21 @@ function SutTarihsel() {
 
             {gecmisResult && gecmisResult.sut && (
               <Stack spacing={3}>
+                {/* Başlangıç Tarihi Bilgisi */}
+                {gecmisResult.baslangicTarihi && (
+                  <Alert severity="info" icon={<InfoIcon />}>
+                    <Typography variant="body2" fontWeight="600">Başlangıç Tarihi: {gecmisResult.baslangicTarihi}</Typography>
+                    <Typography variant="body2">
+                      SUT listesi için sorgu yapılabilecek en eski tarih <strong>{gecmisResult.baslangicTarihi}</strong> tarihidir.
+                    </Typography>
+                    {gecmisResult.uyari && (
+                      <Typography variant="body2" sx={{ mt: 1, fontStyle: 'italic' }}>
+                        {gecmisResult.uyari}
+                      </Typography>
+                    )}
+                  </Alert>
+                )}
+                
                 {!gecmisResult.mevcutMu && (
                   <Alert severity="warning" icon={<InfoIcon />}>
                     <strong>Bu SUT kodu şu anda sistemde mevcut değil.</strong> Kod daha önce silinmiş olabilir. Aşağıda geçmiş kayıtlarını görüntüleyebilirsiniz.
@@ -753,7 +848,7 @@ function SutTarihsel() {
                               >
                                 <TableCell>
                                   <Chip 
-                                    label={`V${versiyon.VersionID}`} 
+                                    label={`V${versiyon.SutVersionID || versiyon.VersionID}`} 
                                     size="small" 
                                     color={aktif ? 'success' : 'default'}
                                     variant={aktif ? 'filled' : 'outlined'}
@@ -1003,6 +1098,7 @@ function SutTarihsel() {
           </Stack>
         </Paper>
       </TabPanel>
+
     </Container>
   );
 }

@@ -40,6 +40,13 @@ export const tarihselService = {
     return api.get(`/tarihsel/versiyonlar/${islemId}`);
   },
 
+  // GET /api/tarihsel/yasam-dongusu/:identifier
+  // HUV işleminin yaşam döngüsü (eklenme, güncellenme, silinme olayları)
+  // ============================================
+  getYasamDongusu: (identifier) => {
+    return api.get(`/tarihsel/yasam-dongusu/${identifier}`);
+  },
+
   // ============================================
   // SUT TARİHSEL SORGULAR
   // ============================================
@@ -78,5 +85,11 @@ export const tarihselService = {
   // İki SUT versiyonunu karşılaştır
   karsilastirSutVersiyonlar: (params) => {
     return api.get('/tarihsel/sut/karsilastir', { params });
+  },
+
+  // GET /api/tarihsel/sut/yasam-dongusu/:identifier
+  // SUT kodunun yaşam döngüsü (eklenme, güncellenme, silinme olayları)
+  getSutYasamDongusu: (identifier) => {
+    return api.get(`/tarihsel/sut/yasam-dongusu/${identifier}`);
   }
 };

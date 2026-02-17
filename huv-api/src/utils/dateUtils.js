@@ -139,6 +139,102 @@ const getDaysDifference = (startDate, endDate) => {
   return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 };
 
+// ============================================
+// BAŞLANGIÇ TARİHLERİ (İlk import tarihleri)
+// ============================================
+const HUV_START_DATE = '2025-10-07'; // 07.10.2025
+const SUT_START_DATE = '2026-01-01'; // 01.01.2026
+
+/**
+ * Tarihin başlangıç tarihinden önce olup olmadığını kontrol eder
+ * @param {Date|string} date - Kontrol edilecek tarih
+ * @param {string} listeTipi - 'HUV' veya 'SUT'
+ * @returns {object} { valid: boolean, error: string, startDate: string }
+ */
+const validateStartDate = (date, listeTipi = 'HUV') => {
+  if (!date) {
+    return { 
+      valid: false, 
+      error: 'Tarih parametresi gereklidir',
+      startDate: null
+    };
+  }
+
+  if (!isValidDate(date)) {
+    return { 
+      valid: false, 
+      error: 'Geçersiz tarih formatı. Lütfen YYYY-MM-DD formatında girin (örn: 2025-10-07)',
+      startDate: null
+    };
+  }
+
+  const checkDate = date instanceof Date ? date : new Date(date);
+  const startDate = listeTipi === 'SUT' ? SUT_START_DATE : HUV_START_DATE;
+  const startDateObj = new Date(startDate);
+  
+  // Tarihleri sadece gün bazında karşılaştır (saat bilgisi olmadan)
+  checkDate.setHours(0, 0, 0, 0);
+  startDateObj.setHours(0, 0, 0, 0);
+
+  if (checkDate < startDateObj) {
+    const listeAdi = listeTipi === 'SUT' ? 'SUT' : 'HUV';
+    const tarihFormat = listeTipi === 'SUT' ? '01.01.2026' : '07.10.2025';
+    
+    return { 
+      valid: false, 
+      error: `${listeAdi} listesi için sorgu yapılabilecek en eski tarih ${tarihFormat} tarihidir. Bu tarih, sistemdeki ilk import tarihidir.`,
+      startDate: startDate,
+      tip: 'TARIH_BASLANGIC_ONDEN',
+      cozum: `Lütfen ${tarihFormat} tarihinden sonra bir tarih seçin.`
+    };
+  }
+
+  return { 
+    valid: true, 
+    error: null,
+    startDate: startDate
+  };
+};
+
+/**
+ * Tarih aralığını başlangıç tarihi ile kontrol eder
+ * @param {Date|string} startDate - Başlangıç tarihi
+ * @param {Date|string} endDate - Bitiş tarihi
+ * @param {string} listeTipi - 'HUV' veya 'SUT'
+ * @returns {object} { valid: boolean, error: string }
+ */
+const validateDateRangeWithStart = (startDate, endDate, listeTipi = 'HUV') => {
+  // Önce normal tarih aralığı validasyonu
+  const rangeValidation = validateDateRange(startDate, endDate);
+  if (!rangeValidation.valid) {
+    return rangeValidation;
+  }
+
+  // Başlangıç tarihi kontrolü
+  const startValidation = validateStartDate(startDate, listeTipi);
+  if (!startValidation.valid) {
+    return {
+      valid: false,
+      error: startValidation.error,
+      tip: startValidation.tip,
+      cozum: startValidation.cozum
+    };
+  }
+
+  // Bitiş tarihi de başlangıç tarihinden önce olamaz
+  const endValidation = validateStartDate(endDate, listeTipi);
+  if (!endValidation.valid) {
+    return {
+      valid: false,
+      error: `Bitiş tarihi: ${endValidation.error}`,
+      tip: endValidation.tip,
+      cozum: endValidation.cozum
+    };
+  }
+
+  return { valid: true, error: null };
+};
+
 module.exports = {
   toSqlDate,
   toSqlDateTime,
@@ -150,5 +246,9 @@ module.exports = {
   isValidDate,
   validateDateRange,
   addDays,
-  getDaysDifference
+  getDaysDifference,
+  validateStartDate,
+  validateDateRangeWithStart,
+  HUV_START_DATE,
+  SUT_START_DATE
 };

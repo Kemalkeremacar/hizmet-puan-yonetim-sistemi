@@ -12,7 +12,8 @@ const {
   getPuanGecmisi,
   getVersionlar,
   karsilastirVersiyonlar,
-  getTarihselStats
+  getTarihselStats,
+  getYasamDongusu
 } = require('../controllers/sutTarihselController');
 
 // ============================================
@@ -55,5 +56,13 @@ router.get('/gecmis/:identifier', getPuanGecmisi);
 // Param: sutId (int)
 // ============================================
 router.get('/versiyonlar/:sutId', getVersionlar);
+
+// ============================================
+// GET /api/tarihsel/sut/yasam-dongusu/:identifier
+// SUT kodunun yaşam döngüsü (eklenme, güncellenme, silinme olayları)
+// Puan geçmişinden farklı: Sadece yaşam döngüsü olaylarını gösterir
+// Param: identifier (SUT Kodu veya SUT ID)
+// ============================================
+router.get('/yasam-dongusu/:identifier', getYasamDongusu);
 
 module.exports = router;

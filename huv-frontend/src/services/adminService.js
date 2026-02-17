@@ -83,6 +83,31 @@ export const adminService = {
       timeout: 60000, // 60 saniye timeout
     });
   },
+
+  // ============================================
+  // POST /api/admin/import/il-katsayi
+  // İl katsayıları Excel dosyasını import et
+  // ============================================
+  importIlKatsayiList: (formData) => {
+    return importApi.post('/admin/import/il-katsayi', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+  },
+
+  // ============================================
+  // POST /api/admin/import/il-katsayi/preview
+  // İl katsayıları Excel dosyasını önizle (import yapmadan)
+  // ============================================
+  previewIlKatsayiImport: (formData) => {
+    return axios.post('/admin/import/il-katsayi/preview', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+      timeout: 60000, // 60 saniye timeout
+    });
+  },
 };
 
 export default adminService;

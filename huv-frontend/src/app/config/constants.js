@@ -73,12 +73,15 @@ export const STORAGE_KEYS = {
 
 export const ROUTES = {
   home: '/',
+  login: '/login',
   huvListe: '/huv-liste',
   sutListe: '/sut-liste',
+  ilKatsayilariListesi: '/il-katsayilari-liste',
   huvTarihsel: '/huv-tarihsel',
   sutTarihsel: '/sut-tarihsel',
   huvYonetimi: '/huv-yonetimi',
   sutYonetimi: '/sut-yonetimi',
+  ilKatsayiYonetimi: '/il-katsayi-yonetimi',
 };
 
 export const NAVIGATION_ITEMS = [
@@ -95,6 +98,13 @@ export const NAVIGATION_ITEMS = [
     path: ROUTES.sutListe,
     icon: 'ListAltIcon',
     description: 'SUT kodları kategori görünümü',
+  },
+  {
+    id: 'il-katsayilari-liste',
+    title: 'İl Katsayıları Listesi',
+    path: ROUTES.ilKatsayilariListesi,
+    icon: 'LocationCityIcon',
+    description: 'Güncel il katsayıları listesi',
   },
   {
     id: 'huv-tarihsel',
@@ -123,6 +133,13 @@ export const NAVIGATION_ITEMS = [
     path: ROUTES.sutYonetimi,
     icon: 'UploadFileIcon',
     description: 'SUT liste yükleme ve versiyon yönetimi',
+  },
+  {
+    id: 'il-katsayi-yonetimi',
+    title: 'İl Katsayıları Yönetimi',
+    path: ROUTES.ilKatsayiYonetimi,
+    icon: 'LocationCityIcon',
+    description: 'İl katsayıları yükleme ve versiyon yönetimi',
   },
 ];
 

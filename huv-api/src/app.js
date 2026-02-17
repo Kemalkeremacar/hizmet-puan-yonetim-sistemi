@@ -23,16 +23,23 @@ const app = express();
 // ============================================
 // SCHEDULED TASKS
 // ============================================
+// Upload klasörü path'ini al
+const { uploadDir } = require('./middleware/uploadMiddleware');
+
 // Her 1 saatte bir upload klasörünü temizle
 setInterval(() => {
-  console.log('🧹 Upload klasörü temizleniyor...');
-  const result = cleanupOldUploads('uploads', 1); // 1 saatten eski dosyalar
-  console.log(`✅ Cleanup tamamlandı: ${result.deleted} dosya silindi`);
+  if (process.env.NODE_ENV === 'development') {
+    console.log('🧹 Upload klasörü temizleniyor...');
+  }
+  const result = cleanupOldUploads(uploadDir, 1); // 1 saatten eski dosyalar
+  if (result.deleted > 0) {
+    console.log(`✅ Cleanup: ${result.deleted} eski dosya temizlendi`);
+  }
 }, 60 * 60 * 1000); // 1 saat
 
-// İlk başlangıçta da temizle
+// İlk başlangıçta da temizle (sessizce)
 setTimeout(() => {
-  cleanupOldUploads('uploads', 1);
+  cleanupOldUploads(uploadDir, 1);
 }, 5000); // 5 saniye sonra
 
 // ============================================
@@ -75,32 +82,36 @@ app.get('/health', async (_req, res) => {
 // ============================================
 const API_PREFIX = process.env.API_PREFIX || '/api';
 
+// Authentication API (Public)
+app.use(`${API_PREFIX}/auth`, require('./routes/auth'));
+
+// Auth middleware
+const { authenticate, authorizeAdmin } = require('./middleware/auth');
+
 // İşlemler API (HUV Liste için)
-app.use(`${API_PREFIX}/islemler`, require('./routes/islemler'));
+app.use(`${API_PREFIX}/islemler`, authenticate, require('./routes/islemler'));
 
 // Ana Dallar API (HUV Liste için)
-app.use(`${API_PREFIX}/anadal`, require('./routes/anadal'));
+app.use(`${API_PREFIX}/anadal`, authenticate, require('./routes/anadal'));
 
 // SUT Kodları API (SUT Liste için)
-app.use(`${API_PREFIX}/sut`, require('./routes/sut'));
+app.use(`${API_PREFIX}/sut`, authenticate, require('./routes/sut'));
 
 // Tarihsel Sorgular API (HUV Tarihsel için)
-app.use(`${API_PREFIX}/tarihsel`, require('./routes/tarihsel'));
+app.use(`${API_PREFIX}/tarihsel`, authenticate, require('./routes/tarihsel'));
 
 // SUT Tarihsel Sorgular API (SUT Tarihsel için)
-app.use(`${API_PREFIX}/tarihsel/sut`, require('./routes/sutTarihsel'));
+app.use(`${API_PREFIX}/tarihsel/sut`, authenticate, require('./routes/sutTarihsel'));
 
-// HUV-SUT Eşleştirme API (Her iki liste için)
-app.use(`${API_PREFIX}/eslestirme`, require('./routes/eslestirme'));
+// Import API (HUV ve SUT Yönetimi için) - ADMIN ONLY
+app.use(`${API_PREFIX}/admin/import`, authenticate, authorizeAdmin, require('./routes/import'));
 
-// Import API (HUV ve SUT Yönetimi için)
-app.use(`${API_PREFIX}/admin/import`, require('./routes/import'));
+// Versiyonlar API (HUV ve SUT Yönetimi için) - ADMIN ONLY
+app.use(`${API_PREFIX}/admin/versiyonlar`, authenticate, authorizeAdmin, require('./routes/versiyonlar'));
 
-// Versiyonlar API (HUV ve SUT Yönetimi için)
-app.use(`${API_PREFIX}/admin/versiyonlar`, require('./routes/versiyonlar'));
+// External API (Dış servisler için - 2 seviye kırılım) - AUTHENTICATED USERS
+app.use(`${API_PREFIX}/external`, authenticate, require('./routes/external'));
 
-// Admin API (Bakım ve yönetim işlemleri)
-app.use(`${API_PREFIX}/admin`, require('./routes/admin'));
 
 // ============================================
 // Welcome route

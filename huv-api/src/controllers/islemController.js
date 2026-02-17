@@ -1,70 +1,12 @@
 // ============================================
 // ISLEMLER CONTROLLER
 // ============================================
-// HUV işlemlerinin tüm CRUD operasyonları
-// Endpoint'ler: GET, POST, PUT, DELETE /api/islemler
+// HUV işlemlerinin READ-ONLY operasyonları
+// Endpoint'ler: GET /api/islemler
 // ============================================
 
 const { getPool, sql } = require('../config/database');
 const { success, error, paginated } = require('../utils/response');
-
-// ============================================
-// GET /api/islemler/:id/eslesmeler
-// Bir HUV işleminin SUT eşleştirmelerini getir
-// ============================================
-const getIslemEslesmeler = async (req, res, next) => {
-  try {
-    const { id } = req.params;
-    const pool = await getPool();
-
-    // İşlem bilgisi
-    const islemResult = await pool.request()
-      .input('id', sql.Int, id)
-      .query(`
-        SELECT 
-          i.IslemID,
-          i.HuvKodu,
-          i.IslemAdi,
-          i.Birim,
-          a.BolumAdi
-        FROM HuvIslemler i
-        LEFT JOIN AnaDallar a ON i.AnaDalKodu = a.AnaDalKodu
-        WHERE i.IslemID = @id
-      `);
-
-    if (islemResult.recordset.length === 0) {
-      return error(res, 'İşlem bulunamadı', 404);
-    }
-
-    // Eşleşmeler
-    const eslesmelerResult = await pool.request()
-      .input('id', sql.Int, id)
-      .query(`
-        SELECT 
-          e.EslestirmeID,
-          e.EslestirmeTipi,
-          e.GuvenilirlikSkoru,
-          s.SutID,
-          s.SutKodu,
-          s.IslemAdi as SutIslemAdi,
-          s.Puan,
-          s.Aciklama,
-          h.Baslik as HiyerarsiAdi
-        FROM HuvSutEslestirme e
-        INNER JOIN SutIslemler s ON e.SutID = s.SutID
-        LEFT JOIN SutHiyerarsi h ON s.HiyerarsiID = h.HiyerarsiID
-        WHERE e.IslemID = @id AND e.AktifMi = 1
-        ORDER BY e.GuvenilirlikSkoru DESC
-      `);
-
-    return success(res, {
-      islem: islemResult.recordset[0],
-      eslesmeler: eslesmelerResult.recordset
-    }, 'İşlem eşleşmeleri');
-  } catch (err) {
-    next(err);
-  }
-};
 
 // ============================================
 // GET /api/islemler
@@ -139,71 +81,6 @@ const getIslemler = async (req, res, next) => {
 };
 
 // ============================================
-// GET /api/islemler/:id
-// İşlem detayı (tam bilgi)
-// ============================================
-const getIslemById = async (req, res, next) => {
-  try {
-    const { id } = req.params;
-    const pool = await getPool();
-
-    const result = await pool.request()
-      .input('id', sql.Int, parseInt(id))
-      .query(`
-        SELECT 
-          i.IslemID, i.HuvKodu, i.IslemAdi, i.Birim, i.SutKodu,
-          i.UstBaslik, i.HiyerarsiSeviyesi, i.[Not],
-          i.GuncellemeTarihi, i.EklemeTarihi,
-          i.GuncellemeTarihiDate, i.EklemeTarihiDate,
-          i.AnaDalKodu, a.BolumAdi
-        FROM HuvIslemler i
-        LEFT JOIN AnaDallar a ON i.AnaDalKodu = a.AnaDalKodu
-        WHERE i.IslemID = @id
-      `);
-
-    if (result.recordset.length === 0) {
-      return error(res, 'İşlem bulunamadı', 404);
-    }
-
-    return success(res, result.recordset[0], 'İşlem detayı');
-  } catch (err) {
-    next(err);
-  }
-};
-
-// ============================================
-// GET /api/islemler/huv/:kod
-// HUV koduna göre işlem bul
-// ============================================
-const getIslemByHuvKodu = async (req, res, next) => {
-  try {
-    const { kod } = req.params;
-    const pool = await getPool();
-
-    const result = await pool.request()
-      .input('kod', sql.Float, parseFloat(kod))
-      .query(`
-        SELECT 
-          i.IslemID, i.HuvKodu, i.IslemAdi, i.Birim, i.SutKodu,
-          i.UstBaslik, i.HiyerarsiSeviyesi, i.[Not],
-          i.GuncellemeTarihi, i.EklemeTarihi,
-          i.AnaDalKodu, a.BolumAdi
-        FROM HuvIslemler i
-        LEFT JOIN AnaDallar a ON i.AnaDalKodu = a.AnaDalKodu
-        WHERE i.HuvKodu = @kod
-      `);
-
-    if (result.recordset.length === 0) {
-      return error(res, 'İşlem bulunamadı', 404);
-    }
-
-    return success(res, result.recordset[0], 'İşlem bulundu');
-  } catch (err) {
-    next(err);
-  }
-};
-
-// ============================================
 // GET /api/islemler/ara
 // Gelişmiş arama (metin, fiyat aralığı, ana dal)
 // SP: sp_IslemAra
@@ -238,213 +115,6 @@ const araIslem = async (req, res, next) => {
     const paginatedData = data.slice(offset, offset + parseInt(limit));
 
     return paginated(res, paginatedData, page, limit, total, 'Arama tamamlandı');
-  } catch (err) {
-    next(err);
-  }
-};
-
-// ============================================
-// POST /api/islemler
-// Yeni işlem ekle
-// SP: sp_IslemEkle
-// Body: huvKodu, islemAdi, birim, sutKodu, ustBaslik, not
-// ============================================
-const createIslem = async (req, res, next) => {
-  try {
-    const {
-      huvKodu,
-      islemAdi,
-      birim,
-      sutKodu,
-      ustBaslik,
-      not
-    } = req.body;
-
-    // Validation
-    if (!huvKodu || !islemAdi) {
-      return error(res, 'HUV kodu ve işlem adı zorunludur', 400);
-    }
-
-    const pool = await getPool();
-
-    // sp_IslemEkle kullan
-    const result = await pool.request()
-      .input('HuvKodu', sql.Float, parseFloat(huvKodu))
-      .input('IslemAdi', sql.NVarChar, islemAdi)
-      .input('Birim', sql.Float, birim ? parseFloat(birim) : null)
-      .input('SutKodu', sql.NVarChar, sutKodu || null)
-      .input('UstBaslik', sql.NVarChar, ustBaslik || null)
-      .input('Not', sql.NVarChar, not || null)
-      .execute('sp_IslemEkle');
-
-    const yeniIslemID = result.recordset[0].YeniIslemID;
-
-    // Yeni eklenen işlemi getir
-    const yeniIslem = await pool.request()
-      .input('id', sql.Int, yeniIslemID)
-      .query('SELECT * FROM HuvIslemler WHERE IslemID = @id');
-
-    return success(res, yeniIslem.recordset[0], 'İşlem başarıyla eklendi', 201);
-  } catch (err) {
-    if (err.message.includes('Bu HUV kodu zaten mevcut')) {
-      return error(res, 'Bu HUV kodu zaten mevcut', 409);
-    }
-    next(err);
-  }
-};
-
-// ============================================
-// PUT /api/islemler/:id
-// İşlem güncelle (partial update destekli)
-// SP: sp_IslemGuncelle
-// Body: islemAdi, birim, sutKodu, not
-// ============================================
-const updateIslem = async (req, res, next) => {
-  try {
-    const { id } = req.params;
-    const {
-      islemAdi,
-      birim,
-      sutKodu,
-      not
-    } = req.body;
-
-    const pool = await getPool();
-
-    // İşlem var mı kontrol et
-    const checkResult = await pool.request()
-      .input('id', sql.Int, parseInt(id))
-      .query('SELECT IslemID FROM HuvIslemler WHERE IslemID = @id');
-
-    if (checkResult.recordset.length === 0) {
-      return error(res, 'İşlem bulunamadı', 404);
-    }
-
-    // sp_IslemGuncelle kullan
-    await pool.request()
-      .input('IslemID', sql.Int, parseInt(id))
-      .input('IslemAdi', sql.NVarChar, islemAdi || null)
-      .input('Birim', sql.Float, birim ? parseFloat(birim) : null)
-      .input('SutKodu', sql.NVarChar, sutKodu || null)
-      .input('Not', sql.NVarChar, not || null)
-      .execute('sp_IslemGuncelle');
-
-    // Güncellenmiş işlemi getir
-    const updatedIslem = await pool.request()
-      .input('id', sql.Int, parseInt(id))
-      .query(`
-        SELECT 
-          i.IslemID, i.HuvKodu, i.IslemAdi, i.Birim, i.SutKodu,
-          i.UstBaslik, i.HiyerarsiSeviyesi, i.[Not],
-          i.GuncellemeTarihi, i.EklemeTarihi,
-          i.AnaDalKodu, a.BolumAdi
-        FROM HuvIslemler i
-        LEFT JOIN AnaDallar a ON i.AnaDalKodu = a.AnaDalKodu
-        WHERE i.IslemID = @id
-      `);
-
-    return success(res, updatedIslem.recordset[0], 'İşlem başarıyla güncellendi');
-  } catch (err) {
-    next(err);
-  }
-};
-
-// ============================================
-// DELETE /api/islemler/:id
-// İşlem sil (fiziksel silme + audit kaydı)
-// İşlem Islemler tablosundan silinir ama versiyonlar ve audit geçmişi korunur
-// ============================================
-const deleteIslem = async (req, res, next) => {
-  try {
-    const { id } = req.params;
-    const pool = await getPool();
-
-    // İşlem var mı kontrol et
-    const checkResult = await pool.request()
-      .input('id', sql.Int, parseInt(id))
-      .query('SELECT IslemID, HuvKodu, IslemAdi, Birim FROM HuvIslemler WHERE IslemID = @id');
-
-    if (checkResult.recordset.length === 0) {
-      return error(res, 'İşlem bulunamadı', 404);
-    }
-
-    const islem = checkResult.recordset[0];
-
-    // Audit kaydı ekle (silmeden önce)
-    await pool.request()
-      .input('IslemID', sql.Int, parseInt(id))
-      .input('IslemTipi', sql.NVarChar, 'DELETE')
-      .input('EskiBirim', sql.Float, islem.Birim)
-      .input('YeniBirim', sql.Float, null)
-      .input('DegistirenKullanici', sql.NVarChar, 'system')
-      .input('Aciklama', sql.NVarChar, `İşlem silindi: ${islem.IslemAdi} (HUV: ${islem.HuvKodu})`)
-      .query(`
-        INSERT INTO IslemAudit (IslemID, IslemTipi, EskiBirim, YeniBirim, DegisiklikTarihi, DegistirenKullanici, Aciklama)
-        VALUES (@IslemID, @IslemTipi, @EskiBirim, @YeniBirim, GETDATE(), @DegistirenKullanici, @Aciklama)
-      `);
-
-    // Fiziksel silme (versiyonlar korunur)
-    await pool.request()
-      .input('id', sql.Int, parseInt(id))
-      .query('DELETE FROM HuvIslemler WHERE IslemID = @id');
-
-    return success(res, {
-      islemID: parseInt(id),
-      huvKodu: islem.HuvKodu,
-      islemAdi: islem.IslemAdi,
-      silindi: true
-    }, 'İşlem silindi ve audit kaydı oluşturuldu');
-  } catch (err) {
-    next(err);
-  }
-};
-
-// ============================================
-// POST /api/islemler/toplu-guncelle
-// Toplu fiyat güncelleme (%X artış/azalış veya sabit miktar)
-// SP: sp_TopluBirimGuncelle
-// Body: anaDalKodu, yuzdeOran, sabitArtisMiktari, minBirim, maxBirim
-// ============================================
-const topluBirimGuncelle = async (req, res, next) => {
-  try {
-    const {
-      anaDalKodu,
-      yuzdeOran,
-      sabitArtisMiktari,
-      minBirim,
-      maxBirim
-    } = req.body;
-
-    // Validation
-    if (!yuzdeOran && !sabitArtisMiktari) {
-      return error(res, 'Yüzde oran veya sabit artış miktarı belirtilmelidir', 400);
-    }
-
-    if (yuzdeOran && sabitArtisMiktari) {
-      return error(res, 'Yüzde oran ve sabit artış miktarı birlikte kullanılamaz', 400);
-    }
-
-    const pool = await getPool();
-
-    // sp_TopluBirimGuncelle kullan
-    const result = await pool.request()
-      .input('AnaDalKodu', sql.Int, anaDalKodu || null)
-      .input('YuzdeOran', sql.Float, yuzdeOran || null)
-      .input('SabitArtisMiktari', sql.Float, sabitArtisMiktari || null)
-      .input('MinBirim', sql.Float, minBirim || null)
-      .input('MaxBirim', sql.Float, maxBirim || null)
-      .execute('sp_TopluBirimGuncelle');
-
-    const etkilenenKayit = result.recordset[0].EtkilenenKayitSayisi;
-
-    return success(res, {
-      etkilenenKayitSayisi: etkilenenKayit,
-      anaDalKodu: anaDalKodu || 'Tümü',
-      yuzdeOran: yuzdeOran || null,
-      sabitArtisMiktari: sabitArtisMiktari || null,
-      minBirim: minBirim || null,
-      maxBirim: maxBirim || null
-    }, `${etkilenenKayit} işlem başarıyla güncellendi`);
   } catch (err) {
     next(err);
   }
@@ -683,11 +353,7 @@ const getGelismisArama = async (req, res, next) => {
 // EXPORT
 // ============================================
 module.exports = {
-  // READ-ONLY Operations
   getIslemler,
-  getIslemById,
-  getIslemByHuvKodu,
-  getIslemEslesmeler,
   araIslem,
   getFiyatAralik,
   getHiyerarsi,
@@ -697,10 +363,4 @@ module.exports = {
   getEnUcuz,
   getKategori,
   getGelismisArama
-  
-  // CRUD Operations (Devre Dışı - Excel Import Kullanılıyor)
-  // createIslem,
-  // updateIslem,
-  // deleteIslem,
-  // topluBirimGuncelle
 };

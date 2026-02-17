@@ -46,6 +46,22 @@ router.post('/sut', uploadSingle, importLock, importSutList);
 router.post('/sut/preview', uploadSingle, previewSutImport);
 
 // ============================================
+// POST /api/admin/import/il-katsayi
+// İl katsayılarını Excel'den yükle
+// Body: multipart/form-data (file)
+// LOCK: Aynı anda sadece 1 import
+// ============================================
+const { importIlKatsayiList, previewIlKatsayiImport } = require('../controllers/ilKatsayiImportController');
+router.post('/il-katsayi', uploadSingle, importLock, importIlKatsayiList);
+
+// ============================================
+// POST /api/admin/import/il-katsayi/preview
+// İl katsayıları Excel önizleme ve karşılaştırma (dry-run)
+// Body: multipart/form-data (file)
+// ============================================
+router.post('/il-katsayi/preview', uploadSingle, previewIlKatsayiImport);
+
+// ============================================
 // POST /api/admin/import/preview
 // Excel önizleme ve karşılaştırma (dry-run)
 // Body: multipart/form-data (file)

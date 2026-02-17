@@ -165,11 +165,12 @@ export const importApi = axios.create({
 const requestInterceptor = (config) => {
   const isDevelopment = import.meta.env.VITE_ENV === 'development';
   
-  // JWT token ekle (gelecekte)
-  // const token = localStorage.getItem('token');
-  // if (token) {
-  //   config.headers.Authorization = `Bearer ${token}`;
-  // }
+  // JWT token ekle (authenticated endpoint'ler için)
+  const token = localStorage.getItem('token');
+  if (token) {
+    config.headers = config.headers || {};
+    config.headers.Authorization = `Bearer ${token}`;
+  }
   
   if (isDevelopment) {
     console.log('📤 API Request:', config.method.toUpperCase(), config.url);

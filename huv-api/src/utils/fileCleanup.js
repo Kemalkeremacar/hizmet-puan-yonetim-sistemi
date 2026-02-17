@@ -27,7 +27,10 @@ const cleanupOldUploads = (uploadDir = 'uploads', maxAgeHours = 1) => {
       if (now - stats.mtimeMs > maxAge) {
         fs.unlinkSync(filePath);
         deletedCount++;
-        console.log(`🗑️ Eski dosya silindi: ${file}`);
+        // Sadece development'ta detaylı log göster
+        if (process.env.NODE_ENV === 'development') {
+          console.log(`🗑️ Eski dosya silindi: ${file}`);
+        }
       }
     }
     
@@ -60,31 +63,7 @@ const deleteFile = (filePath) => {
   }
 };
 
-// Upload klasörü boyutunu kontrol et (MB)
-const getUploadDirSize = (uploadDir = 'uploads') => {
-  try {
-    if (!fs.existsSync(uploadDir)) {
-      return 0;
-    }
-    
-    const files = fs.readdirSync(uploadDir);
-    let totalSize = 0;
-    
-    for (const file of files) {
-      const filePath = path.join(uploadDir, file);
-      const stats = fs.statSync(filePath);
-      totalSize += stats.size;
-    }
-    
-    return (totalSize / (1024 * 1024)).toFixed(2); // MB
-  } catch (error) {
-    console.error('❌ Boyut hesaplama hatası:', error.message);
-    return 0;
-  }
-};
-
 module.exports = {
   cleanupOldUploads,
-  deleteFile,
-  getUploadDirSize
+  deleteFile
 };

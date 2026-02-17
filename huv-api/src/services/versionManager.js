@@ -5,7 +5,6 @@
 // ============================================
 
 const { getPool, sql } = require('../config/database');
-const { autoMatchSutKodu } = require('./autoMatchService');
 
 // ============================================
 // Yeni liste versiyonu oluştur
@@ -48,32 +47,6 @@ const createListeVersiyon = async (dosyaAdi, kayitSayisi, aciklama, kullaniciAdi
 };
 
 // ============================================
-// Mevcut aktif versiyonu al
-// ============================================
-const getAktifVersiyon = async () => {
-  try {
-    const pool = await getPool();
-    
-    const result = await pool.request()
-      .input('ListeTipi', sql.NVarChar, 'HUV')
-      .query(`
-        SELECT TOP 1 
-          VersionID,
-          YuklemeTarihi,
-          DosyaAdi,
-          KayitSayisi
-        FROM ListeVersiyon
-        WHERE ListeTipi = @ListeTipi
-        ORDER BY VersionID DESC
-      `);
-    
-    return result.recordset[0] || null;
-  } catch (error) {
-    throw new Error(`Aktif versiyon alınamadı: ${error.message}`);
-  }
-};
-
-// ============================================
 // Mevcut HUV verilerini al
 // Sadece Islemler tablosundaki aktif kayıtlar (AktifMi = 1)
 // ============================================
@@ -100,33 +73,6 @@ const getMevcutHuvData = async () => {
     return result.recordset;
   } catch (error) {
     throw new Error(`Mevcut veriler alınamadı: ${error.message}`);
-  }
-};
-
-// ============================================
-// Tüm HUV kodlarını al (aktif + silinmiş)
-// Versiyonlardan tüm HUV kodlarını çeker
-// ============================================
-const getAllHuvKodlari = async () => {
-  try {
-    const pool = await getPool();
-    
-    const result = await pool.request()
-      .query(`
-        SELECT DISTINCT 
-          iv.HuvKodu,
-          iv.IslemID,
-          CASE 
-            WHEN i.IslemID IS NOT NULL THEN 1 
-            ELSE 0 
-          END as AktifMi
-        FROM IslemVersionlar iv
-        LEFT JOIN HuvIslemler i ON iv.IslemID = i.IslemID
-      `);
-    
-    return result.recordset;
-  } catch (error) {
-    throw new Error(`HUV kodları alınamadı: ${error.message}`);
   }
 };
 
@@ -197,18 +143,6 @@ const updateIslemWithVersion = async (islemID, yeniData, versionID, yuklemeTarih
           WHERE IslemID = @IslemID
         `);
       
-      // 4. SutKodu değiştiyse yeni eşleştirme oluştur
-      if (yeniData.SutKodu && yeniData.SutKodu.trim() !== '') {
-        try {
-          const matchResult = await autoMatchSutKodu(islemID, yeniData.SutKodu, transaction);
-          if (matchResult.matched && matchResult.action === 'created') {
-            console.log(`✅ SUT eşleştirme güncellendi: HUV ${yeniData.HuvKodu} → SUT ${matchResult.sutKodu}`);
-          }
-        } catch (matchError) {
-          console.error(`❌ SUT eşleştirme hatası: ${matchError.message}`);
-          // Eşleştirme hatası güncellemeyi durdurmaz
-        }
-      }
       
       await transaction.commit();
       return true;
@@ -355,20 +289,6 @@ const addNewIslem = async (yeniData, versionID, yuklemeTarihi) => {
         VALUES (@IslemID, @IslemTipi, @EskiBirim, @YeniBirim, GETDATE(), @DegistirenKullanici, @Aciklama)
       `);
     
-    // 4. SutKodu varsa otomatik eşleştir
-    if (yeniData.SutKodu && yeniData.SutKodu.trim() !== '') {
-      try {
-        const matchResult = await autoMatchSutKodu(nextId, yeniData.SutKodu, transaction);
-        if (matchResult.matched) {
-          console.log(`✅ SUT eşleştirme: HUV ${yeniData.HuvKodu} → SUT ${matchResult.sutKodu} (${matchResult.action})`);
-        } else {
-          console.warn(`⚠️ SUT eşleştirme başarısız: HUV ${yeniData.HuvKodu} → SUT ${yeniData.SutKodu} (${matchResult.reason})`);
-        }
-      } catch (matchError) {
-        console.error(`❌ SUT eşleştirme hatası: ${matchError.message}`);
-        // Eşleştirme hatası import'u durdurmaz
-      }
-    }
     
     await transaction.commit();
     return nextId;
@@ -533,9 +453,7 @@ const copyUnchangedIslemToVersion = async (islemID, mevcutData, versionID, yukle
 
 module.exports = {
   createListeVersiyon,
-  getAktifVersiyon,
   getMevcutHuvData,
-  getAllHuvKodlari,
   updateIslemWithVersion,
   addNewIslem,
   deactivateIslem,

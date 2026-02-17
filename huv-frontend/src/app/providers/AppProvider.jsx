@@ -10,17 +10,20 @@ import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { ThemeProvider } from '../context/ThemeContext';
 import { AppProvider as AppContextProvider } from '../context/AppContext';
+import { AuthProvider } from '../context/AuthContext';
 import { TOAST_CONFIG } from '../config/constants';
 
 export const AppProvider = ({ children }) => {
   return (
     <BrowserRouter>
       <ThemeProvider>
-        <AppContextProvider>
-          <CssBaseline />
-          <ToastContainer {...TOAST_CONFIG} />
-          {children}
-        </AppContextProvider>
+        <AuthProvider>
+          <AppContextProvider>
+            <CssBaseline />
+            <ToastContainer {...TOAST_CONFIG} />
+            {children}
+          </AppContextProvider>
+        </AuthProvider>
       </ThemeProvider>
     </BrowserRouter>
   );

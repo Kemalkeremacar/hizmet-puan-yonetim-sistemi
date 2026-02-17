@@ -33,10 +33,6 @@ router.get('/ara', sutController.araSut);
 // İstatistikler
 router.get('/stats', sutController.getSutStats);
 
-// ÖNEMLİ: Spesifik route'lar önce olmalı!
-// SUT eşleşmeleri (/:kod'dan önce olmalı)
-router.get('/:id/eslesmeler', sutController.getSutEslesmeler);
-
 // Belirli SUT kodu (en sona)
 router.get('/:kod', sutController.getSutByKod);
 

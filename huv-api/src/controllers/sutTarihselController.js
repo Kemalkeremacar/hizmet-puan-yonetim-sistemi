@@ -7,7 +7,14 @@
 
 const { getPool, sql } = require('../config/database');
 const { success, error } = require('../utils/response');
-const { isValidDate, isFutureDate, validateDateRange } = require('../utils/dateUtils');
+const { 
+  isValidDate, 
+  isFutureDate, 
+  validateDateRange,
+  validateStartDate,
+  validateDateRangeWithStart,
+  SUT_START_DATE
+} = require('../utils/dateUtils');
 
 // ============================================
 // GET /api/tarihsel/sut/puan
@@ -23,12 +30,31 @@ const getPuanByTarih = async (req, res, next) => {
       return error(res, 'Tarih parametresi zorunludur', 400);
     }
 
+    // Tarih formatı kontrolü
     if (!isValidDate(tarih)) {
-      return error(res, 'Geçersiz tarih formatı (YYYY-MM-DD)', 400);
+      return error(res, 'Geçersiz tarih formatı. Lütfen YYYY-MM-DD formatında girin (örn: 2026-01-01)', 400, {
+        tip: 'GECERSIZ_TARIH_FORMATI',
+        cozum: 'Tarih formatı YYYY-MM-DD olmalıdır (örn: 2026-01-01)'
+      });
     }
 
+    // Gelecek tarih kontrolü
     if (isFutureDate(tarih)) {
-      return error(res, 'Gelecek tarih için sorgu yapılamaz', 400);
+      return error(res, 'Gelecek tarih için sorgu yapılamaz. Lütfen bugün veya geçmiş bir tarih seçin.', 400, {
+        tip: 'GELECEK_TARIH',
+        cozum: 'Sorgu yapmak için bugün veya geçmiş bir tarih seçmelisiniz'
+      });
+    }
+
+    // Başlangıç tarihi kontrolü (SUT için 01.01.2026)
+    const startDateValidation = validateStartDate(tarih, 'SUT');
+    if (!startDateValidation.valid) {
+      return error(res, startDateValidation.error, 400, {
+        tip: startDateValidation.tip || 'TARIH_BASLANGIC_ONDEN',
+        cozum: startDateValidation.cozum || `SUT listesi için sorgu yapılabilecek en eski tarih ${SUT_START_DATE} tarihidir.`,
+        baslangicTarihi: SUT_START_DATE,
+        girilenTarih: tarih
+      });
     }
 
     if (!sutKodu && !sutId) {
@@ -45,9 +71,37 @@ const getPuanByTarih = async (req, res, next) => {
       .execute('sp_SutTarihtekiPuan');
 
     if (result.recordset.length === 0) {
+      // Daha detaylı hata mesajı için versiyon bilgilerini kontrol et
+      const versiyonKontrol = await pool.request()
+        .input('SutKodu', sql.NVarChar, sutKodu || null)
+        .input('SutID', sql.Int, sutId ? parseInt(sutId) : null)
+        .query(`
+          SELECT 
+            MIN(GecerlilikBaslangic) as EnEskiTarih,
+            MAX(GecerlilikBaslangic) as EnYeniTarih,
+            COUNT(*) as ToplamVersiyon
+          FROM SutIslemVersionlar
+          WHERE (@SutKodu IS NULL OR SutKodu = @SutKodu)
+            AND (@SutID IS NULL OR SutID = @SutID)
+        `);
+      
+      const versiyonInfo = versiyonKontrol.recordset[0];
+      const enEskiTarih = versiyonInfo?.EnEskiTarih 
+        ? new Date(versiyonInfo.EnEskiTarih).toISOString().split('T')[0]
+        : null;
+      
+      let detayMesaji = 'Bu SUT kodu için belirtilen tarihte geçerli bir kayıt yok';
+      if (enEskiTarih && new Date(tarih) < new Date(enEskiTarih)) {
+        detayMesaji += `. En eski kayıt tarihi: ${enEskiTarih}`;
+      } else if (enEskiTarih) {
+        detayMesaji += `. Mevcut kayıtlar: ${enEskiTarih} - ${versiyonInfo?.EnYeniTarih ? new Date(versiyonInfo.EnYeniTarih).toISOString().split('T')[0] : 'şimdi'}`;
+      }
+      
       return error(res, 'Belirtilen tarihte puan bulunamadı', 404, {
         tip: 'PUAN_BULUNAMADI',
-        detay: 'Bu SUT kodu için belirtilen tarihte geçerli bir kayıt yok'
+        detay: detayMesaji,
+        tarih: tarih,
+        enEskiTarih: enEskiTarih
       });
     }
 
@@ -67,10 +121,16 @@ const getDegişenler = async (req, res, next) => {
   try {
     const { baslangic, bitis, anaBaslikNo } = req.query;
 
-    // Tarih aralığı validasyonu
-    const validation = validateDateRange(baslangic, bitis);
+    // Tarih aralığı validasyonu (başlangıç tarihi kontrolü dahil)
+    const validation = validateDateRangeWithStart(baslangic, bitis, 'SUT');
     if (!validation.valid) {
-      return error(res, validation.error, 400);
+      return error(res, validation.error, 400, {
+        tip: validation.tip || 'GECERSIZ_TARIH_ARALIGI',
+        cozum: validation.cozum || `SUT listesi için sorgu yapılabilecek en eski tarih ${SUT_START_DATE} tarihidir.`,
+        baslangicTarihi: SUT_START_DATE,
+        girilenBaslangic: baslangic,
+        girilenBitis: bitis
+      });
     }
 
     const pool = await getPool();
@@ -82,7 +142,24 @@ const getDegişenler = async (req, res, next) => {
       .input('AnaBaslikNo', sql.Int, anaBaslikNo ? parseInt(anaBaslikNo) : null)
       .execute('sp_SutTarihAraligindaDegis');
 
-    return success(res, result.recordset, `${result.recordset.length} SUT kodu değişikliği bulundu`);
+    // Frontend uyumluluğu için field mapping
+    const mappedData = result.recordset.map(item => ({
+      ...item,
+      Fark: item.PuanDegisimi || item.Fark, // PuanDegisimi -> Fark
+      DegisimYuzdesi: item.PuanDegisimYuzdesi || item.DegisimYuzdesi, // PuanDegisimYuzdesi -> DegisimYuzdesi
+      DegisiklikTarihi: item.SonDegisiklik || item.DegisiklikTarihi || item.IlkDegisiklik // SonDegisiklik -> DegisiklikTarihi
+    }));
+
+    // Boş sonuç için bilgilendirme
+    if (mappedData.length === 0) {
+      return success(res, [], 'Belirtilen tarih aralığında değişiklik bulunamadı', {
+        baslangic,
+        bitis,
+        uyari: 'Bu tarih aralığında puan değişikliği olan SUT kodu bulunamadı'
+      });
+    }
+
+    return success(res, mappedData, `${mappedData.length} SUT kodu değişikliği bulundu`);
   } catch (err) {
     next(err);
   }
@@ -131,19 +208,38 @@ const getPuanGecmisi = async (req, res, next) => {
     const versiyonlar = result.recordsets[1] || [];
     const istatistikler = result.recordsets[2]?.[0];
 
-    // İşlem bilgisi yoksa (silinmiş olabilir), versiyonlardan al
+    // İşlem bilgisi yoksa (silinmiş olabilir), mevcut kayda veya versiyonlardan al
     let islemInfo = islemBilgisi;
-    if (!islemInfo && versiyonlar.length > 0) {
-      // En son versiyondan bilgi al
-      const sonVersiyon = versiyonlar[0];
-      islemInfo = {
-        SutID: sutId,
-        SutKodu: sonVersiyon.SutKodu || identifier,
-        IslemAdi: sonVersiyon.IslemAdi || 'Bilinmiyor',
-        GuncelPuan: null,
-        KategoriAdi: sonVersiyon.KategoriAdi || null,
-        AktifMi: false
-      };
+    if (!islemInfo) {
+      // Önce mevcut kayda bak
+      const mevcutKayitKontrol = await pool.request()
+        .input('SutID', sql.Int, sutId)
+        .query(`
+          SELECT TOP 1
+            SutID,
+            SutKodu,
+            IslemAdi,
+            Puan as GuncelPuan,
+            AnaBaslikNo,
+            AktifMi
+          FROM SutIslemler
+          WHERE SutID = @SutID
+        `);
+      
+      if (mevcutKayitKontrol.recordset.length > 0) {
+        islemInfo = mevcutKayitKontrol.recordset[0];
+      } else if (versiyonlar.length > 0) {
+        // En son versiyondan bilgi al
+        const sonVersiyon = versiyonlar[0];
+        islemInfo = {
+          SutID: sutId,
+          SutKodu: sonVersiyon.SutKodu || identifier,
+          IslemAdi: sonVersiyon.IslemAdi || 'Bilinmiyor',
+          GuncelPuan: null,
+          KategoriAdi: sonVersiyon.KategoriAdi || null,
+          AktifMi: false
+        };
+      }
     }
 
     if (!islemInfo) {
@@ -156,11 +252,43 @@ const getPuanGecmisi = async (req, res, next) => {
     // AktifMi durumunu kontrol et (hem 1 hem true olabilir)
     const mevcutMu = islemInfo.AktifMi === true || islemInfo.AktifMi === 1;
 
+    // Versiyonları map et: SutVersionID -> VersionID (frontend uyumluluğu için)
+    const mappedVersiyonlar = versiyonlar.map((v, index) => {
+      // Puan değişimi kontrolü - eğer NULL ise ve önceki versiyon varsa hesapla
+      let puanDegisimi = v.PuanDegisimi;
+      if (puanDegisimi === null && index < versiyonlar.length - 1) {
+        const oncekiVersiyon = versiyonlar[index + 1];
+        if (oncekiVersiyon && oncekiVersiyon.Puan !== null && v.Puan !== null) {
+          puanDegisimi = v.Puan - oncekiVersiyon.Puan;
+        }
+      }
+      
+      return {
+        ...v,
+        VersionID: v.SutVersionID || v.VersionID, // Frontend uyumluluğu
+        PuanDegisimi: puanDegisimi !== null ? puanDegisimi : v.PuanDegisimi // Düzeltilmiş puan değişimi
+      };
+    });
+
+    // En eski versiyon tarihini kontrol et
+    const enEskiVersiyon = mappedVersiyonlar.length > 0 
+      ? mappedVersiyonlar[mappedVersiyonlar.length - 1] 
+      : null;
+    const enEskiTarih = enEskiVersiyon?.GecerlilikBaslangic 
+      ? new Date(enEskiVersiyon.GecerlilikBaslangic).toISOString().split('T')[0]
+      : null;
+
     return success(res, {
       islem: islemInfo,
-      versiyonlar: versiyonlar,
+      sut: islemInfo, // Frontend uyumluluğu için (sut field'ı da ekle)
+      versiyonlar: mappedVersiyonlar,
       istatistikler: istatistikler,
-      mevcutMu: mevcutMu
+      mevcutMu: mevcutMu,
+      baslangicTarihi: SUT_START_DATE,
+      enEskiVersiyonTarihi: enEskiTarih,
+      uyari: enEskiTarih && new Date(enEskiTarih) < new Date(SUT_START_DATE)
+        ? `Not: Bu işlemin bazı versiyonları başlangıç tarihinden (${SUT_START_DATE}) önce olabilir. Sistemde sorgu yapılabilecek en eski tarih ${SUT_START_DATE} tarihidir.`
+        : null
     }, 'Puan geçmişi');
   } catch (err) {
     next(err);
@@ -181,7 +309,7 @@ const getVersionlar = async (req, res, next) => {
       .input('sutId', sql.Int, parseInt(sutId))
       .query(`
         SELECT 
-          v.VersionID, 
+          v.SutVersionID as VersionID, 
           v.SutID, 
           v.SutKodu, 
           v.IslemAdi, 
@@ -199,7 +327,7 @@ const getVersionlar = async (req, res, next) => {
           lv.YukleyenKullanici,
           lv.YuklemeTarihi
         FROM SutIslemVersionlar v
-        LEFT JOIN ListeVersiyonlari lv ON v.ListeVersiyonID = lv.VersiyonID
+        LEFT JOIN ListeVersiyon lv ON v.ListeVersiyonID = lv.VersionID
         WHERE v.SutID = @sutId
         ORDER BY v.GecerlilikBaslangic DESC
       `);
@@ -276,6 +404,196 @@ const karsilastirVersiyonlar = async (req, res, next) => {
 };
 
 // ============================================
+// GET /api/tarihsel/sut/yasam-dongusu/:identifier
+// SUT kodunun yaşam döngüsü (eklenme, güncellenme, silinme olayları)
+// Puan geçmişinden farklı: Bu endpoint sadece yaşam döngüsü olaylarını gösterir
+// Param: identifier (SUT Kodu veya SUT ID)
+// ============================================
+const getYasamDongusu = async (req, res, next) => {
+  try {
+    const { identifier } = req.params;
+    const pool = await getPool();
+
+    // Identifier sayı mı yoksa SUT kodu mu kontrol et
+    const isNumericId = /^\d+$/.test(identifier);
+    let sutId;
+
+    if (isNumericId && parseInt(identifier) < 100000) {
+      // Küçük sayı = SUT ID
+      sutId = parseInt(identifier);
+    } else {
+      // SUT Kodu - önce SUT ID'yi bul
+      const sutKodu = identifier;
+      const islemResult = await pool.request()
+        .input('SutKodu', sql.NVarChar, sutKodu)
+        .query('SELECT SutID FROM SutIslemler WHERE SutKodu = @SutKodu');
+      
+      if (islemResult.recordset.length === 0) {
+        return error(res, 'Bu SUT koduna sahip işlem bulunamadı', 404, {
+          tip: 'SUT_BULUNAMADI',
+          sutKodu: identifier
+        });
+      }
+      sutId = islemResult.recordset[0].SutID;
+    }
+
+    // Önce mevcut kaydı kontrol et
+    const mevcutKayit = await pool.request()
+      .input('SutID', sql.Int, sutId)
+      .query(`
+        SELECT TOP 1
+          SutID,
+          SutKodu,
+          IslemAdi,
+          Puan,
+          AktifMi,
+          OlusturmaTarihi
+        FROM SutIslemler
+        WHERE SutID = @SutID
+      `);
+
+    if (mevcutKayit.recordset.length === 0) {
+      return error(res, 'SUT işlemi bulunamadı', 404, {
+        tip: 'SUT_BULUNAMADI',
+        sutId: sutId
+      });
+    }
+
+    const mevcutKayitData = mevcutKayit.recordset[0];
+
+    // Yaşam döngüsü olaylarını al (tüm versiyonlar, kronolojik sırada)
+    const yasamDongusuResult = await pool.request()
+      .input('SutID', sql.Int, sutId)
+      .query(`
+        SELECT 
+          v.SutVersionID as VersionID,
+          v.SutKodu,
+          v.IslemAdi,
+          v.Puan,
+          v.GecerlilikBaslangic as Tarih,
+          v.GecerlilikBitis,
+          v.AktifMi,
+          v.DegisiklikSebebi as Aciklama,
+          v.OlusturmaTarihi,
+          lv.YuklemeTarihi,
+          lv.DosyaAdi,
+          lv.YukleyenKullanici,
+          -- Durum belirleme
+          CASE 
+            WHEN v.DegisiklikSebebi LIKE '%eklendi%' OR v.DegisiklikSebebi LIKE '%Reaktivasyon%' THEN 'Eklendi'
+            WHEN v.DegisiklikSebebi LIKE '%güncellendi%' OR v.DegisiklikSebebi LIKE '%Puan%' THEN 'Güncellendi'
+            WHEN v.GecerlilikBitis IS NOT NULL AND v.AktifMi = 0 THEN 'Silindi'
+            WHEN v.AktifMi = 1 AND v.GecerlilikBitis IS NULL THEN 'Aktif'
+            ELSE 'Bilinmiyor'
+          END as Durum
+        FROM SutIslemVersionlar v
+        LEFT JOIN ListeVersiyon lv ON v.ListeVersiyonID = lv.VersionID
+        WHERE v.SutID = @SutID
+        ORDER BY v.GecerlilikBaslangic ASC, v.OlusturmaTarihi ASC
+      `);
+
+    // Eğer versiyon yoksa, mevcut kaydı yaşam döngüsüne ekle
+    let yasamDongusuData = yasamDongusuResult.recordset;
+    
+    if (yasamDongusuData.length === 0) {
+      // Versiyon yok, mevcut kaydı ekle
+      // İlk import tarihini ListeVersiyon'dan al
+      let ilkImportTarihi = new Date('2026-01-01'); // Varsayılan
+      
+      try {
+        const ilkImportResult = await pool.request().query(`
+          SELECT TOP 1 CAST(YuklemeTarihi AS DATE) as IlkImportTarihi
+          FROM ListeVersiyon
+          WHERE ListeTipi = 'SUT'
+          ORDER BY VersionID ASC
+        `);
+        
+        if (ilkImportResult.recordset.length > 0 && ilkImportResult.recordset[0].IlkImportTarihi) {
+          ilkImportTarihi = new Date(ilkImportResult.recordset[0].IlkImportTarihi);
+        }
+      } catch (err) {
+        console.warn('İlk import tarihi alınamadı, varsayılan tarih kullanılıyor:', err.message);
+      }
+      
+      const ilkKayitTarihi = mevcutKayitData.OlusturmaTarihi 
+        ? new Date(mevcutKayitData.OlusturmaTarihi)
+        : ilkImportTarihi;
+      
+      yasamDongusuData = [{
+        VersionID: null,
+        SutKodu: mevcutKayitData.SutKodu,
+        IslemAdi: mevcutKayitData.IslemAdi,
+        Puan: mevcutKayitData.Puan,
+        Tarih: ilkKayitTarihi,
+        GecerlilikBitis: null,
+        AktifMi: mevcutKayitData.AktifMi,
+        Aciklama: 'İlk kayıt oluşturuldu (tahmini)',
+        OlusturmaTarihi: ilkKayitTarihi,
+        YuklemeTarihi: null,
+        DosyaAdi: null,
+        YukleyenKullanici: null,
+        Durum: mevcutKayitData.AktifMi === 1 || mevcutKayitData.AktifMi === true ? 'Aktif' : 'Pasif'
+      }];
+    }
+
+    // İlk kayıt tarihini bul (tahmini - en eski versiyon)
+    const ilkKayit = yasamDongusuData[0];
+    const ilkKayitTarihi = ilkKayit.Tarih || ilkKayit.OlusturmaTarihi;
+
+    // Şu anki durumu belirle - mevcut kayıttan al
+    const suAnkiDurum = mevcutKayitData.AktifMi === 1 || mevcutKayitData.AktifMi === true ? 'Aktif' : 'Pasif';
+    const suAnkiDurumAciklama = suAnkiDurum === 'Aktif' 
+      ? 'SUT kodu sistemde aktif olarak bulunuyor'
+      : 'SUT kodu sistemde pasif durumda';
+
+    // Yaşam döngüsü olaylarını map et
+    const yasamDongusu = yasamDongusuData.map((kayit, index) => {
+      // İlk kayıt için özel açıklama
+      let aciklama = kayit.Aciklama;
+      if (index === 0 && !aciklama) {
+        aciklama = 'İlk kayıt oluşturuldu (tahmini)';
+      }
+
+      return {
+        tarih: kayit.Tarih || kayit.OlusturmaTarihi,
+        durum: kayit.Durum,
+        aciklama: aciklama,
+        puan: kayit.Puan,
+        versiyonId: kayit.VersionID,
+        dosyaAdi: kayit.DosyaAdi,
+        yukleyenKullanici: kayit.YukleyenKullanici,
+        yuklemeTarihi: kayit.YuklemeTarihi
+      };
+    });
+
+    // İşlem bilgisi
+    const islemBilgisi = await pool.request()
+      .input('SutID', sql.Int, sutId)
+      .query(`
+        SELECT TOP 1
+          SutID,
+          SutKodu,
+          IslemAdi,
+          Puan,
+          AktifMi
+        FROM SutIslemler
+        WHERE SutID = @SutID
+      `);
+
+    return success(res, {
+      islem: mevcutKayitData,
+      suAnkiDurum: suAnkiDurum,
+      suAnkiDurumAciklama: suAnkiDurumAciklama,
+      ilkKayitTarihi: ilkKayitTarihi,
+      yasamDongusu: yasamDongusu,
+      toplamOlay: yasamDongusu.length
+    }, 'SUT kodu yaşam döngüsü');
+  } catch (err) {
+    next(err);
+  }
+};
+
+// ============================================
 // GET /api/tarihsel/sut/stats
 // SUT tarihsel istatistikleri
 // ============================================
@@ -316,5 +634,6 @@ module.exports = {
   getPuanGecmisi,
   getVersionlar,
   karsilastirVersiyonlar,
-  getTarihselStats
+  getTarihselStats,
+  getYasamDongusu
 };

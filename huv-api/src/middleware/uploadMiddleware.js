@@ -11,7 +11,23 @@ const fs = require('fs');
 // ============================================
 // Upload klasörünü oluştur
 // ============================================
-const uploadDir = path.join(__dirname, '../../uploads');
+// Environment variable'dan al, yoksa sistem temp klasörü kullan
+const getUploadDir = () => {
+  // 1. Environment variable'dan al (production için)
+  if (process.env.UPLOAD_DIR) {
+    return process.env.UPLOAD_DIR;
+  }
+  
+  // 2. Windows için: C:\HUV_Uploads (proje dışı)
+  // 3. Linux/Mac için: /tmp/huv-uploads
+  if (process.platform === 'win32') {
+    return path.join(process.env.USERPROFILE || process.env.HOME || 'C:\\', 'HUV_Uploads');
+  } else {
+    return path.join(require('os').tmpdir(), 'huv-uploads');
+  }
+};
+
+const uploadDir = getUploadDir();
 if (!fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir, { recursive: true });
 }

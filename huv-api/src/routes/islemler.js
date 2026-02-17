@@ -9,9 +9,6 @@ const express = require('express');
 const router = express.Router();
 const {
   getIslemler,
-  getIslemById,
-  getIslemByHuvKodu,
-  getIslemEslesmeler,
   araIslem,
   getFiyatAralik,
   getHiyerarsi,
@@ -97,25 +94,5 @@ router.get('/en-ucuz', getEnUcuz);
 // ============================================
 router.get('/kategori', getKategori);
 
-// ============================================
-// GET /api/islemler/huv/:kod
-// HUV koduna göre işlem bul
-// Param: kod (float)
-// ============================================
-router.get('/huv/:kod', getIslemByHuvKodu);
-
-// ============================================
-// GET /api/islemler/:id/eslesmeler
-// Bir HUV işleminin SUT eşleştirmelerini getir
-// Param: id (int)
-// ============================================
-router.get('/:id/eslesmeler', getIslemEslesmeler);
-
-// ============================================
-// GET /api/islemler/:id
-// İşlem detayı
-// Param: id (int)
-// ============================================
-router.get('/:id', getIslemById);
 
 module.exports = router;

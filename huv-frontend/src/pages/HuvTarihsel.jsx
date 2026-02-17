@@ -111,18 +111,51 @@ function Tarihsel() {
         tarih: fiyatForm.tarih
       });
       
-      if (response.data) {
-        setFiyatResult(response.data);
+      // API response formatı: { success: true, data: {...}, message: "..." }
+      const result = response.data?.data || response.data;
+      if (result) {
+        setFiyatResult(result);
         showSuccess('Fiyat bilgisi başarıyla getirildi');
       } else {
         setFiyatResult(null);
-        showError('Bu tarihte fiyat bulunamadı');
+        // Backend'den gelen detaylı hata mesajını göster
+        const errorDetail = response.data?.detay || response.data?.message;
+        if (errorDetail) {
+          showError(errorDetail);
+        } else {
+          showError('Bu tarihte fiyat bulunamadı');
+        }
       }
     } catch (err) {
       console.error('Fiyat sorgu hatası:', err);
       setError(err);
       setFiyatResult(null);
-      showError(err.response?.data?.message || 'Fiyat sorgulanamadı');
+      
+      // Backend'den gelen detaylı hata mesajı
+      const errorData = err.response?.data;
+      const errorMessage = errorData?.message || 
+                          errorData?.errors?.cozum || 
+                          errorData?.detay || 
+                          err.message || 
+                          'Fiyat sorgulanamadı';
+      
+      // Başlangıç tarihi hatası için özel mesaj
+      if (errorData?.errors?.tip === 'TARIH_BASLANGIC_ONDEN') {
+        const cozum = errorData.errors.cozum || '';
+        const baslangicTarihi = errorData.errors.baslangicTarihi || '2025-10-07';
+        showError(`${errorMessage}\n${cozum}\nBaşlangıç tarihi: ${baslangicTarihi}`);
+      } else if (errorData?.errors?.tip === 'GECERSIZ_TARIH_FORMATI') {
+        showError(`${errorMessage}\n${errorData.errors.cozum || ''}`);
+      } else if (errorData?.errors?.tip === 'GELECEK_TARIH') {
+        showError(`${errorMessage}\n${errorData.errors.cozum || ''}`);
+      } else {
+        // En eski tarih bilgisi varsa göster
+        if (errorData?.enEskiTarih) {
+          showError(`${errorMessage} (En eski kayıt: ${errorData.enEskiTarih})`);
+        } else {
+          showError(errorMessage);
+        }
+      }
     } finally {
       setLoading(false);
     }
@@ -134,17 +167,25 @@ function Tarihsel() {
       return;
     }
 
-    const data = [{
-      'HUV Kodu': fiyatResult.HuvKodu,
-      'İşlem Adı': fiyatResult.IslemAdi,
-      'Birim (TL)': fiyatResult.Birim || '-',
-      'Tarih': formatDateShort(fiyatForm.tarih),
-      'Ana Dal': fiyatResult.BolumAdi || '-',
-      'Hiyerarşi Seviyesi': fiyatResult.HiyerarsiSeviyesi || '-'
-    }];
+    try {
+      const data = [{
+        'HUV Kodu': fiyatResult.HuvKodu || '-',
+        'İşlem Adı': fiyatResult.IslemAdi || '-',
+        'Birim (TL)': fiyatResult.Birim || '-',
+        'Tarih': formatDateShort(fiyatForm.tarih),
+        'Geçerlilik Başlangıç': fiyatResult.GecerlilikBaslangic ? formatDateShort(fiyatResult.GecerlilikBaslangic) : '-',
+        'Geçerlilik Bitiş': fiyatResult.GecerlilikBitis ? formatDateShort(fiyatResult.GecerlilikBitis) : 'Devam Ediyor',
+        'Ana Dal': fiyatResult.BolumAdi || '-',
+        'Hiyerarşi Seviyesi': fiyatResult.HiyerarsiSeviyesi || '-',
+        'Değişiklik Sebebi': fiyatResult.DegisiklikSebebi || '-'
+      }];
 
-    exportToExcel(data, 'tarihteki_fiyat');
-    showSuccess('Excel dosyası başarıyla indirildi');
+      exportToExcel(data, 'tarihteki_fiyat');
+      showSuccess('Excel dosyası başarıyla indirildi');
+    } catch (err) {
+      console.error('Export hatası:', err);
+      showError('Excel dosyası oluşturulamadı');
+    }
   };
 
   // ============================================
@@ -166,11 +207,14 @@ function Tarihsel() {
         bitis: degişenlerForm.bitis
       });
 
-      const data = response.data || [];
+      // API response formatı: { success: true, data: [...], message: "..." }
+      const data = response.data?.data || response.data || [];
       setDegişenlerResult(data);
       
       if (data.length === 0) {
-        showInfo('Bu tarih aralığında değişiklik bulunamadı');
+        // Backend'den gelen uyarı mesajını göster
+        const uyari = response.data?.uyari || 'Bu tarih aralığında değişiklik bulunamadı';
+        showInfo(uyari);
       } else {
         showSuccess(`${data.length} değişiklik bulundu`);
       }
@@ -178,7 +222,22 @@ function Tarihsel() {
       console.error('Değişenler sorgu hatası:', err);
       setError(err);
       setDegişenlerResult([]);
-      showError(err.response?.data?.message || 'Değişiklikler sorgulanamadı');
+      // Backend'den gelen detaylı hata mesajı
+      const errorData = err.response?.data;
+      const errorMessage = errorData?.message || 
+                          errorData?.errors?.cozum || 
+                          errorData?.detay || 
+                          err.message || 
+                          'Değişiklikler sorgulanamadı';
+      
+      // Başlangıç tarihi hatası için özel mesaj
+      if (errorData?.errors?.tip === 'TARIH_BASLANGIC_ONDEN' || errorData?.errors?.tip === 'GECERSIZ_TARIH_ARALIGI') {
+        const cozum = errorData.errors.cozum || '';
+        const baslangicTarihi = errorData.errors.baslangicTarihi || '2025-10-07';
+        showError(`${errorMessage}\n${cozum}\nBaşlangıç tarihi: ${baslangicTarihi}`);
+      } else {
+        showError(errorMessage);
+      }
     } finally {
       setLoading(false);
     }
@@ -190,19 +249,26 @@ function Tarihsel() {
       return;
     }
 
-    const data = degişenlerResult.map(item => ({
-      'HUV Kodu': item.HuvKodu,
-      'İşlem Adı': item.IslemAdi,
-      'Eski Birim (TL)': item.EskiBirim?.toFixed(2) || '-',
-      'Yeni Birim (TL)': item.YeniBirim?.toFixed(2) || '-',
-      'Fark (TL)': item.Fark?.toFixed(2) || '-',
-      'Değişim %': item.DegisimYuzdesi ? `${item.DegisimYuzdesi.toFixed(2)}%` : '-',
-      'Değişiklik Tarihi': item.DegisiklikTarihi ? formatDateShort(item.DegisiklikTarihi) : '-',
-      'Ana Dal': item.BolumAdi || '-'
-    }));
+    try {
+      const data = degişenlerResult.map(item => ({
+        'HUV Kodu': item.HuvKodu || '-',
+        'İşlem Adı': item.IslemAdi || '-',
+        'Eski Birim (TL)': item.EskiBirim || item.IlkBirim ? (item.EskiBirim || item.IlkBirim).toFixed(2) : '-',
+        'Yeni Birim (TL)': item.YeniBirim || item.SonBirim ? (item.YeniBirim || item.SonBirim).toFixed(2) : '-',
+        'Fark (TL)': item.Fark || item.BirimDegisimi ? (item.Fark || item.BirimDegisimi).toFixed(2) : '-',
+        'Değişim %': item.DegisimYuzdesi ? `${parseFloat(item.DegisimYuzdesi).toFixed(2)}%` : '-',
+        'İlk Değişiklik': item.IlkDegisiklik ? formatDateShort(item.IlkDegisiklik) : '-',
+        'Son Değişiklik': item.SonDegisiklik ? formatDateShort(item.SonDegisiklik) : item.DegisiklikTarihi ? formatDateShort(item.DegisiklikTarihi) : '-',
+        'Değişiklik Sayısı': item.DegisiklikSayisi || 1,
+        'Ana Dal': item.BolumAdi || '-'
+      }));
 
-    exportToExcel(data, 'degisen_islemler');
-    showSuccess('Excel dosyası başarıyla indirildi');
+      exportToExcel(data, 'degisen_islemler');
+      showSuccess('Excel dosyası başarıyla indirildi');
+    } catch (err) {
+      console.error('Export hatası:', err);
+      showError('Excel dosyası oluşturulamadı');
+    }
   };
 
   // ============================================
@@ -225,18 +291,32 @@ function Tarihsel() {
       setError(null);
       const response = await tarihselService.getFiyatGecmisi(gecmisForm.huvKodu);
 
-      if (response.data) {
-        setGecmisResult(response.data);
+      // API response formatı: { success: true, data: {...}, message: "..." }
+      const result = response.data?.data || response.data;
+      if (result) {
+        setGecmisResult(result);
         showSuccess('Fiyat geçmişi başarıyla getirildi');
       } else {
         setGecmisResult(null);
-        showError('Fiyat geçmişi bulunamadı');
+        // Backend'den gelen detaylı hata mesajını göster
+        const errorDetail = response.data?.detay || response.data?.message;
+        if (errorDetail) {
+          showError(errorDetail);
+        } else {
+          showError('Fiyat geçmişi bulunamadı');
+        }
       }
     } catch (err) {
       console.error('Geçmiş sorgu hatası:', err);
       setError(err);
       setGecmisResult(null);
-      showError(err.response?.data?.message || 'Fiyat geçmişi sorgulanamadı');
+      
+      // Detaylı hata mesajı
+      const errorMessage = err.response?.data?.message || 
+                          err.response?.data?.detay || 
+                          err.message || 
+                          'Fiyat geçmişi sorgulanamadı';
+      showError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -248,25 +328,30 @@ function Tarihsel() {
       return;
     }
 
-    // Versiyon geçmişi
-    const versiyonData = gecmisResult.versiyonlar.map((versiyon, index) => {
-      const oncekiVersiyon = gecmisResult.versiyonlar[index + 1];
-      const fark = oncekiVersiyon && versiyon.Birim && oncekiVersiyon.Birim 
-        ? versiyon.Birim - oncekiVersiyon.Birim 
-        : null;
-      
-      return {
-        'Versiyon ID': versiyon.VersionID,
-        'HUV Kodu': gecmisResult.islem?.HuvKodu || '-',
-        'İşlem Adı': gecmisResult.islem?.IslemAdi || '-',
-        'Birim (TL)': versiyon.Birim?.toFixed(2) || '-',
-        'Fark (TL)': fark ? fark.toFixed(2) : '-',
-        'Geçerlilik Başlangıç': versiyon.GecerlilikBaslangic ? formatDateShort(versiyon.GecerlilikBaslangic) : '-',
-        'Geçerlilik Bitiş': versiyon.GecerlilikBitis ? formatDateShort(versiyon.GecerlilikBitis) : 'Devam Ediyor',
-        'Durum': versiyon.AktifMi && !versiyon.GecerlilikBitis ? 'Aktif' : 'Geçmiş',
-        'Değişiklik Sebebi': versiyon.DegisiklikSebebi || '-'
-      };
-    });
+    try {
+      // Versiyon geçmişi
+      const versiyonData = gecmisResult.versiyonlar.map((versiyon, index) => {
+        const oncekiVersiyon = gecmisResult.versiyonlar[index + 1];
+        // BirimDegisimi varsa onu kullan, yoksa hesapla
+        const fark = versiyon.BirimDegisimi !== null && versiyon.BirimDegisimi !== undefined
+          ? versiyon.BirimDegisimi
+          : (oncekiVersiyon && versiyon.Birim && oncekiVersiyon.Birim 
+            ? versiyon.Birim - oncekiVersiyon.Birim 
+            : null);
+        
+        return {
+          'Versiyon ID': versiyon.VersionID || versiyon.IslemVersionID || '-',
+          'HUV Kodu': gecmisResult.islem?.HuvKodu || '-',
+          'İşlem Adı': gecmisResult.islem?.IslemAdi || '-',
+          'Birim (TL)': versiyon.Birim || '-',
+          'Fark (TL)': fark !== null ? (fark > 0 ? '+' : '') + fark.toFixed(2) : '-',
+          'Değişim %': versiyon.BirimDegisimYuzdesi ? `${parseFloat(versiyon.BirimDegisimYuzdesi).toFixed(2)}%` : '-',
+          'Geçerlilik Başlangıç': versiyon.GecerlilikBaslangic ? formatDateShort(versiyon.GecerlilikBaslangic) : '-',
+          'Geçerlilik Bitiş': versiyon.GecerlilikBitis ? formatDateShort(versiyon.GecerlilikBitis) : 'Devam Ediyor',
+          'Durum': versiyon.AktifMi && !versiyon.GecerlilikBitis ? 'Aktif' : 'Geçmiş',
+          'Değişiklik Sebebi': versiyon.DegisiklikSebebi || '-'
+        };
+      });
 
     // Yaşam döngüsü
     const yasamData = [];
@@ -296,31 +381,35 @@ function Tarihsel() {
       }
     });
     
-    // Şu anki durum
-    yasamData.push({
+      // Şu anki durum
+      yasamData.push({
       'Tarih': formatDateTime(new Date()),
       'İşlem': 'Şu Anki Durum',
       'Açıklama': gecmisResult.mevcutMu ? 'Aktif' : 'Silinmiş'
     });
 
-    // İki sheet'li Excel oluştur
-    const workbook = {
-      SheetNames: ['Versiyon Geçmişi', 'Yaşam Döngüsü'],
-      Sheets: {
-        'Versiyon Geçmişi': window.XLSX?.utils.json_to_sheet(versiyonData),
-        'Yaşam Döngüsü': window.XLSX?.utils.json_to_sheet(yasamData)
-      }
-    };
+      // İki sheet'li Excel oluştur
+      const workbook = {
+        SheetNames: ['Versiyon Geçmişi', 'Yaşam Döngüsü'],
+        Sheets: {
+          'Versiyon Geçmişi': window.XLSX?.utils.json_to_sheet(versiyonData),
+          'Yaşam Döngüsü': window.XLSX?.utils.json_to_sheet(yasamData)
+        }
+      };
 
-    // XLSX kütüphanesi varsa kullan, yoksa basit export
-    if (window.XLSX) {
-      window.XLSX.writeFile(workbook, `fiyat_gecmisi_${gecmisResult.islem?.HuvKodu}.xlsx`);
-    } else {
-      // Fallback: sadece versiyon geçmişi
-      exportToExcel(versiyonData, `fiyat_gecmisi_${gecmisResult.islem?.HuvKodu}`);
+      // XLSX kütüphanesi varsa kullan, yoksa basit export
+      if (window.XLSX) {
+        window.XLSX.writeFile(workbook, `fiyat_gecmisi_${gecmisResult.islem?.HuvKodu || 'bilinmeyen'}.xlsx`);
+      } else {
+        // Fallback: sadece versiyon geçmişi
+        exportToExcel(versiyonData, `fiyat_gecmisi_${gecmisResult.islem?.HuvKodu || 'bilinmeyen'}`);
+      }
+      
+      showSuccess('Excel dosyası başarıyla indirildi');
+    } catch (err) {
+      console.error('Export hatası:', err);
+      showError('Excel dosyası oluşturulamadı');
     }
-    
-    showSuccess('Excel dosyası başarıyla indirildi');
   };
 
   return (
@@ -380,8 +469,15 @@ function Tarihsel() {
               <Typography variant="h5" gutterBottom fontWeight="600">
                 Belirli Tarihteki Fiyat Sorgulama
               </Typography>
-              <Alert severity="info" icon={<InfoIcon />} sx={{ mt: 2 }}>
+              <Alert severity="info" icon={<InfoIcon />} sx={{ mt: 2, mb: 2 }}>
                 Bir işlemin geçmişteki belirli bir tarihteki fiyatını sorgulayın
+              </Alert>
+              <Alert severity="warning" sx={{ mb: 2 }}>
+                <Typography variant="body2" fontWeight="600">Başlangıç Tarihi: 07.10.2025</Typography>
+                <Typography variant="body2">
+                  HUV listesi için sorgu yapılabilecek en eski tarih <strong>07.10.2025</strong> tarihidir. 
+                  Bu tarih, sistemdeki ilk import tarihidir.
+                </Typography>
               </Alert>
             </Box>
 
@@ -726,6 +822,21 @@ function Tarihsel() {
             {/* Sonuç */}
             {gecmisResult && gecmisResult.islem && (
               <Stack spacing={3}>
+                {/* Başlangıç Tarihi Bilgisi */}
+                {gecmisResult.baslangicTarihi && (
+                  <Alert severity="info" icon={<InfoIcon />}>
+                    <Typography variant="body2" fontWeight="600">Başlangıç Tarihi: {gecmisResult.baslangicTarihi}</Typography>
+                    <Typography variant="body2">
+                      HUV listesi için sorgu yapılabilecek en eski tarih <strong>{gecmisResult.baslangicTarihi}</strong> tarihidir.
+                    </Typography>
+                    {gecmisResult.uyari && (
+                      <Typography variant="body2" sx={{ mt: 1, fontStyle: 'italic' }}>
+                        {gecmisResult.uyari}
+                      </Typography>
+                    )}
+                  </Alert>
+                )}
+                
                 {/* Silindi Uyarısı */}
                 {!gecmisResult.mevcutMu && (
                   <Alert severity="warning" icon={<InfoIcon />}>

@@ -73,10 +73,7 @@ const parseSutExcel = (filePath) => {
       }
     }
     
-    // Başlık satırı bulunamadıysa uyarı ver ama devam et (ilk satırı kullan)
-    if (headerRowIndex === 0 && maxHeaderSearchRows > 0) {
-      console.warn(`⚠️ Başlık satırı otomatik bulunamadı, ilk satır kullanılıyor`);
-    }
+    // Başlık satırı bulunamadıysa ilk satırı kullan
     
     // Başlık satırını manuel oku
     const headerRow = [];
@@ -154,21 +151,7 @@ const parseSutExcel = (filePath) => {
 // ============================================
 // Türkçe tarih formatını parse et
 // ============================================
-const parseTurkishDate = (dateStr) => {
-  if (!dateStr || typeof dateStr !== 'string') return null;
-  
-  const parts = dateStr.trim().split('.');
-  if (parts.length !== 3) return null;
-  
-  const day = parseInt(parts[0]);
-  const month = parseInt(parts[1]);
-  const year = parseInt(parts[2]);
-  
-  if (isNaN(day) || isNaN(month) || isNaN(year)) return null;
-  if (day < 1 || day > 31 || month < 1 || month > 12) return null;
-  
-  return new Date(year, month - 1, day);
-};
+// parseTurkishDate fonksiyonu kaldırıldı (kullanılmıyordu)
 
 // ============================================
 // Kolon isimlerini normalize et (Excel -> DB)
@@ -536,18 +519,243 @@ const validateSutData = (data) => {
 };
 
 // ============================================
-// Hiyerarşi yapısını parse et
-// Pattern: SutKodu boş + IslemAdi dolu = Hiyerarşi satırı
-// Örnek: ["", "1. YATAK PUANLARI", "", ""]
+// Hiyerarşi yapısını parse et - AKILLI SEVİYE TESPİTİ
+// ============================================
+// Her ana başlık farklı yapıda:
+// - 1-2: Direkt işlemler (alt başlık yok)
+// - 3: Alt başlıklar var
+// - 4: Alt başlık → Grup tanımları (A1 grubu) → Açıklama → İşlemler
+// - 5: Çok seviyeli hiyerarşi
+// - 6+: Numaralı alt başlıklar (6.1., 6.1.1.)
 // ============================================
 parseHierarchy = (data) => {
   const sourceData = (data[0] && data[0].SutKodu !== undefined) ? data : normalizeColumnNames(data);
 
   const hierarchyRows = [];
   let currentAnaBaslikNo = 0;
-  let currentAnaBaslik = null;
-  let lastHierarchy = null; // Son eklenen hiyerarşi node'u
+  let currentAnaBaslik = null; // Seviye 1 (Ana başlık)
+  let parentStack = []; // Hiyerarşi stack'i (parent tracking için)
   let sira = 0;
+
+  // Açıklama satırı mı kontrol et (uzun, virgüllü cümleler)
+  const isDescriptionRow = (text) => {
+    if (!text || text.length < 20) return false;
+    // Virgül ve nokta var, uzun cümle -> açıklama
+    const hasCommas = (text.match(/,/g) || []).length >= 2;
+    const endsWithPeriod = text.trim().endsWith('.');
+    const tooLong = text.length > 100;
+    return (hasCommas && tooLong) || (endsWithPeriod && tooLong);
+  };
+
+  // SUT kodu formatında mı kontrol et (R104080, L101880, 510010 gibi)
+  // Pattern: Harf veya rakam ile başlar, ardından rakamlar
+  const isSutCodeFormat = (text) => {
+    if (!text || text.length < 3 || text.length > 20) return false;
+    // Harf ile başlayan: R104080, L101880
+    // Rakam ile başlayan: 510010, 540020
+    return /^[A-Z]?\d{4,}$/.test(text.trim());
+  };
+
+  // Parent stack'ten son numaralı başlığı bul
+  // Hem rakam-rakam (9.1, 9.1.1) hem de harf-rakam (9.A, 9.D, 9.D. PATOLOJİ) kombinasyonlarını bulur
+  const findLastNumberedParent = (stack) => {
+    for (let i = stack.length - 1; i >= 0; i--) {
+      const node = stack[i];
+      if (node.Baslik) {
+        // Rakam-rakam kombinasyonları: 9.1, 9.1.1, 6.1.2 gibi
+        if (/^\d+\.\d+/.test(node.Baslik)) {
+        return node;
+        }
+        // Harf-rakam kombinasyonları: 9.A, 9.B, 9.D, 9.E, 9.D. PATOLOJİ gibi
+        // Pattern: Rakam + nokta + harf ile başlayan (ardından başka şeyler olabilir)
+        if (/^\d+\.[A-Z]/.test(node.Baslik)) {
+          return node;
+        }
+      }
+    }
+    return null;
+  };
+  
+  // Ana başlık bazlı özel seviye belirleme
+  // Her ana başlık farklı yapıda, özel logic gerekiyor
+  const determineSeviyeByAnaBaslik = (islemAdi, anaBaslikNo, parentStack) => {
+    const lastNode = parentStack.length > 0 ? parentStack[parentStack.length - 1] : null;
+    // 1. Numaralı başlıklar (tüm ana başlıklarda geçerli)
+    const numberedMatch = islemAdi.match(/^(\d+(?:\.\d+)*(?:\.[A-Z])?(?:\.\d+)*)\.\s*(.+)/);
+    if (numberedMatch) {
+      const numberPart = numberedMatch[1];
+      const dots = (numberPart.match(/\./g) || []).length;
+      return Math.min(dots + 1, 6); // Seviye 2-6
+    }
+
+    // 2. Ana başlık bazlı özel kurallar
+    switch (anaBaslikNo) {
+      case 1: // YATAK PUANLARI - direkt işlemler
+      case 2: // HEKİM MUAYENELERİ - direkt işlemler
+        // Alt başlık varsa Seviye 2
+        return 2;
+
+      case 3: // ACİL SERVİS
+        // "ACİL SERVİSTE YAPILAN UYGULAMALAR" gibi başlıklar
+        return 2;
+
+      case 4: // AMELİYATHANE
+        // "AMELİYATHANE ve AMELİYATHANE DIŞI İŞLEM TANIMLARI" → Seviye 2
+        // "A1 grubu", "A2 grubu" → Seviye 3
+        if (/^[A-Z]\d?\s*grubu?$/i.test(islemAdi)) {
+          return 3;
+        }
+        // BÜYÜK HARF başlıklar
+        const isAllCaps = islemAdi === islemAdi.toUpperCase() && /[A-ZĞÜŞİÖÇ]/.test(islemAdi);
+        if (isAllCaps) {
+          return lastNode && lastNode.SeviyeNo >= 2 ? lastNode.SeviyeNo + 1 : 2;
+        }
+        // Karma harf (açıklama veya alt başlık)
+        return lastNode && lastNode.SeviyeNo >= 2 ? lastNode.SeviyeNo + 1 : 3;
+
+      case 5: // ANESTEZİ - çok seviyeli (BÜYÜK HARF → Seviye 2, Karma harf → Seviye 3)
+        const isAllCaps5 = islemAdi === islemAdi.toUpperCase() && /[A-ZĞÜŞİÖÇ]/.test(islemAdi);
+        const isTitle5 = /^[A-ZĞÜŞİÖÇ][a-zğüşıöç]/.test(islemAdi);
+        
+        if (isAllCaps5) {
+          // BÜYÜK HARF başlıklar: Seviye 2 (ana başlığın altı)
+          return 2;
+        } else if (isTitle5) {
+          // Karma harf başlıklar: Son BÜYÜK HARF başlığın altı (Seviye 3)
+          // Parent stack'te son BÜYÜK HARF başlığı bul
+          for (let i = parentStack.length - 1; i >= 0; i--) {
+            const node = parentStack[i];
+            if (node.Baslik && node.Baslik === node.Baslik.toUpperCase() && node.SeviyeNo === 2) {
+              return node.SeviyeNo + 1;
+            }
+          }
+          return 3;
+        }
+        return 2;
+
+      case 6: // CERRAHİ
+      case 7: // TIBBİ UYGULAMALAR
+        // Numaralı alt başlıklar (6.1., 6.1.1., 7.1., 7.2...) + BÜYÜK HARF + Karma Harf başlıklar
+        
+        // BÜYÜK HARF kontrolü: Küçük harf bağlaçları (ve, ile, veya) hariç tüm harfler büyük mü?
+        const wordsUpper = islemAdi.split(/\s+/).filter(word => {
+          // Bağlaçları hariç tut
+          const lowercaseWords = ['ve', 'ile', 'veya', 'ya', 'da'];
+          return !lowercaseWords.includes(word.toLowerCase());
+        });
+        const isAllCaps67 = wordsUpper.length > 0 && 
+                           wordsUpper.every(word => word === word.toUpperCase() && /[A-ZĞÜŞİÖÇ]/.test(word));
+        
+        const isTitle67 = /^[A-ZĞÜŞİÖÇ][a-zğüşıöç]/.test(islemAdi);
+        
+        if (isAllCaps67 || isTitle67) {
+          // Parent stack'ten son numaralı başlığı bul (6.1, 7.2 gibi)
+          const lastNumbered = findLastNumberedParent(parentStack);
+          
+          if (lastNumbered) {
+            // Numaralı başlığın altına gir (Seviye +1)
+            // Örnek: 6.1 (Seviye 2) → BÜYÜK HARF (Seviye 3)
+            return lastNumbered.SeviyeNo + 1;
+          }
+          
+          // Numaralı başlık bulunamadı, varsayılan
+          return 2;
+        }
+        return 2;
+
+      case 8: // RADYOLOJİK GÖRÜNTÜLEME - çok derin hiyerarşi (8.1.2.A, 8.3.1, 8.3.2)
+        // Harf prefiksi olanlar (C-Anjiyografik, D-Kemik, E-Nonvasküler, F-Ultrasonografik, G-Renkli Doppler)
+        const hasLetterPrefix8 = /^[A-Z]-/.test(islemAdi);
+        if (hasLetterPrefix8) {
+          // Harf prefiksi olan başlıklar: parent stack'ten son numaralı başlığın altına gir
+          const lastNumbered8 = findLastNumberedParent(parentStack);
+          if (lastNumbered8) {
+            return lastNumbered8.SeviyeNo + 1;
+          }
+          return 3; // Varsayılan seviye
+        }
+        
+        // Numaralı başlıklar yukarıda halledildi (8.3.1, 8.3.2 gibi)
+        // BÜYÜK HARF ve Karma Harf → Parent tracking
+        const isAllCaps8 = islemAdi === islemAdi.toUpperCase() && /[A-ZĞÜŞİÖÇ]/.test(islemAdi);
+        const isTitle8 = /^[A-ZĞÜŞİÖÇ][a-zğüşıöç]/.test(islemAdi);
+        
+        if (isAllCaps8 || isTitle8) {
+          // Parent stack'ten son numaralı veya harf prefiksli başlığı bul
+          const lastNumbered8 = findLastNumberedParent(parentStack);
+          const lastLetterPrefix = parentStack.slice().reverse().find(n => n.Baslik && /^[A-Z]-/.test(n.Baslik));
+          
+          if (lastLetterPrefix && (!lastNumbered8 || lastLetterPrefix.SeviyeNo > lastNumbered8.SeviyeNo)) {
+            // Harf prefiksli başlığın altına gir
+            return lastLetterPrefix.SeviyeNo + 1;
+          } else if (lastNumbered8) {
+            // Numaralı başlığın altına gir
+            return lastNumbered8.SeviyeNo + 1;
+          }
+          return 2;
+        }
+        return 2;
+
+      case 9: // LABORATUVAR - çok derin (9.1, 9.A, 9.B, 9.B.1, 9.C.1)
+        // ÖNCE: Numaralı harf-rakam başlıkları kontrol et (9.D. PATOLOJİ gibi)
+        // Bu başlıklar Seviye 2 olmalı
+        if (/^\d+\.[A-Z]/.test(islemAdi)) {
+          return 2;
+        }
+        
+        // Harf-rakam kodları (9.A, 9.B, 9.C...) numaralı başlık olarak algılanır (yukarıda)
+        const isAllCaps9 = islemAdi === islemAdi.toUpperCase() && /[A-ZĞÜŞİÖÇ]/.test(islemAdi);
+        const isTitle9 = /^[A-ZĞÜŞİÖÇ][a-zğüşıöç]/.test(islemAdi);
+        
+        // ÖZEL: Karma format başlıklar (ACTH-CRH Uyarı Testi, Kortizol-ACTH Uyarı Testi)
+        // Hem büyük hem küçük harf içerir, genellikle tire/boşluk ile ayrılmış
+        const hasMixedCase9 = /[A-ZĞÜŞİÖÇ]/.test(islemAdi) && 
+                              /[a-zğüşıöç]/.test(islemAdi) && 
+                              !isAllCaps9;
+        
+        if (isAllCaps9) {
+          // GENEL MANTIK: Bir numaralı harf-rakam başlığından (9.A, 9.B, 9.D, 9.E gibi) sonra gelen
+          // BÜYÜK HARF başlıklar, o numaralı başlığın altında olmalı
+          // Stack'ten son numaralı harf-rakam başlığını bul (9.D. PATOLOJİ gibi)
+          const lastNumbered9 = findLastNumberedParent(parentStack);
+          
+          if (lastNumbered9 && lastNumbered9.SeviyeNo === 2) {
+            // Son numaralı başlık Seviye 2 ise (9.D. PATOLOJİ gibi)
+            // Bu BÜYÜK HARF başlığı onun altına gir (Seviye 3)
+            return lastNumbered9.SeviyeNo + 1;
+          }
+          
+          // Eğer numaralı başlık bulunamadı veya Seviye 2 değilse, normal mantığa devam et
+          return 2;
+        } else if (isTitle9 || hasMixedCase9) {
+          // Karma harf başlıklar (Spesifik IgE, Kortizol-CRH Uyarı Testi)
+          // Son BÜYÜK HARF başlığın altına gir
+          for (let i = parentStack.length - 1; i >= 0; i--) {
+            const node = parentStack[i];
+            if (node.Baslik && node.Baslik === node.Baslik.toUpperCase() && /[A-ZĞÜŞİÖÇ]/.test(node.Baslik)) {
+              // DİNAMİK TESTLER (Seviye 3) → ACTH-CRH Uyarı Testi (Seviye 4)
+              return node.SeviyeNo + 1;
+            }
+          }
+          
+          // BÜYÜK HARF parent bulunamadı, son numaralı başlığın altına gir
+          const lastNumbered9 = findLastNumberedParent(parentStack);
+          if (lastNumbered9) {
+            return lastNumbered9.SeviyeNo + 1;
+          }
+          return 3; // Varsayılan
+        }
+        return 2;
+
+      case 10: // TÜRKİYE HALK SAĞLIĞI - basit alt başlıklar
+        // "MİKROBİYOLOJİK TESTLER", "PARAZİTER VE BAKTERİYEL" gibi
+        // Hepsi BÜYÜK HARF ve Seviye 2
+        return 2;
+
+      default:
+        return 2;
+    }
+  };
 
   sourceData.forEach((row, index) => {
     const hasSutKodu = row.SutKodu && row.SutKodu !== null && row.SutKodu !== '';
@@ -556,19 +764,38 @@ parseHierarchy = (data) => {
     // Hiyerarşi satırı: SutKodu yok ama IslemAdi var
     if (!hasSutKodu && hasIslemAdi) {
       const islemAdi = row.IslemAdi.toString().replace(/[\r\n]+/g, ' ').trim();
-      const numberMatch = islemAdi.match(/^(\d+)\.\s*(.+)/);
-
-      if (numberMatch) {
-        const number = parseInt(numberMatch[1]);
-        const baslik = numberMatch[2].trim();
-        const hasSubIndicator = /^[A-Z0-9]+\./.test(baslik);
-
-        if (number >= 1 && number <= 10 && !hasSubIndicator) {
+      
+      // Açıklama satırlarını atla
+      if (isDescriptionRow(islemAdi)) {
+        return;
+      }
+      
+      // SUT kodu formatındaki satırları atla (R104080, L101880 gibi)
+      // Bunlar muhtemelen yanlış yere yazılmış SUT kodları, hiyerarşi değil
+      if (isSutCodeFormat(islemAdi)) {
+        return;
+      }
+      
+      // Çok kısa veya "Birim" gibi satırları atla
+      if (islemAdi.length < 3 || islemAdi.toLowerCase() === 'birim') {
+        return;
+      }
+      
+      // Ana başlık tespiti: "1. YATAK PUANLARI", "10. TÜRKİYE HALK SAĞLIĞI..."
+      // Pattern: Sadece 1-10 arası tek rakam + nokta + boşluk (ardından başka rakam olmamalı)
+      const mainHeadingMatch = islemAdi.match(/^(\d{1,2})\.\s+([^\d].+)/);
+      
+      if (mainHeadingMatch) {
+        const number = parseInt(mainHeadingMatch[1]);
+        const baslik = mainHeadingMatch[2].trim();
+        
+        if (number >= 1 && number <= 10) {
           // Ana başlık (Seviye 1)
           currentAnaBaslikNo = number;
           currentAnaBaslik = {
             AnaBaslikNo: currentAnaBaslikNo,
             Baslik: baslik,
+            TamBaslik: islemAdi,
             SeviyeNo: 1,
             ParentID: null,
             ParentRowIndex: null,
@@ -576,38 +803,116 @@ parseHierarchy = (data) => {
             rowIndex: index
           };
           hierarchyRows.push(currentAnaBaslik);
-          lastHierarchy = currentAnaBaslik;
-        } else {
-          // Alt başlık - son hiyerarşiye bağla
-          if (lastHierarchy) {
-            const newNode = {
-              AnaBaslikNo: currentAnaBaslikNo,
-              Baslik: islemAdi,
-              SeviyeNo: lastHierarchy.SeviyeNo + 1,
-              ParentID: null, // Veritabanı ID'si sonra atanacak
-              ParentRowIndex: lastHierarchy.rowIndex, // Excel'deki parent satır numarası
-              Sira: ++sira,
-              rowIndex: index
-            };
-            hierarchyRows.push(newNode);
-            lastHierarchy = newNode;
+          parentStack = [currentAnaBaslik]; // Stack'i sıfırla
+          return;
+        }
+      }
+      
+      // Alt başlık: Seviye tespiti yap
+      if (currentAnaBaslik) {
+        // ÖNEMLİ: Aynı başlık zaten hierarchyRows'ta var mı kontrol et (tekrar eklemeyi önle)
+        const existingNode = hierarchyRows.find(h => 
+          h.Baslik === islemAdi && 
+          h.AnaBaslikNo === currentAnaBaslikNo &&
+          h.rowIndex === index
+        );
+        
+        if (existingNode) {
+          // Aynı başlık zaten var, atla (tekrar ekleme)
+          return;
+        }
+        
+        const seviye = determineSeviyeByAnaBaslik(islemAdi, currentAnaBaslikNo, parentStack);
+        
+        // Parent belirleme: Stack'ten uygun parent'ı bul
+        let parent = currentAnaBaslik; // Varsayılan: Ana başlık
+        
+        // GENEL MANTIK: Eğer seviye 3 ise ve stack'te Seviye 2 numaralı harf-rakam başlığı varsa,
+        // parent o numaralı başlık olmalı (9.D. PATOLOJİ gibi)
+        if (seviye === 3) {
+          // Stack'ten son Seviye 2 numaralı harf-rakam başlığını bul
+          for (let i = parentStack.length - 1; i >= 0; i--) {
+            const node = parentStack[i];
+            if (node.SeviyeNo === 2 && node.Baslik && /^\d+\.[A-Z]/.test(node.Baslik)) {
+              parent = node;
+              break;
+            }
           }
         }
-      } else {
-        // Numara yok - alt başlık, son hiyerarşiye bağla
-        if (lastHierarchy) {
-          const newNode = {
-            AnaBaslikNo: currentAnaBaslikNo,
-            Baslik: islemAdi,
-            SeviyeNo: lastHierarchy.SeviyeNo + 1,
-            ParentID: null, // Veritabanı ID'si sonra atanacak
-            ParentRowIndex: lastHierarchy.rowIndex, // Excel'deki parent satır numarası
-            Sira: ++sira,
-            rowIndex: index
-          };
-          hierarchyRows.push(newNode);
-          lastHierarchy = newNode;
+        
+        // Eğer yukarıdaki mantık parent bulamadıysa, normal mantığa devam et
+        if (parent === currentAnaBaslik && seviye > 2) {
+        for (let i = parentStack.length - 1; i >= 0; i--) {
+          if (parentStack[i].SeviyeNo < seviye) {
+            parent = parentStack[i];
+            break;
+            }
+          }
         }
+        
+        const newNode = {
+          AnaBaslikNo: currentAnaBaslikNo,
+          Baslik: islemAdi,
+          TamBaslik: islemAdi,
+          SeviyeNo: seviye,
+          ParentID: null, // DB ID sonra atanacak
+          ParentRowIndex: parent.rowIndex,
+          Sira: ++sira,
+          rowIndex: index
+        };
+        hierarchyRows.push(newNode);
+        
+        // Stack güncelle: Aynı veya daha yüksek seviyeli node'ları çıkar
+        // GENEL MANTIK: Eğer yeni node Seviye 3 ise ve parent'ı Seviye 2 numaralı harf-rakam başlığı ise,
+        // bu başlıkları stack'e ekleme (parent'ları zaten belirlenmiş, stack'te olmalarına gerek yok)
+        // Bu, "9.D. PATOLOJİ" altındaki başlıklar gibi durumlar için geçerli
+        const isParentNumberedLevel2 = parent.SeviyeNo === 2 && parent.Baslik && /^\d+\.[A-Z]/.test(parent.Baslik);
+        
+        if (seviye === 3 && isParentNumberedLevel2) {
+          // Seviye 3 başlık, parent'ı Seviye 2 numaralı harf-rakam başlığı
+          // Stack'ten diğer Seviye 3 başlıkları çıkar (aynı parent'a sahip olabilirler)
+          // Ama parent'ı (Seviye 2 numaralı başlık) stack'te tut
+          while (parentStack.length > 0) {
+            const lastNode = parentStack[parentStack.length - 1];
+            // Parent'ı (Seviye 2 numaralı başlık) stack'te tut
+            if (lastNode.rowIndex === parent.rowIndex) {
+              break;
+            }
+            // Seviye 3 veya daha yüksek başlıkları çıkar
+            if (lastNode.SeviyeNo >= seviye) {
+              parentStack.pop();
+            } else {
+              break;
+            }
+          }
+          // Bu başlıkları stack'e EKLEME (parent'ları zaten belirlenmiş)
+          return;
+        } else {
+          // Normal mantık: Aynı veya daha yüksek seviyeli node'ları çıkar
+          // ÖNEMLİ: "9.D. PATOLOJİ" gibi numaralı başlıkların altında başlıklar olabilir
+          // Bu yüzden, eğer stack'teki son node numaralı bir başlıksa (9.D., 9.E. gibi)
+          // ve yeni node da aynı seviyedeyse, son node'u stack'te tut
+          const lastStackNode = parentStack.length > 0 ? parentStack[parentStack.length - 1] : null;
+          const isLastStackNodeNumbered = lastStackNode && lastStackNode.SeviyeNo === 2 && /^\d+\.[A-Z]/.test(lastStackNode.Baslik);
+          const isNewNodeNumbered = seviye === 2 && /^\d+\.[A-Z]/.test(newNode.Baslik);
+          
+          if (isLastStackNodeNumbered && isNewNodeNumbered) {
+            // İkisi de numaralı harf-rakam başlığı (9.D., 9.E. gibi) ve aynı seviye (Seviye 2)
+            // ÖNEMLİ: Son node'u (9.D. PATOLOJİ) stack'te TUT, çünkü altında başlıklar olabilir
+            // Sadece daha yüksek seviyeli node'ları çıkar
+            while (parentStack.length > 0 && parentStack[parentStack.length - 1].SeviyeNo > seviye) {
+              parentStack.pop();
+            }
+            // Son node'u (9.D. PATOLOJİ) stack'te tut, yeni node'u (9.E.) ekle
+            // Böylece hem 9.D. hem 9.E. stack'te olur, alt başlıklar doğru parent'ı bulabilir
+          } else {
+            // Normal mantık: Aynı veya daha yüksek seviyeli node'ları çıkar
+        while (parentStack.length > 0 && parentStack[parentStack.length - 1].SeviyeNo >= seviye) {
+          parentStack.pop();
+            }
+          }
+        }
+        parentStack.push(newNode);
       }
     }
   });
@@ -625,39 +930,38 @@ const normalizeSutData = async (data) => {
   // Hiyerarşi yapısını parse et
   const hierarchyRows = parseHierarchy(sourceData);
   
-  console.log(`📊 Hiyerarşi parse edildi: ${hierarchyRows.length} başlık bulundu`);
-  hierarchyRows.slice(0, 5).forEach(h => {
-    console.log(`   - [Seviye ${h.SeviyeNo}] ${h.Baslik} (AnaBaslikNo: ${h.AnaBaslikNo})`);
-  });
-  
   // İşlem satırlarını işle ve ana başlık numarasını ata
-  let currentAnaBaslikNo = null;
-  const hierarchyMap = {};
+  // Ana başlık rowIndex'lerini sırala (yukarıdan aşağıya)
+  const anaBaslikIndices = hierarchyRows
+    .filter(h => h.SeviyeNo === 1)
+    .map(h => ({ rowIndex: h.rowIndex, anaBaslikNo: h.AnaBaslikNo }))
+    .sort((a, b) => a.rowIndex - b.rowIndex);
   
-  // Hiyerarşi map'i oluştur (rowIndex -> AnaBaslikNo)
-  hierarchyRows.forEach(h => {
-    if (h.SeviyeNo === 1) {
-      hierarchyMap[h.rowIndex] = h.AnaBaslikNo;
+  // Her satır için en yakın üstteki ana başlığı bul
+  const getAnaBaslikNoForRow = (rowIndex) => {
+    // En yakın üstteki ana başlığı bul
+    for (let i = anaBaslikIndices.length - 1; i >= 0; i--) {
+      if (anaBaslikIndices[i].rowIndex <= rowIndex) {
+        return anaBaslikIndices[i].anaBaslikNo;
+      }
     }
-  });
+    return null;
+  };
   
   const processedRows = sourceData
     .map((row, index) => {
       // Hiyerarşi satırlarını atla
       if (!row.SutKodu || row.SutKodu === null || row.SutKodu === '') {
-        // Ana başlık güncelle
-        const hierarchy = hierarchyRows.find(h => h.rowIndex === index);
-        if (hierarchy && hierarchy.SeviyeNo === 1) {
-          currentAnaBaslikNo = hierarchy.AnaBaslikNo;
-        }
         return null;
       }
       
-      // İşlem satırı
+      // İşlem satırı - en yakın üstteki ana başlığı bul
+      const anaBaslikNo = getAnaBaslikNoForRow(index);
+      
       return {
         row,
         index,
-        anaBaslikNo: currentAnaBaslikNo
+        anaBaslikNo: anaBaslikNo
       };
     })
     .filter(item => item !== null)
@@ -718,11 +1022,177 @@ const normalizeSutData = async (data) => {
       Puan: puan,
       Aciklama: cleanString(row.Aciklama),
       AnaBaslikNo: finalAnaBaslikNo,
-      HiyerarsiID: row.HiyerarsiID ? parseInt(row.HiyerarsiID) : null
+      HiyerarsiID: row.HiyerarsiID ? parseInt(row.HiyerarsiID) : null,
+      rowIndex: index // Hiyerarşi eşleştirmesi için gerekli
     };
   });
   
-  console.log(`✅ ${processedRows.length} işlem satırı normalize edildi`);
+  // ÖZEL KURAL 1: Ana Başlık 1 (YATAK PUANLARI) ve Ana Başlık 2 (HEKİM MUAYENELERİ VE RAPORLAR)
+  // Bu ana dallarda direkt işlemler varsa, ana başlık adıyla aynı isimde bir alt dal oluştur
+  for (const anaBaslikNo of [1, 2]) {
+    const anaBaslik = hierarchyRows.find(h => h.SeviyeNo === 1 && h.AnaBaslikNo === anaBaslikNo);
+    if (anaBaslik) {
+      // Bu ana başlığın alt başlıklarını bul
+      const anaBaslikAltBasliklar = hierarchyRows
+        .filter(h => h.AnaBaslikNo === anaBaslikNo && h.SeviyeNo > 1)
+        .sort((a, b) => a.rowIndex - b.rowIndex);
+      
+      // Bu ana başlığın işlemlerini bul
+      const anaBaslikIslemler = processedRows
+        .filter(r => r.AnaBaslikNo === anaBaslikNo)
+        .sort((a, b) => a.rowIndex - b.rowIndex);
+      
+      if (anaBaslikIslemler.length > 0) {
+        const ilkIslem = anaBaslikIslemler[0];
+        const ilkIslemRowIndex = ilkIslem.rowIndex;
+        const ilkAltBaslik = anaBaslikAltBasliklar[0];
+        const ilkAltBaslikRowIndex = ilkAltBaslik ? ilkAltBaslik.rowIndex : Infinity;
+        
+        // İlk işlem, ilk alt başlıktan önceyse (yani ana başlığa direkt bağlı)
+        if (ilkIslemRowIndex < ilkAltBaslikRowIndex) {
+          // Ana başlık adıyla aynı isimde alt başlık oluştur
+          const altBaslikAdi = anaBaslik.Baslik; // "YATAK PUANLARI" veya "HEKİM MUAYENELERİ VE RAPORLAR"
+          
+          // Bu isimde zaten bir alt başlık var mı?
+          const mevcutAltBaslik = hierarchyRows.find(h => 
+            h.AnaBaslikNo === anaBaslikNo && 
+            h.SeviyeNo === 2 && 
+            h.Baslik === altBaslikAdi
+          );
+          
+          if (!mevcutAltBaslik) {
+            // Yeni alt başlık oluştur
+            const yeniAltBaslik = {
+              AnaBaslikNo: anaBaslikNo,
+              Baslik: altBaslikAdi,
+              TamBaslik: altBaslikAdi,
+              SeviyeNo: 2,
+              ParentID: null, // Ana başlığa bağlı
+              ParentRowIndex: anaBaslik.rowIndex,
+              Sira: 0,
+              rowIndex: anaBaslik.rowIndex + 1 // Ana başlıktan hemen sonra
+            };
+            
+            // Hiyerarşiye ekle (ilk alt başlıktan önce veya en başa)
+            if (ilkAltBaslik) {
+              const ilkAltBaslikIndex = hierarchyRows.findIndex(h => h.rowIndex === ilkAltBaslikRowIndex);
+              if (ilkAltBaslikIndex >= 0) {
+                hierarchyRows.splice(ilkAltBaslikIndex, 0, yeniAltBaslik);
+              } else {
+                hierarchyRows.push(yeniAltBaslik);
+              }
+            } else {
+              // Alt başlık yoksa, ana başlıktan hemen sonra ekle
+              const anaBaslikIndex = hierarchyRows.findIndex(h => h.rowIndex === anaBaslik.rowIndex);
+              if (anaBaslikIndex >= 0) {
+                hierarchyRows.splice(anaBaslikIndex + 1, 0, yeniAltBaslik);
+              } else {
+                hierarchyRows.push(yeniAltBaslik);
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+  
+  // ÖZEL KURAL 2: Ana Başlık 4 (AMELİYATHANE)
+  // İşlemlerin doğru üst dalına (AMELİYATHANE veya AMELİYATHANE DIŞI) bağlanması
+  // İşlem adından veya mevcut hiyerarşi yapısından anlaşılacak şekilde
+  const anaBaslik4 = hierarchyRows.find(h => h.SeviyeNo === 1 && h.AnaBaslikNo === 4);
+  if (anaBaslik4) {
+    // AMELİYATHANE ve AMELİYATHANE DIŞI İŞLEM TANIMLARI alt başlıklarını bul
+    const ameliyathaneAltBasliklar = hierarchyRows
+      .filter(h => h.AnaBaslikNo === 4 && h.SeviyeNo === 2)
+      .sort((a, b) => a.rowIndex - b.rowIndex);
+    
+    const ameliyathaneBaslik = ameliyathaneAltBasliklar.find(h => 
+      h.Baslik && h.Baslik.toUpperCase().includes('AMELİYATHANE') && 
+      !h.Baslik.toUpperCase().includes('DIŞI')
+    );
+    const ameliyathaneDisiBaslik = ameliyathaneAltBasliklar.find(h => 
+      h.Baslik && h.Baslik.toUpperCase().includes('AMELİYATHANE') && 
+      h.Baslik.toUpperCase().includes('DIŞI')
+    );
+    
+    // Ana Başlık 4'ün işlemlerini kontrol et
+    const anaBaslik4Islemler = processedRows.filter(r => r.AnaBaslikNo === 4);
+    
+    anaBaslik4Islemler.forEach(islem => {
+      const islemAdi = (islem.IslemAdi || '').toLowerCase();
+      
+      // İşlem adından anla: "AMELİYATHANE" mi "AMELİYATHANE DIŞI" mı?
+      // Eğer işlem adında "DIŞI" geçiyorsa AMELİYATHANE DIŞI'na bağla
+      if (islemAdi.includes('dışı') || islemAdi.includes('disi')) {
+        // AMELİYATHANE DIŞI alt başlığına bağlanacak
+        // Bu işlem için rowIndex'i AMELİYATHANE DIŞI alt başlığının rowIndex'ine yakın yap
+        // (HiyerarsiID ataması controller'da yapılacak, burada sadece işaretle)
+        if (ameliyathaneDisiBaslik) {
+          // İşlemin rowIndex'ini AMELİYATHANE DIŞI alt başlığının rowIndex'inden sonra yap
+          // Böylece controller'da doğru HiyerarsiID atanacak
+          // Burada sadece işaretleme yapıyoruz, gerçek atama controller'da
+        }
+      } else if (islemAdi.includes('ameliyathane') || islemAdi.includes('ameliyat')) {
+        // AMELİYATHANE alt başlığına bağlanacak
+        if (ameliyathaneBaslik) {
+          // İşlemin rowIndex'ini AMELİYATHANE alt başlığının rowIndex'inden sonra yap
+        }
+      }
+    });
+  }
+  
+  // ÖZEL: Ana Başlık 9 için MİKROBİYOLOJİ alt başlığı oluştur
+  // Excel'de Ana Başlık 9'un altında direkt 273 işlem var, bunlar MİKROBİYOLOJİ kategorisinde
+  const anaBaslik9 = hierarchyRows.find(h => h.SeviyeNo === 1 && h.AnaBaslikNo === 9);
+  if (anaBaslik9) {
+    // Ana Başlık 9'un ilk alt başlığını bul
+    const anaBaslik9AltBasliklar = hierarchyRows
+      .filter(h => h.AnaBaslikNo === 9 && h.SeviyeNo > 1)
+      .sort((a, b) => a.rowIndex - b.rowIndex);
+    
+    const ilkAltBaslik = anaBaslik9AltBasliklar[0];
+    
+    // Ana Başlık 9'un ilk işlemlerini bul
+    const anaBaslik9Islemler = processedRows
+      .filter(r => r.AnaBaslikNo === 9)
+      .sort((a, b) => a.rowIndex - b.rowIndex);
+    
+    // İlk işlem ile ilk alt başlık arasında işlem var mı?
+    if (ilkAltBaslik && anaBaslik9Islemler.length > 0) {
+      const ilkIslem = anaBaslik9Islemler[0];
+      const ilkIslemRowIndex = ilkIslem.rowIndex;
+      const ilkAltBaslikRowIndex = ilkAltBaslik.rowIndex;
+      
+      // İlk işlem, ilk alt başlıktan önceyse (yani ana başlığa direkt bağlı)
+      if (ilkIslemRowIndex < ilkAltBaslikRowIndex) {
+        // Bu işlemleri say
+        const anaBasligaDirektIslemler = anaBaslik9Islemler.filter(i => i.rowIndex < ilkAltBaslikRowIndex);
+        
+        if (anaBasligaDirektIslemler.length > 0) {
+          // MİKROBİYOLOJİ alt başlığını oluştur
+          const mikrobiyolojiBaslik = {
+            AnaBaslikNo: 9,
+            Baslik: 'MİKROBİYOLOJİ',
+            TamBaslik: 'MİKROBİYOLOJİ',
+            SeviyeNo: 2,
+            ParentID: null, // Ana başlığa bağlı
+            ParentRowIndex: anaBaslik9.rowIndex,
+            Sira: 0, // İlk alt başlık
+            rowIndex: anaBaslik9.rowIndex + 1 // Ana başlıktan hemen sonra
+          };
+          
+          // Hiyerarşiye ekle (ilk alt başlıktan önce)
+          const ilkAltBaslikIndex = hierarchyRows.findIndex(h => h.rowIndex === ilkAltBaslikRowIndex);
+          if (ilkAltBaslikIndex >= 0) {
+            hierarchyRows.splice(ilkAltBaslikIndex, 0, mikrobiyolojiBaslik);
+          } else {
+            // İlk alt başlık bulunamadı, en sona ekle
+            hierarchyRows.push(mikrobiyolojiBaslik);
+          }
+        }
+      }
+    }
+  }
   
   // Hem işlem satırları hem de hiyerarşi satırları dön
   return {
@@ -735,7 +1205,5 @@ module.exports = {
   parseSutExcel,
   validateSutData,
   normalizeSutData,
-  parseHierarchy, // Export et
-  extractDateFromFilename,
-  parseTurkishDate
+  extractDateFromFilename
 };

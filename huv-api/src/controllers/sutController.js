@@ -275,56 +275,6 @@ const araSut = async (req, res, next) => {
 };
 
 // ============================================
-// GET /api/sut/:id/eslesmeler
-// Bir SUT işleminin HUV eşleştirmelerini getir
-// ============================================
-const getSutEslesmeler = async (req, res, next) => {
-  try {
-    const { id } = req.params;
-    const pool = await getPool();
-
-    // SUT işlem bilgisi - SutID kullan (IslemID değil)
-    const sutResult = await pool.request()
-      .input('id', sql.Int, id)
-      .query(`
-        SELECT * FROM SutIslemler
-        WHERE SutID = @id
-      `);
-
-    if (sutResult.recordset.length === 0) {
-      return error(res, 'SUT işlemi bulunamadı', 404);
-    }
-
-    // Eşleşmeler
-    const eslesmelerResult = await pool.request()
-      .input('id', sql.Int, id)
-      .query(`
-        SELECT 
-          e.EslestirmeID,
-          e.EslestirmeTipi,
-          e.GuvenilirlikSkoru,
-          i.IslemID,
-          i.HuvKodu,
-          i.IslemAdi as HuvIslemAdi,
-          i.Birim,
-          a.BolumAdi
-        FROM HuvSutEslestirme e
-        INNER JOIN HuvIslemler i ON e.IslemID = i.IslemID
-        LEFT JOIN AnaDallar a ON i.AnaDalKodu = a.AnaDalKodu
-        WHERE e.SutID = @id AND e.AktifMi = 1
-        ORDER BY e.GuvenilirlikSkoru DESC
-      `);
-
-    return success(res, {
-      sut: sutResult.recordset[0],
-      eslesmeler: eslesmelerResult.recordset
-    }, 'SUT eşleşmeleri');
-  } catch (err) {
-    next(err);
-  }
-};
-
-// ============================================
 // GET /api/sut/stats
 // SUT istatistikleri
 // ============================================
@@ -386,7 +336,6 @@ module.exports = {
   getSutByKategori,
   getSutKodlari,
   getSutByKod,
-  getSutEslesmeler,
   araSut,
   getSutStats,
   getHiyerarsi,

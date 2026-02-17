@@ -2,7 +2,6 @@
 // SUT VERSION MANAGER SERVICE
 // ============================================
 // SUT liste versiyonlarını ve SCD Type 2'yi yönetme
-// Migration V2: SutIslemVersionlar tablosu ile tam SCD Type 2
 // ============================================
 
 const { getPool, sql } = require('../config/database');
@@ -95,6 +94,11 @@ const updateSutIslemWithVersion = async (sutID, yeniData, versionID, yuklemeTari
         }
       }
       
+      // DegisiklikSebebi: Eğer detaylı değişiklik varsa onu kullan, yoksa "SUT listesi güncellendi"
+      const degisiklikSebebiText = degisiklikSebebi.length > 0 
+        ? `SUT listesi güncellendi: ${degisiklikSebebi.join(', ')}`
+        : 'SUT listesi güncellendi';
+      
       await transaction.request()
         .input('SutID', sql.Int, sutID)
         .input('SutKodu', sql.NVarChar, yeniData.SutKodu)
@@ -105,7 +109,7 @@ const updateSutIslemWithVersion = async (sutID, yeniData, versionID, yuklemeTari
         .input('HiyerarsiID', sql.Int, yeniData.HiyerarsiID)
         .input('GecerlilikBaslangic', sql.Date, baslangicTarihi)
         .input('ListeVersiyonID', sql.Int, versionID)
-        .input('DegisiklikSebebi', sql.NVarChar, degisiklikSebebi.length > 0 ? degisiklikSebebi.join(', ') : 'Güncelleme')
+        .input('DegisiklikSebebi', sql.NVarChar, degisiklikSebebiText)
         .query(`
           INSERT INTO SutIslemVersionlar (
             SutID, SutKodu, IslemAdi, Puan, Aciklama,
@@ -353,90 +357,9 @@ const deactivateSutIslem = async (sutID, versionID, yuklemeTarihi) => {
   }
 };
 
-// ============================================
-// Değişmeyen SUT işlem için versiyon kaydı oluştur (SCD Type 2)
-// Migration V2: Artık SutIslemVersionlar ile tam takip
-// ============================================
-const copyUnchangedSutIslemToVersion = async (sutID, mevcutData, versionID, yuklemeTarihi) => {
-  try {
-    const pool = await getPool();
-    const baslangicTarihi = yuklemeTarihi ? new Date(yuklemeTarihi) : new Date();
-    const bitisTarihi = new Date(baslangicTarihi);
-    bitisTarihi.setDate(bitisTarihi.getDate() - 1);
-    
-    const transaction = pool.transaction();
-    await transaction.begin();
-    
-    try {
-      // 1. Eski versiyonu kapat
-      await transaction.request()
-        .input('SutID', sql.Int, sutID)
-        .input('BitisTarihi', sql.Date, bitisTarihi)
-        .query(`
-          UPDATE SutIslemVersionlar
-          SET 
-            GecerlilikBitis = @BitisTarihi,
-            AktifMi = 0
-          WHERE SutID = @SutID 
-            AND AktifMi = 1
-            AND GecerlilikBitis IS NULL
-        `);
-      
-      // 2. Yeni versiyon kaydı oluştur (değişiklik yok)
-      await transaction.request()
-        .input('SutID', sql.Int, sutID)
-        .input('SutKodu', sql.NVarChar, mevcutData.SutKodu)
-        .input('IslemAdi', sql.NVarChar, mevcutData.IslemAdi)
-        .input('Puan', sql.Float, mevcutData.Puan)
-        .input('Aciklama', sql.NVarChar, mevcutData.Aciklama)
-        .input('AnaBaslikNo', sql.Int, mevcutData.AnaBaslikNo)
-        .input('HiyerarsiID', sql.Int, mevcutData.HiyerarsiID)
-        .input('GecerlilikBaslangic', sql.Date, baslangicTarihi)
-        .input('ListeVersiyonID', sql.Int, versionID)
-        .query(`
-          INSERT INTO SutIslemVersionlar (
-            SutID, SutKodu, IslemAdi, Puan, Aciklama,
-            AnaBaslikNo, HiyerarsiID,
-            GecerlilikBaslangic, GecerlilikBitis,
-            AktifMi, ListeVersiyonID, DegisiklikSebebi,
-            OlusturanKullanici, OlusturmaTarihi
-          )
-          VALUES (
-            @SutID, @SutKodu, @IslemAdi, @Puan, @Aciklama,
-            @AnaBaslikNo, @HiyerarsiID,
-            @GecerlilikBaslangic, NULL,
-            1, @ListeVersiyonID, 'Değişiklik yok',
-            SYSTEM_USER, GETDATE()
-          )
-        `);
-      
-      // 3. Ana tabloda ListeVersiyonID güncelle
-      await transaction.request()
-        .input('SutID', sql.Int, sutID)
-        .input('ListeVersiyonID', sql.Int, versionID)
-        .query(`
-          UPDATE SutIslemler
-          SET 
-            ListeVersiyonID = @ListeVersiyonID,
-            GuncellemeTarihi = GETDATE()
-          WHERE SutID = @SutID
-        `);
-      
-      await transaction.commit();
-      return true;
-    } catch (error) {
-      await transaction.rollback();
-      throw error;
-    }
-  } catch (error) {
-    throw new Error(`Değişmeyen SUT işlem kopyalanamadı: ${error.message}`);
-  }
-};
-
 module.exports = {
   getMevcutSutData,
   updateSutIslemWithVersion,
   addNewSutIslem,
-  deactivateSutIslem,
-  copyUnchangedSutIslemToVersion
+  deactivateSutIslem
 };

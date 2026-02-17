@@ -8,23 +8,15 @@ const { parseHuvExcel, validateHuvData, normalizeHuvData, extractDateFromFilenam
 const { compareHuvLists, generateComparisonReport } = require('../services/comparisonService');
 const {
   createListeVersiyon,
-  getAktifVersiyon,
   getMevcutHuvData,
   updateIslemWithVersion,
   addNewIslem,
   deactivateIslem,
   copyUnchangedIslemToVersion
 } = require('../services/versionManager');
-// Batch import removed - using synchronous import only
 const { success, error } = require('../utils/response');
 const { getPool, sql } = require('../config/database');
 const fs = require('fs');
-const crypto = require('crypto');
-
-// UUID oluştur (crypto kullanarak, uuid paketi yerine)
-const generateJobId = () => {
-  return crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-};
 
 // ============================================
 // POST /api/admin/import/preview
@@ -204,125 +196,153 @@ const importHuvList = async (req, res, next) => {
       yuklemeTarihi = new Date(yuklemeTarihi);
     }
     
-    const versionID = await createListeVersiyon(
-      dosyaAdi,
-      normalizedData.length,
-      `${comparison.summary.added} eklendi, ${comparison.summary.updated} güncellendi`,
-      kullaniciAdi,
-      yuklemeTarihi
-    );
-    
     // 8. Değişiklikleri uygula
+    // NOT: Her fonksiyon kendi transaction'ını kullanıyor (nested transaction sorunu yok)
+    // Hata durumunda ListeVersiyon'u silmek için try-catch kullanıyoruz
     
-    // Yükleme tarihini kullan (versiyon oluşturma tarihiyle aynı)
     const yuklemeTarihiDate = new Date(yuklemeTarihi);
     let eklenenSayisi = 0;
     let guncellenenSayisi = 0;
     let pasifYapilanSayisi = 0;
     let kopyalananSayisi = 0;
     const hatalar = [];
+    let versionID = null;
     
-    // Yeni eklenenleri ekle
-    for (const item of comparison.added) {
-      try {
-        const yeniData = normalizedData.find(d => d.HuvKodu === item.HuvKodu);
-        await addNewIslem(yeniData, versionID, yuklemeTarihiDate);
-        eklenenSayisi++;
-      } catch (err) {
-        console.error(`❌ Ekleme hatası [${item.HuvKodu}]:`, err.message);
-        hatalar.push({
-          HuvKodu: item.HuvKodu,
-          hata: err.message
-        });
+    try {
+      versionID = await createListeVersiyon(
+        dosyaAdi,
+        normalizedData.length,
+        `${comparison.summary.added} eklendi, ${comparison.summary.updated} güncellendi`,
+        kullaniciAdi,
+        yuklemeTarihi
+      );
+      
+      // Yeni eklenenleri ekle
+      for (const item of comparison.added) {
+        try {
+          const yeniData = normalizedData.find(d => d.HuvKodu === item.HuvKodu);
+          await addNewIslem(yeniData, versionID, yuklemeTarihiDate);
+          eklenenSayisi++;
+        } catch (err) {
+          console.error(`❌ Ekleme hatası [${item.HuvKodu}]:`, err.message);
+          hatalar.push({
+            HuvKodu: item.HuvKodu,
+            hata: err.message,
+            tip: 'EKLEME_HATASI'
+          });
+          // Hata durumunda tüm işlemi durdur
+          throw new Error(`Ekleme hatası: ${item.HuvKodu} - ${err.message}`);
+        }
       }
-    }
-    
-    // Güncellenenleri güncelle (SCD Type 2)
-    for (const item of comparison.updated) {
-      try {
-        const eskiIslem = mevcutData.find(d => d.HuvKodu === item.HuvKodu);
-        const yeniData = normalizedData.find(d => d.HuvKodu === item.HuvKodu);
-        
-        await updateIslemWithVersion(eskiIslem.IslemID, yeniData, versionID, yuklemeTarihi);
-        guncellenenSayisi++;
-      } catch (err) {
-        hatalar.push({
-          HuvKodu: item.HuvKodu,
-          hata: err.message
-        });
+      
+      // Güncellenenleri güncelle (SCD Type 2)
+      for (const item of comparison.updated) {
+        try {
+          const eskiIslem = mevcutData.find(d => d.HuvKodu === item.HuvKodu);
+          const yeniData = normalizedData.find(d => d.HuvKodu === item.HuvKodu);
+          
+          await updateIslemWithVersion(eskiIslem.IslemID, yeniData, versionID, yuklemeTarihi);
+          guncellenenSayisi++;
+        } catch (err) {
+          console.error(`❌ Güncelleme hatası [${item.HuvKodu}]:`, err.message);
+          hatalar.push({
+            HuvKodu: item.HuvKodu,
+            hata: err.message,
+            tip: 'GUNCELLEME_HATASI'
+          });
+          throw new Error(`Güncelleme hatası: ${item.HuvKodu} - ${err.message}`);
+        }
       }
-    }
-    
-    // Silinenleri pasif yap
-    for (const item of comparison.deleted) {
-      try {
-        const eskiIslem = mevcutData.find(d => d.HuvKodu === item.HuvKodu);
-        await deactivateIslem(eskiIslem.IslemID, versionID, yuklemeTarihi);
-        pasifYapilanSayisi++;
-      } catch (err) {
-        hatalar.push({
-          HuvKodu: item.HuvKodu,
-          hata: err.message
-        });
+      
+      // Silinenleri pasif yap
+      for (const item of comparison.deleted) {
+        try {
+          const eskiIslem = mevcutData.find(d => d.HuvKodu === item.HuvKodu);
+          await deactivateIslem(eskiIslem.IslemID, versionID, yuklemeTarihi);
+          pasifYapilanSayisi++;
+        } catch (err) {
+          console.error(`❌ Pasif yapma hatası [${item.HuvKodu}]:`, err.message);
+          hatalar.push({
+            HuvKodu: item.HuvKodu,
+            hata: err.message,
+            tip: 'PASIF_YAPMA_HATASI'
+          });
+          throw new Error(`Pasif yapma hatası: ${item.HuvKodu} - ${err.message}`);
+        }
       }
-    }
-    
-    // Değişmeyenleri yeni versiyona kopyala (IslemVersionlar'a da kaydet!)
-    let progressCounter = 0;
-    for (const item of comparison.unchanged) {
-      try {
-        const eskiIslem = mevcutData.find(d => d.HuvKodu === item.HuvKodu);
-        await copyUnchangedIslemToVersion(eskiIslem.IslemID, eskiIslem, versionID, yuklemeTarihi);
-        kopyalananSayisi++;
-        progressCounter++;
-      } catch (err) {
-        console.error(`❌ Kopyalama hatası [${item.HuvKodu}]:`, err.message);
-        hatalar.push({
-          HuvKodu: item.HuvKodu,
-          hata: err.message
-        });
+      
+      // Değişmeyenleri yeni versiyona kopyala (IslemVersionlar'a da kaydet!)
+      for (const item of comparison.unchanged) {
+        try {
+          const eskiIslem = mevcutData.find(d => d.HuvKodu === item.HuvKodu);
+          await copyUnchangedIslemToVersion(eskiIslem.IslemID, eskiIslem, versionID, yuklemeTarihi);
+          kopyalananSayisi++;
+        } catch (err) {
+          console.error(`❌ Kopyalama hatası [${item.HuvKodu}]:`, err.message);
+          hatalar.push({
+            HuvKodu: item.HuvKodu,
+            hata: err.message,
+            tip: 'KOPYALAMA_HATASI'
+          });
+          throw new Error(`Kopyalama hatası: ${item.HuvKodu} - ${err.message}`);
+        }
       }
+      
+      // ListeVersiyon tablosundaki özet sayıları güncelle
+      await pool.request()
+        .input('versionId', sql.Int, versionID)
+        .input('eklenenSayisi', sql.Int, eklenenSayisi)
+        .input('guncellenenSayisi', sql.Int, guncellenenSayisi)
+        .input('silinenSayisi', sql.Int, pasifYapilanSayisi)
+        .query(`
+          UPDATE ListeVersiyon
+          SET 
+            EklenenSayisi = @eklenenSayisi,
+            GuncellenenSayisi = @guncellenenSayisi,
+            SilinenSayisi = @silinenSayisi
+          WHERE VersionID = @versionId
+        `);
+      
+      // 9. Rapor oluştur
+      const report = generateComparisonReport(comparison);
+      
+      // 10. Dosyayı sil
+      if (uploadedFile && fs.existsSync(uploadedFile)) {
+        fs.unlinkSync(uploadedFile);
+      }
+      
+      const endTime = Date.now();
+      const duration = ((endTime - startTime) / 1000).toFixed(2);
+      
+      // 11. Sonuç döndür
+      return success(res, {
+        versionID,
+        dosyaAdi,
+        summary: {
+          added: eklenenSayisi,
+          updated: guncellenenSayisi,
+          deleted: pasifYapilanSayisi,
+          unchanged: kopyalananSayisi
+        },
+        duration: `${duration} saniye`
+      }, 'HUV listesi başarıyla yüklendi', 201);
+      
+    } catch (err) {
+      // Hata durumunda ListeVersiyon'u sil (eğer oluşturulduysa)
+      if (versionID) {
+        try {
+          await pool.request()
+            .input('versionId', sql.Int, versionID)
+            .query('DELETE FROM ListeVersiyon WHERE VersionID = @versionId');
+          console.log(`⚠️ Hata nedeniyle ListeVersiyon (${versionID}) silindi`);
+        } catch (deleteErr) {
+          console.error(`❌ ListeVersiyon silme hatası:`, deleteErr.message);
+        }
+      }
+      
+      // Hata mesajını yeniden fırlat
+      throw err;
     }
-    
-    // 9. Rapor oluştur
-    const report = generateComparisonReport(comparison);
-    
-    // 10. Dosyayı sil
-    if (uploadedFile && fs.existsSync(uploadedFile)) {
-      fs.unlinkSync(uploadedFile);
-    }
-    
-    // 11. ListeVersiyon tablosundaki özet sayıları güncelle
-    await pool.request()
-      .input('versionId', sql.Int, versionID)
-      .input('eklenenSayisi', sql.Int, eklenenSayisi)
-      .input('guncellenenSayisi', sql.Int, guncellenenSayisi)
-      .input('silinenSayisi', sql.Int, pasifYapilanSayisi)
-      .query(`
-        UPDATE ListeVersiyon
-        SET 
-          EklenenSayisi = @eklenenSayisi,
-          GuncellenenSayisi = @guncellenenSayisi,
-          SilinenSayisi = @silinenSayisi
-        WHERE VersionID = @versionId
-      `);
-    
-    const endTime = Date.now();
-    const duration = ((endTime - startTime) / 1000).toFixed(2);
-    
-    // 11. Sonuç döndür
-    return success(res, {
-      versionID,
-      dosyaAdi,
-      summary: {
-        added: eklenenSayisi,
-        updated: guncellenenSayisi,
-        deleted: pasifYapilanSayisi,
-        unchanged: kopyalananSayisi
-      },
-      duration: `${duration} saniye`,
-      errors: hatalar.length > 0 ? hatalar : undefined
-    }, 'HUV listesi başarıyla yüklendi', 201);
     
   } catch (err) {
     // Hata durumunda dosyayı sil

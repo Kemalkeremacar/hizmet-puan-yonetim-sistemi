@@ -33,13 +33,11 @@ import {
   ListAlt as ListAltIcon,
   Folder as FolderIcon,
   Description as DescriptionIcon,
-  Link as LinkIcon,
   ExpandMore as ExpandMoreIcon,
   ExpandLess as ExpandLessIcon,
 } from '@mui/icons-material';
 import { PageHeader } from '../components/common';
 import axios from '../api/axios';
-import { eslestirmeService } from '../services/eslestirmeService';
 
 // ============================================
 // SutListe Component
@@ -52,7 +50,6 @@ function SutListe() {
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [eslesmeler, setEslesmeler] = useState([]);
   const [expandedNodes, setExpandedNodes] = useState({}); // Genişletilmiş node'lar
 
   // ============================================
@@ -67,7 +64,8 @@ function SutListe() {
       setLoading(true);
       const response = await axios.get('/sut/ana-basliklar');
       
-      const apiData = response.data || response;
+      // API response: {success: true, message: "...", data: [...]}
+      const apiData = response.data?.data || response.data || response;
       setAnaBasliklar(apiData);
     } catch (err) {
       console.error('Ana başlıklar yüklenemedi:', {
@@ -87,7 +85,6 @@ function SutListe() {
   const handleAnaBaslikClick = async (anaBaslik) => {
     setSelectedAnaBaslik(anaBaslik);
     setSelectedSut(null);
-    setEslesmeler([]);
     setExpandedNodes({}); // Genişletilmiş node'ları sıfırla
     
     try {
@@ -98,7 +95,8 @@ function SutListe() {
         params: { anaBaslikNo: anaBaslik.AnaBaslikNo }
       });
       
-      const apiData = response.data || response;
+      // API response: {success: true, message: "...", data: [...]}
+      const apiData = response.data?.data || response.data || response;
       
       // Ağaç yapısına çevir
       const tree = buildTree(apiData);
@@ -120,7 +118,8 @@ function SutListe() {
   // Düz listeyi ağaç yapısına çevir
   // ============================================
   const buildTree = (flatList) => {
-    if (!flatList || flatList.length === 0) {
+    // Array kontrolü
+    if (!flatList || !Array.isArray(flatList) || flatList.length === 0) {
       return [];
     }
 
@@ -133,17 +132,15 @@ function SutListe() {
     );
     
     if (!rootNode) {
-      console.warn('Ana başlık bulunamadı!', flatList);
       return [];
     }
     
     const rootId = rootNode.HiyerarsiID;
-    console.log('Ana başlık bulundu:', rootId, rootNode.Adi);
 
     const map = {};
     const roots = [];
 
-    // Tüm node'ları map'e ekle
+    // Tüm node'ları map'e ekle (tüm bilgileri dahil et)
     flatList.forEach(node => {
       map[node.HiyerarsiID] = { 
         HiyerarsiID: node.HiyerarsiID,
@@ -155,11 +152,26 @@ function SutListe() {
         Puan: node.Puan,
         Aciklama: node.Aciklama,
         IslemID: node.IslemID,
+        CocukSayisi: node.CocukSayisi || 0,
+        IslemSayisi: node.IslemSayisi || 0,
+        Sira: node.Sira || node.HiyerarsiID, // Sıralama için
         children: []
       };
     });
 
-    // Parent-child ilişkilerini kur
+    // Root'un çocuklarını say
+    const rootChildrenCount = flatList.filter(n => 
+      n.ParentID === rootId || 
+      n.ParentID === String(rootId) ||
+      (n.ParentID !== null && n.ParentID !== undefined && Number(n.ParentID) === Number(rootId))
+    ).length;
+    
+    // ParentID'yi normalize et
+    const normalizedRootId = Number(rootId);
+    
+    // ÖNCE: Tüm node'ları parent'larına ekle (alt seviyeler dahil)
+    let otherNodesAdded = 0;
+    
     flatList.forEach(node => {
       // Ana başlığı atla
       const isRoot = node.ParentID === null || 
@@ -172,23 +184,87 @@ function SutListe() {
       }
 
       const mappedNode = map[node.HiyerarsiID];
-      if (!mappedNode) return;
+      if (!mappedNode) {
+        return;
+      }
       
-      // Ana başlığa doğrudan bağlı node'lar root olarak ekle
-      if (node.ParentID === rootId) {
-        roots.push(mappedNode);
+      // ParentID'yi normalize et
+      const nodeParentID = node.ParentID !== null && node.ParentID !== undefined 
+        ? Number(node.ParentID) 
+        : null;
+      
+      // Root'un çocuğu değilse, parent'ına ekle
+      if (nodeParentID !== normalizedRootId) {
+        const parent = map[node.ParentID];
+        
+        if (parent) {
+          // Parent'a ekle (eğer henüz eklenmemişse)
+          if (!parent.children.find(c => c.HiyerarsiID === node.HiyerarsiID)) {
+            parent.children.push(mappedNode);
+            otherNodesAdded++;
+          }
+        }
       }
-      // Diğer node'ları parent'larına ekle
-      else if (map[node.ParentID]) {
-        map[node.ParentID].children.push(mappedNode);
+    });
+    
+    // SONRA: Root'un direkt çocuklarını roots array'ine ekle
+    let rootChildrenAdded = 0;
+    
+    flatList.forEach(node => {
+      // Ana başlığı atla
+      const isRoot = node.ParentID === null || 
+                     node.ParentID === undefined || 
+                     node.ParentID === '' || 
+                     node.ParentID === 0;
+      
+      if (isRoot) {
+        return;
       }
-      // Parent bulunamazsa uyarı ver
-      else {
-        console.warn('Parent bulunamadı:', node.ParentID, 'için node:', node.Adi);
+
+      const mappedNode = map[node.HiyerarsiID];
+      if (!mappedNode) {
+        return;
+      }
+      
+      // ParentID'yi normalize et
+      const nodeParentID = node.ParentID !== null && node.ParentID !== undefined 
+        ? Number(node.ParentID) 
+        : null;
+      
+      // Root'un direkt çocuklarını roots array'ine ekle
+      if (nodeParentID === normalizedRootId) {
+        if (!roots.find(r => r.HiyerarsiID === node.HiyerarsiID)) {
+          roots.push(mappedNode);
+          rootChildrenAdded++;
+        }
       }
     });
 
-    console.log('Ağaç oluşturuldu:', roots.length, 'root node');
+    // Sıralama: HIYERARSI önce, sonra ISLEM, sonra Sira'ya göre
+    const sortChildren = (children) => {
+      return children.sort((a, b) => {
+        // Tip sıralaması: HIYERARSI önce, ISLEM sonra
+        if (a.Tip !== b.Tip) {
+          if (a.Tip === 'HIYERARSI') return -1;
+          if (b.Tip === 'HIYERARSI') return 1;
+        }
+        // Sira'ya göre sırala
+        return (a.Sira || 0) - (b.Sira || 0);
+      });
+    };
+
+    // Tüm seviyelerde sıralama yap
+    const sortTree = (nodes) => {
+      nodes.forEach(node => {
+        if (node.children && node.children.length > 0) {
+          node.children = sortChildren(node.children);
+          sortTree(node.children);
+        }
+      });
+    };
+
+    sortTree(roots);
+
     return roots;
   };
 
@@ -217,22 +293,6 @@ function SutListe() {
       path: path
     });
     
-    // SUT işlemleri için IslemID aslında SutID'dir
-    if (node.IslemID) {
-      try {
-        const response = await eslestirmeService.getSutEslesmeler(node.IslemID);
-        setEslesmeler(response.eslesmeler || []);
-      } catch (err) {
-        console.error('Eşleşmeler yüklenemedi:', {
-          message: err.message,
-          sutId: selectedNode.sutId,
-          timestamp: new Date().toISOString()
-        });
-        setEslesmeler([]);
-      }
-    } else {
-      setEslesmeler([]);
-    }
   };
 
   // ============================================
@@ -262,14 +322,11 @@ function SutListe() {
     if (level > 10) return null; // Sonsuz döngü kontrolü
 
     const isExpanded = expandedNodes[node.HiyerarsiID];
-    const hasChildren = node.children && Array.isArray(node.children) && node.children.length > 0;
+    const hasChildren = (node.children && Array.isArray(node.children) && node.children.length > 0) || 
+                       (node.CocukSayisi > 0) || 
+                       (node.IslemSayisi > 0 && node.Tip === 'HIYERARSI');
     const isSelected = selectedSut?.IslemID === node.IslemID;
     const isIslem = node.Tip === 'ISLEM';
-
-    // Debug log
-    if (level === 0) {
-      console.log('Root node:', node.Adi, 'children:', node.children?.length || 0);
-    }
 
     // Node tiplerine göre renk ve ikon
     const getNodeStyle = () => {
@@ -424,7 +481,7 @@ function SutListe() {
       <PageHeader 
         title="SUT Kodları" 
         subtitle="Sağlık Uygulama Tebliği - Hiyerarşik Görünüm"
-        Icon={ListAltIcon}
+        icon={ListAltIcon}
       />
 
       {/* Ana İçerik */}
@@ -490,15 +547,28 @@ function SutListe() {
                           }} 
                         />
                       </ListItemIcon>
-                      <ListItemText 
-                        primary={anaBaslik.AnaBaslikAdi}
-                        slotProps={{
-                          primary: {
-                            fontSize: '0.875rem',
-                            fontWeight: selectedAnaBaslik?.AnaBaslikNo === anaBaslik.AnaBaslikNo ? 600 : 400,
-                          },
-                        }}
-                      />
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexGrow: 1 }}>
+                        <Chip 
+                          label={anaBaslik.AnaBaslikNo} 
+                          size="small" 
+                          color="primary"
+                          sx={{ 
+                            minWidth: '40px', 
+                            fontWeight: 'bold',
+                            bgcolor: selectedAnaBaslik?.AnaBaslikNo === anaBaslik.AnaBaslikNo ? 'rgba(255,255,255,0.3)' : undefined,
+                            color: selectedAnaBaslik?.AnaBaslikNo === anaBaslik.AnaBaslikNo ? 'white' : undefined,
+                          }}
+                        />
+                        <ListItemText 
+                          primary={anaBaslik.AnaBaslikAdi}
+                          slotProps={{
+                            primary: {
+                              fontSize: '0.875rem',
+                              fontWeight: selectedAnaBaslik?.AnaBaslikNo === anaBaslik.AnaBaslikNo ? 600 : 400,
+                            },
+                          }}
+                        />
+                      </Box>
                       <Chip 
                         label={anaBaslik.IslemSayisi} 
                         size="small" 
@@ -572,7 +642,6 @@ function SutListe() {
                   size="small"
                   onClick={() => {
                     setSelectedSut(null);
-                    setEslesmeler([]);
                   }}
                 >
                   <ClearIcon />
@@ -684,62 +753,6 @@ function SutListe() {
                   )}
                 </Stack>
 
-                {/* Sağ Kolon - Eşleşmeler */}
-                <Box>
-                  <Typography variant="caption" color="textSecondary" fontWeight={600} sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                    <LinkIcon fontSize="small" />
-                    EŞLEŞEN HUV KODLARI
-                  </Typography>
-                  
-                  {eslesmeler.length > 0 ? (
-                    <Stack spacing={1} sx={{ mt: 1 }}>
-                      {eslesmeler.map((eslesme, index) => (
-                        <Paper 
-                          key={index} 
-                          variant="outlined" 
-                          sx={{ p: 1.5, bgcolor: 'success.lighter' }}
-                        >
-                          <Stack spacing={1}>
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                              <Chip 
-                                label={eslesme.HuvKodu} 
-                                color="success" 
-                                size="small"
-                                sx={{ fontWeight: 600, fontFamily: 'monospace' }}
-                              />
-                              {eslesme.Birim && (
-                                <Chip 
-                                  label={`${eslesme.Birim.toFixed(2)} TL`} 
-                                  size="small" 
-                                  variant="outlined"
-                                />
-                              )}
-                              {eslesme.GuvenilirlikSkoru && (
-                                <Chip 
-                                  label={`%${eslesme.GuvenilirlikSkoru}`} 
-                                  size="small" 
-                                  color="info"
-                                />
-                              )}
-                            </Box>
-                            <Typography variant="body2">
-                              {eslesme.HuvIslemAdi}
-                            </Typography>
-                            {eslesme.BolumAdi && (
-                              <Typography variant="caption" color="textSecondary">
-                                Ana Dal: {eslesme.BolumAdi}
-                              </Typography>
-                            )}
-                          </Stack>
-                        </Paper>
-                      ))}
-                    </Stack>
-                  ) : (
-                    <Alert severity="info" sx={{ mt: 1 }}>
-                      Bu SUT kodu için henüz HUV eşleştirmesi yapılmamış.
-                    </Alert>
-                  )}
-                </Box>
               </Box>
             </Stack>
           </Paper>

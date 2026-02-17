@@ -129,6 +129,11 @@ temp/
 test-data/
 mock-data/
 
+# Upload klasörleri (proje içi ve dışı)
+huv-api/uploads/
+HUV_Uploads/
+**/uploads/
+
 # ============================================
 # FRONTEND (React)
 # ============================================

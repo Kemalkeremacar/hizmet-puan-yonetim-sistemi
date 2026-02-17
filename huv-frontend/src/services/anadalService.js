@@ -14,21 +14,5 @@ export const anadalService = {
   // ============================================
   getAll: () => {
     return api.get('/anadal');
-  },
-
-  // ============================================
-  // GET /api/anadal/:kod
-  // Ana dal detayı + istatistikler
-  // ============================================
-  getByKod: (kod) => {
-    return api.get(`/anadal/${kod}`);
-  },
-
-  // ============================================
-  // GET /api/anadal/:kod/islemler
-  // Ana dala ait işlemler
-  // ============================================
-  getIslemler: (kod, params) => {
-    return api.get(`/anadal/${kod}/islemler`, { params });
   }
 };

@@ -29,11 +29,15 @@ const compareSutLists = (oldData, newData) => {
     const oldItem = oldMap.get(newItem.SutKodu);
     
     if (!oldItem) {
-      // Yeni eklenen
+      // Yeni eklenen - TÜM alanları ekle
       added.push({
         SutKodu: newItem.SutKodu,
         IslemAdi: newItem.IslemAdi,
-        YeniPuan: newItem.Puan,
+        Puan: newItem.Puan,
+        Aciklama: newItem.Aciklama,
+        AnaBaslikNo: newItem.AnaBaslikNo,
+        HiyerarsiID: newItem.HiyerarsiID,
+        YeniPuan: newItem.Puan, // Geriye dönük uyumluluk için
         changeType: 'ADDED'
       });
     } else {
@@ -163,7 +167,8 @@ const detectChanges = (oldItem, newItem) => {
     });
   }
   
-  // NOT: KategoriID kaldırıldı (Migration V2), artık HiyerarsiID kullanılıyor
+  // NOT: HiyerarsiID karşılaştırılmaz çünkü Excel'den gelmiyor,
+  // DB'de controller tarafından ilişkisel olarak atanıyor
   
   return changes;
 };

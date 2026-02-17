@@ -21,7 +21,8 @@ import {
   Divider,
   Tooltip,
   Avatar,
-  Stack
+  Stack,
+  Chip
 } from '@mui/material';
 import {
   Menu as MenuIcon,
@@ -38,10 +39,13 @@ import {
   AccountTree as TreeIcon,
   TrendingUp as TrendingUpIcon,
   CloudUpload as CloudUploadIcon,
-  ListAlt as ListAltIcon
+  ListAlt as ListAltIcon,
+  LocationCity as LocationCityIcon,
+  Logout as LogoutIcon
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useTheme } from '../../app/context/ThemeContext';
+import { useAuth } from '../../app/context/AuthContext';
 import { APP_CONFIG, NAVIGATION_ITEMS } from '../../app/config/constants';
 
 const drawerWidth = 260;
@@ -62,6 +66,7 @@ const iconMap = {
   SettingsIcon: <AdminIcon />,
   ListAltIcon: <ListAltIcon />,
   UploadFileIcon: <CloudUploadIcon />,
+  LocationCityIcon: <LocationCityIcon />,
 };
 
 // ============================================
@@ -72,6 +77,18 @@ function Layout({ children }) {
   const navigate = useNavigate();
   const location = useLocation();
   const { mode, toggleTheme, isDark } = useTheme();
+  const { user, isAdmin, logout } = useAuth();
+  
+  // Admin sayfaları: yönetim sayfaları
+  const adminPages = ['huv-yonetimi', 'sut-yonetimi', 'il-katsayi-yonetimi'];
+  
+  // Navigation items'ı filtrele (admin sayfalarını sadece admin görsün)
+  const filteredNavigationItems = NAVIGATION_ITEMS.filter(item => {
+    if (adminPages.includes(item.id)) {
+      return isAdmin;
+    }
+    return true;
+  });
 
   // ============================================
   // Drawer toggle
@@ -121,7 +138,7 @@ function Layout({ children }) {
       
       {/* Navigation Menu */}
       <List sx={{ flexGrow: 1, px: 1.5, py: 2 }}>
-        {NAVIGATION_ITEMS.map((item) => {
+        {filteredNavigationItems.map((item) => {
           const isActive = location.pathname === item.path;
           
           return (
@@ -138,11 +155,19 @@ function Layout({ children }) {
                   sx={{
                     borderRadius: 2,
                     py: 1.5,
+                    mb: 0.5,
+                    transition: 'all 0.2s ease',
+                    '&:hover': {
+                      bgcolor: 'action.hover',
+                      transform: 'translateX(4px)',
+                    },
                     '&.Mui-selected': {
                       bgcolor: 'primary.main',
                       color: 'primary.contrastText',
+                      boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
                       '&:hover': {
                         bgcolor: 'primary.dark',
+                        transform: 'translateX(4px)',
                       },
                       '& .MuiListItemIcon-root': {
                         color: 'primary.contrastText',
@@ -194,32 +219,127 @@ function Layout({ children }) {
           ml: { sm: `${drawerWidth}px` },
           bgcolor: 'background.paper',
           color: 'text.primary',
-          borderBottom: 1,
+          borderBottom: '1px solid',
           borderColor: 'divider',
+          backdropFilter: 'blur(10px)',
+          background: (theme) =>
+            theme.palette.mode === 'dark'
+              ? 'rgba(30, 30, 30, 0.8)'
+              : 'rgba(255, 255, 255, 0.8)',
         }}
       >
-        <Toolbar>
+        <Toolbar sx={{ px: { xs: 2, sm: 3 } }}>
           {/* Mobile Menu Button */}
           <IconButton
             color="inherit"
             edge="start"
             onClick={handleDrawerToggle}
-            sx={{ mr: 2, display: { sm: 'none' } }}
+            sx={{
+              mr: 2,
+              display: { sm: 'none' },
+              '&:hover': {
+                bgcolor: 'action.hover',
+              },
+            }}
           >
             <MenuIcon />
           </IconButton>
 
           {/* Page Title */}
-          <Typography variant="h6" noWrap component="div" sx={{ flexGrow: 1 }}>
-            {NAVIGATION_ITEMS.find(item => item.path === location.pathname)?.title || APP_CONFIG.name}
+          <Typography
+            variant="h6"
+            noWrap
+            component="div"
+            sx={{
+              flexGrow: 1,
+              fontWeight: 600,
+              fontSize: '1.25rem',
+            }}
+          >
+            {filteredNavigationItems.find(item => item.path === location.pathname)?.title || APP_CONFIG.name}
           </Typography>
 
-          {/* Dark Mode Toggle */}
-          <Tooltip title={isDark ? 'Açık Tema' : 'Koyu Tema'}>
-            <IconButton onClick={toggleTheme} color="inherit">
-              {isDark ? <LightModeIcon /> : <DarkModeIcon />}
-            </IconButton>
-          </Tooltip>
+          {/* User Info & Actions */}
+          <Stack direction="row" spacing={1} alignItems="center">
+            {user && (
+              <Box
+                sx={{
+                  display: { xs: 'none', sm: 'flex' },
+                  alignItems: 'center',
+                  gap: 1,
+                  px: 2,
+                  py: 0.5,
+                  borderRadius: 2,
+                  bgcolor: 'action.hover',
+                }}
+              >
+                <Avatar
+                  sx={{
+                    width: 32,
+                    height: 32,
+                    bgcolor: 'primary.main',
+                    fontSize: '0.875rem',
+                  }}
+                >
+                  {user.kullaniciAdi.charAt(0).toUpperCase()}
+                </Avatar>
+                <Box>
+                  <Typography variant="body2" fontWeight={500} lineHeight={1.2}>
+                    {user.kullaniciAdi}
+                  </Typography>
+                  <Chip
+                    label={user.rol}
+                    size="small"
+                    color={user.rol === 'ADMIN' ? 'primary' : 'default'}
+                    sx={{
+                      height: 18,
+                      fontSize: '0.65rem',
+                      fontWeight: 600,
+                    }}
+                  />
+                </Box>
+              </Box>
+            )}
+
+            {/* Dark Mode Toggle */}
+            <Tooltip title={isDark ? 'Açık Tema' : 'Koyu Tema'} arrow>
+              <IconButton
+                onClick={toggleTheme}
+                color="inherit"
+                sx={{
+                  '&:hover': {
+                    bgcolor: 'action.hover',
+                    transform: 'rotate(180deg)',
+                  },
+                  transition: 'all 0.3s ease',
+                }}
+              >
+                {isDark ? <LightModeIcon /> : <DarkModeIcon />}
+              </IconButton>
+            </Tooltip>
+
+            {/* Logout */}
+            {user && (
+              <Tooltip title="Çıkış Yap" arrow>
+                <IconButton
+                  onClick={() => {
+                    logout();
+                    navigate('/login');
+                  }}
+                  color="inherit"
+                  sx={{
+                    '&:hover': {
+                      bgcolor: 'error.light',
+                      color: 'error.contrastText',
+                    },
+                    transition: 'all 0.3s ease',
+                  }}
+                >
+                  <LogoutIcon />
+                </IconButton>
+              </Tooltip>
+            )}
+          </Stack>
         </Toolbar>
       </AppBar>
 

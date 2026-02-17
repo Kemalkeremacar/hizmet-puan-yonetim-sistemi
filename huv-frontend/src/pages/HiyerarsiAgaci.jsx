@@ -36,14 +36,11 @@ import {
   Clear as ClearIcon,
   Folder as FolderIcon,
   Description as DescriptionIcon,
-  Link as LinkIcon,
-  LinkOff as LinkOffIcon
 } from '@mui/icons-material';
 import { SimpleTreeView } from '@mui/x-tree-view/SimpleTreeView';
 import { TreeItem } from '@mui/x-tree-view/TreeItem';
 import { islemService } from '../services/islemService';
 import { anadalService } from '../services/anadalService';
-import { eslestirmeService } from '../services/eslestirmeService';
 import { showError, showSuccess, showWarning, showInfo } from '../utils/toast';
 import { exportToExcel } from '../utils/export';
 import { normalizeString } from '../utils/stringUtils';
@@ -63,7 +60,6 @@ function HiyerarsiAgaci() {
   const [breadcrumb, setBreadcrumb] = useState([]);
   const [searchText, setSearchText] = useState('');
   const [selectedNodeDetails, setSelectedNodeDetails] = useState(null);
-  const [eslesmeler, setEslesmeler] = useState([]);
 
   // ============================================
   // Ana dalları yükle
@@ -519,22 +515,6 @@ function HiyerarsiAgaci() {
       const selectedNode = path[path.length - 1];
       setSelectedNodeDetails(selectedNode);
       
-      // Eşleşmeleri yükle (sadece gerçek işlemler için - birim varsa)
-      if (selectedNode.islemId && selectedNode.birim !== null && selectedNode.birim !== undefined) {
-        try {
-          const response = await eslestirmeService.getHuvEslesmeler(selectedNode.islemId);
-          setEslesmeler(response.eslesmeler || []);
-        } catch (err) {
-          console.error('Eşleşmeler yüklenemedi:', {
-            message: err.message,
-            islemId: selectedNode.islemId,
-            timestamp: new Date().toISOString()
-          });
-          setEslesmeler([]);
-        }
-      } else {
-        setEslesmeler([]);
-      }
     }
   };
 
@@ -600,7 +580,7 @@ function HiyerarsiAgaci() {
       <PageHeader 
         title="HUV Liste" 
         subtitle="HUV kodlarının hiyerarşik ağaç görünümü"
-        Icon={AccountTreeIcon}
+        icon={AccountTreeIcon}
       />
 
       {/* Filtreler */}
@@ -623,7 +603,15 @@ function HiyerarsiAgaci() {
                 </MenuItem>
                 {anaDallar.map((anaDal) => (
                   <MenuItem key={anaDal.AnaDalKodu} value={anaDal.AnaDalKodu}>
-                    {anaDal.BolumAdi}
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <Chip 
+                        label={anaDal.AnaDalKodu} 
+                        size="small" 
+                        color="primary" 
+                        sx={{ minWidth: '40px', fontWeight: 'bold' }}
+                      />
+                      <Typography>{anaDal.BolumAdi}</Typography>
+                    </Box>
                   </MenuItem>
                 ))}
               </Select>
@@ -826,7 +814,6 @@ function HiyerarsiAgaci() {
                     size="small"
                     onClick={() => {
                       setSelectedNodeDetails(null);
-                      setEslesmeler([]);
                     }}
                     startIcon={<ClearIcon />}
                   >
@@ -917,67 +904,6 @@ function HiyerarsiAgaci() {
                     </Box>
                   )}
 
-                  {/* Eşleşen SUT Kodları */}
-                  {eslesmeler.length > 0 && (
-                    <Box sx={{ mt: 2, pt: 2, borderTop: '1px solid', borderColor: 'divider' }}>
-                      <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                        <LinkIcon color="success" sx={{ mr: 1 }} />
-                        <Typography variant="subtitle2" fontWeight="bold">
-                          Eşleşen SUT Kodları ({eslesmeler.length})
-                        </Typography>
-                      </Box>
-                      <Stack spacing={1}>
-                        {eslesmeler.map((eslesme, index) => (
-                          <Paper 
-                            key={index} 
-                            variant="outlined" 
-                            sx={{ p: 1.5, bgcolor: 'success.lighter' }}
-                          >
-                            <Stack direction="row" spacing={2} alignItems="center">
-                              <Chip 
-                                label={eslesme.SutKodu} 
-                                color="success" 
-                                size="small"
-                                sx={{ fontWeight: 600 }}
-                              />
-                              <Typography variant="body2" sx={{ flexGrow: 1 }}>
-                                {eslesme.SutIslemAdi}
-                              </Typography>
-                              {eslesme.Puan && (
-                                <Chip 
-                                  label={`${eslesme.Puan} puan`} 
-                                  size="small" 
-                                  variant="outlined"
-                                />
-                              )}
-                              {eslesme.GuvenilirlikSkoru && (
-                                <Chip 
-                                  label={`%${eslesme.GuvenilirlikSkoru}`} 
-                                  size="small" 
-                                  color="info"
-                                />
-                              )}
-                            </Stack>
-                          </Paper>
-                        ))}
-                      </Stack>
-                    </Box>
-                  )}
-
-                  {/* Eşleşme Yok Mesajı */}
-                  {selectedNodeDetails.birim !== null && selectedNodeDetails.birim !== undefined && eslesmeler.length === 0 && (
-                    <Box sx={{ mt: 2, pt: 2, borderTop: '1px solid', borderColor: 'divider' }}>
-                      <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                        <LinkOffIcon color="warning" sx={{ mr: 1 }} />
-                        <Typography variant="subtitle2" color="warning.main">
-                          Eşleşen SUT Kodu Yok
-                        </Typography>
-                      </Box>
-                      <Alert severity="warning" sx={{ mt: 1 }}>
-                        Bu HUV kodu için henüz SUT eşleştirmesi yapılmamış.
-                      </Alert>
-                    </Box>
-                  )}
                 </Stack>
               </Stack>
             </Paper>
