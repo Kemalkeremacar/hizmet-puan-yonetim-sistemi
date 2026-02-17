@@ -34,12 +34,14 @@ import {
   Info as InfoIcon,
   CloudUpload as CloudUploadIcon,
   Assessment as AssessmentIcon,
-  Close as CloseIcon
+  Close as CloseIcon,
+  Link as LinkIcon
 } from '@mui/icons-material';
 import { adminService } from '../services/adminService';
 import { showError, showSuccess } from '../utils/toast';
 import { LoadingSpinner, ErrorAlert, EmptyState, PageHeader, DateDisplay } from '../components/common';
 import IlKatsayiExcelImportTab from '../components/admin/IlKatsayiExcelImportTab';
+import BirlesikListe from './BirlesikListe';
 import { formatDateShort, formatDateTime } from '../utils/dateUtils';
 
 // Tab Panel Component
@@ -483,6 +485,11 @@ function IlKatsayiYonetimi() {
             icon={<AssessmentIcon />} 
             iconPosition="start"
           />
+          <Tab 
+            label="Birleşik Liste" 
+            icon={<LinkIcon />} 
+            iconPosition="start"
+          />
         </Tabs>
 
         <TabPanel value={activeTab} index={0}>
@@ -491,6 +498,12 @@ function IlKatsayiYonetimi() {
 
         <TabPanel value={activeTab} index={1}>
           <VersiyonListesiTab />
+        </TabPanel>
+
+        <TabPanel value={activeTab} index={2}>
+          <Box sx={{ p: 0 }}>
+            <BirlesikListe />
+          </Box>
         </TabPanel>
       </Paper>
     </Container>

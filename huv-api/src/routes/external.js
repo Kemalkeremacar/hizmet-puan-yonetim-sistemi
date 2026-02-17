@@ -13,7 +13,8 @@ const {
   getHuvChanges,
   getSutChanges,
   getIlKatsayiList,
-  getIlKatsayiChanges
+  getIlKatsayiChanges,
+  getBirlesikList
 } = require('../controllers/externalController');
 
 // ============================================
@@ -60,5 +61,13 @@ router.get('/il-katsayi', getIlKatsayiList);
 // Eklenen, güncellenen, silinen il katsayıları
 // ============================================
 router.get('/il-katsayi/changes', getIlKatsayiChanges);
+
+// ============================================
+// GET /api/external/birlesik
+// Birleştirilmiş HUV + SUT listesi
+// Teminat bazlı eşleştirme (üst teminat + alt teminat kombinasyonuna göre)
+// Her grupta hem HUV hem SUT işlemleri bulunur
+// ============================================
+router.get('/birlesik', getBirlesikList);
 
 module.exports = router;
