@@ -27,7 +27,11 @@ import {
   Tabs,
   Tab,
   IconButton,
-  Tooltip
+  Tooltip,
+  TextField,
+  Accordion,
+  AccordionSummary,
+  AccordionDetails
 } from '@mui/material';
 import {
   Refresh as RefreshIcon,
@@ -35,21 +39,248 @@ import {
   CloudUpload as CloudUploadIcon,
   Assessment as AssessmentIcon,
   Close as CloseIcon,
-  Link as LinkIcon
+  List as ListIcon,
+  ExpandMore as ExpandMoreIcon
 } from '@mui/icons-material';
 import { adminService } from '../services/adminService';
 import { showError, showSuccess } from '../utils/toast';
 import { LoadingSpinner, ErrorAlert, EmptyState, PageHeader, DateDisplay } from '../components/common';
 import IlKatsayiExcelImportTab from '../components/admin/IlKatsayiExcelImportTab';
-import BirlesikListe from './BirlesikListe';
 import { formatDateShort, formatDateTime } from '../utils/dateUtils';
+import { ilKatsayiService } from '../services/ilKatsayiService';
 
 // Tab Panel Component
 function TabPanel({ children, value, index }) {
   return (
     <div hidden={value !== index}>
-      {value === index && <Box sx={{ pt: 3 }}>{children}</Box>}
+      {value === index && (
+        <Box 
+          sx={{ 
+            pt: 3,
+            pb: 3,
+            px: 2,
+            minHeight: '60vh',
+            maxHeight: 'calc(100vh - 300px)',
+            overflowY: 'auto',
+            '&::-webkit-scrollbar': {
+              width: '8px',
+            },
+            '&::-webkit-scrollbar-track': {
+              background: 'rgba(0,0,0,0.05)',
+              borderRadius: '4px',
+            },
+            '&::-webkit-scrollbar-thumb': {
+              background: 'rgba(0,0,0,0.2)',
+              borderRadius: '4px',
+              '&:hover': {
+                background: 'rgba(0,0,0,0.3)',
+              },
+            },
+          }}
+        >
+          {children}
+        </Box>
+      )}
     </div>
+  );
+}
+
+// ============================================
+// İl Katsayıları Listesi Tab
+// ============================================
+function IlKatsayilariListesiTab() {
+  const [ilKatsayilari, setIlKatsayilari] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [searchTerm, setSearchTerm] = useState('');
+
+  // ============================================
+  // İl katsayılarını yükle
+  // ============================================
+  const fetchIlKatsayilari = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const response = await ilKatsayiService.getAll();
+      const data = response?.data?.data || [];
+      setIlKatsayilari(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error('İl katsayıları yüklenemedi:', {
+        message: err.message,
+        response: err.response?.data,
+        timestamp: new Date().toISOString()
+      });
+      setError(err);
+      setIlKatsayilari([]);
+      showError('İl katsayıları yüklenirken hata oluştu');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ============================================
+  // İlk yükleme
+  // ============================================
+  useEffect(() => {
+    fetchIlKatsayilari();
+  }, []);
+
+  // ============================================
+  // Filtreleme
+  // ============================================
+  const filteredData = ilKatsayilari.filter(item => {
+    if (!searchTerm) return true;
+    const search = searchTerm.toLowerCase();
+    return (
+      (item.ilAdi && item.ilAdi.toLowerCase().includes(search)) ||
+      (item.plakaKodu && item.plakaKodu.toString().includes(search)) ||
+      (item.katsayi && item.katsayi.toString().includes(search))
+    );
+  });
+
+  // ============================================
+  // Render
+  // ============================================
+  return (
+    <Box>
+      {/* Hata */}
+      {error && <ErrorAlert message="İl katsayıları yüklenirken hata oluştu" error={error} />}
+
+      {/* Arama ve Yenile */}
+      <Paper elevation={1} sx={{ mb: 2.5, borderRadius: 2 }}>
+        <Box sx={{ p: 2, display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap' }}>
+          <TextField
+            placeholder="İl adı, plaka kodu veya katsayı ile ara..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            size="small"
+            sx={{ flex: 1, minWidth: 250 }}
+            InputProps={{
+              sx: { borderRadius: 2 }
+            }}
+          />
+          <Button
+            size="small"
+            startIcon={<RefreshIcon />}
+            onClick={fetchIlKatsayilari}
+            variant="outlined"
+            sx={{ borderRadius: 2 }}
+          >
+            Yenile
+          </Button>
+        </Box>
+      </Paper>
+
+      {/* Tablo */}
+      <Paper elevation={2} sx={{ overflow: 'hidden' }}>
+        <Box sx={{ 
+          p: 2.5, 
+          display: 'flex', 
+          justifyContent: 'space-between', 
+          alignItems: 'center', 
+          bgcolor: 'grey.50',
+          borderBottom: 1,
+          borderColor: 'divider'
+        }}>
+          <Typography variant="h6" fontWeight="600">
+            İl Katsayıları
+            {filteredData.length > 0 && (
+              <Chip 
+                label={`${filteredData.length} il`} 
+                size="small" 
+                color="primary" 
+                sx={{ ml: 2 }}
+              />
+            )}
+          </Typography>
+        </Box>
+        <TableContainer 
+          sx={{ 
+            maxHeight: 'calc(100vh - 400px)',
+            '&::-webkit-scrollbar': {
+              width: '8px',
+              height: '8px',
+            },
+            '&::-webkit-scrollbar-track': {
+              background: 'rgba(0,0,0,0.05)',
+              borderRadius: '4px',
+            },
+            '&::-webkit-scrollbar-thumb': {
+              background: 'rgba(0,0,0,0.2)',
+              borderRadius: '4px',
+              '&:hover': {
+                background: 'rgba(0,0,0,0.3)',
+              },
+            },
+          }}
+        >
+          <Table size="small" stickyHeader>
+            <TableHead>
+              <TableRow>
+                <TableCell sx={{ bgcolor: 'background.paper', fontWeight: 600, position: 'sticky', top: 0, zIndex: 10 }}>İl Adı</TableCell>
+                <TableCell align="center" sx={{ bgcolor: 'background.paper', fontWeight: 600, position: 'sticky', top: 0, zIndex: 10 }}>Plaka Kodu</TableCell>
+                <TableCell align="right" sx={{ bgcolor: 'background.paper', fontWeight: 600, position: 'sticky', top: 0, zIndex: 10 }}>Katsayı</TableCell>
+                <TableCell sx={{ bgcolor: 'background.paper', fontWeight: 600, position: 'sticky', top: 0, zIndex: 10 }}>Dönem Başlangıç</TableCell>
+                <TableCell sx={{ bgcolor: 'background.paper', fontWeight: 600, position: 'sticky', top: 0, zIndex: 10 }}>Dönem Bitiş</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {loading ? (
+                <TableRow>
+                  <TableCell colSpan={5} align="center">
+                    <LoadingSpinner message="İl katsayıları yükleniyor..." />
+                  </TableCell>
+                </TableRow>
+              ) : filteredData.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={5} align="center">
+                    <EmptyState message={searchTerm ? "Arama sonucu bulunamadı" : "Henüz il katsayısı yüklenmemiş"} />
+                  </TableCell>
+                </TableRow>
+              ) : (
+                filteredData.map((item, index) => (
+                  <TableRow 
+                    key={item.ilKatsayiId || index} 
+                    hover
+                    sx={{
+                      '&:hover': {
+                        bgcolor: 'action.hover',
+                      },
+                      transition: 'background-color 0.2s',
+                    }}
+                  >
+                    <TableCell>
+                      <Typography variant="body2" fontWeight="500">
+                        {item.ilAdi}
+                      </Typography>
+                    </TableCell>
+                    <TableCell align="center">
+                      <Chip 
+                        label={item.plakaKodu || '-'} 
+                        size="small" 
+                        variant="outlined"
+                        color="default"
+                      />
+                    </TableCell>
+                    <TableCell align="right">
+                      <Typography variant="body2" fontWeight="600" color="primary.main">
+                        {item.katsayi?.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </Typography>
+                    </TableCell>
+                    <TableCell>
+                      <DateDisplay date={item.donemBaslangic} />
+                    </TableCell>
+                    <TableCell>
+                      <DateDisplay date={item.donemBitis} />
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      </Paper>
+    </Box>
   );
 }
 
@@ -66,6 +297,11 @@ function VersiyonListesiTab() {
   const [secilenVersiyon, setSecilenVersiyon] = useState(null);
   const [versiyonDetay, setVersiyonDetay] = useState(null);
   const [detayLoading, setDetayLoading] = useState(false);
+  const [expandedSections, setExpandedSections] = useState({
+    eklenenler: false,
+    guncellenenler: false,
+    silinenler: false
+  });
 
   // ============================================
   // Versiyonları yükle
@@ -98,6 +334,11 @@ function VersiyonListesiTab() {
     setSecilenVersiyon(versiyon);
     setDetayDialog(true);
     setDetayLoading(true);
+    setExpandedSections({
+      eklenenler: false,
+      guncellenenler: false,
+      silinenler: false
+    });
 
     try {
       const response = await adminService.getVersiyonDetay(versiyon.VersionID);
@@ -130,8 +371,16 @@ function VersiyonListesiTab() {
       {error && <ErrorAlert message="Versiyonlar yüklenirken hata oluştu" error={error} />}
 
       {/* Tablo */}
-      <Paper elevation={2}>
-        <Box sx={{ p: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center', bgcolor: 'grey.100' }}>
+      <Paper elevation={2} sx={{ overflow: 'hidden' }}>
+        <Box sx={{ 
+          p: 2.5, 
+          display: 'flex', 
+          justifyContent: 'space-between', 
+          alignItems: 'center', 
+          bgcolor: 'grey.50',
+          borderBottom: 1,
+          borderColor: 'divider'
+        }}>
           <Typography variant="h6" fontWeight="600">
             Versiyon Geçmişi
           </Typography>
@@ -139,41 +388,61 @@ function VersiyonListesiTab() {
             Yenile
           </Button>
         </Box>
-        <Divider />
-        <TableContainer sx={{ maxHeight: 600 }}>
+        <TableContainer 
+          sx={{ 
+            maxHeight: 'calc(100vh - 400px)',
+            '&::-webkit-scrollbar': {
+              width: '8px',
+              height: '8px',
+            },
+            '&::-webkit-scrollbar-track': {
+              background: 'rgba(0,0,0,0.05)',
+              borderRadius: '4px',
+            },
+            '&::-webkit-scrollbar-thumb': {
+              background: 'rgba(0,0,0,0.2)',
+              borderRadius: '4px',
+              '&:hover': {
+                background: 'rgba(0,0,0,0.3)',
+              },
+            },
+          }}
+        >
           <Table size="small" stickyHeader>
             <TableHead>
               <TableRow>
-                <TableCell sx={{ bgcolor: 'background.paper', fontWeight: 600 }}>Versiyon</TableCell>
-                <TableCell sx={{ bgcolor: 'background.paper', fontWeight: 600 }}>Liste Tipi</TableCell>
-                <TableCell sx={{ bgcolor: 'background.paper', fontWeight: 600 }}>Dosya Adı</TableCell>
-                <TableCell align="right" sx={{ bgcolor: 'background.paper', fontWeight: 600 }}>Kayıt Sayısı</TableCell>
-                <TableCell sx={{ bgcolor: 'background.paper', fontWeight: 600 }}>Yükleme Tarihi</TableCell>
-                <TableCell sx={{ bgcolor: 'background.paper', fontWeight: 600 }}>Yükleyen</TableCell>
-                <TableCell align="center" sx={{ bgcolor: 'background.paper', fontWeight: 600 }}>İşlemler</TableCell>
+                <TableCell sx={{ bgcolor: 'background.paper', fontWeight: 600, position: 'sticky', top: 0, zIndex: 10 }}>Liste Tipi</TableCell>
+                <TableCell sx={{ bgcolor: 'background.paper', fontWeight: 600, position: 'sticky', top: 0, zIndex: 10 }}>Dosya Adı</TableCell>
+                <TableCell align="right" sx={{ bgcolor: 'background.paper', fontWeight: 600, position: 'sticky', top: 0, zIndex: 10 }}>Kayıt Sayısı</TableCell>
+                <TableCell sx={{ bgcolor: 'background.paper', fontWeight: 600, position: 'sticky', top: 0, zIndex: 10 }}>Yükleme Tarihi</TableCell>
+                <TableCell align="center" sx={{ bgcolor: 'background.paper', fontWeight: 600, position: 'sticky', top: 0, zIndex: 10 }}>İşlemler</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={7} align="center">
+                  <TableCell colSpan={5} align="center">
                     <LoadingSpinner message="Versiyonlar yükleniyor..." />
                   </TableCell>
                 </TableRow>
               ) : versiyonlar.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} align="center">
+                  <TableCell colSpan={5} align="center">
                     <EmptyState message="Henüz import yapılmamış" />
                   </TableCell>
                 </TableRow>
               ) : (
                 versiyonlar.map((versiyon) => (
-                  <TableRow key={versiyon.VersionID} hover>
-                    <TableCell>
-                      <Typography variant="body2" fontWeight="500">
-                        #{versiyon.VersionID}
-                      </Typography>
-                    </TableCell>
+                  <TableRow 
+                    key={versiyon.VersionID} 
+                    hover
+                    sx={{
+                      '&:hover': {
+                        bgcolor: 'action.hover',
+                      },
+                      transition: 'background-color 0.2s',
+                    }}
+                  >
                     <TableCell>
                       <Chip 
                         label={versiyon.ListeTipi || 'ILKATSAYI'} 
@@ -182,24 +451,24 @@ function VersiyonListesiTab() {
                       />
                     </TableCell>
                     <TableCell>
-                      <Typography variant="body2" noWrap sx={{ maxWidth: 300 }}>
+                      <Typography variant="body2" noWrap sx={{ maxWidth: { xs: 150, sm: 250, md: 300 } }}>
                         {versiyon.DosyaAdi || '-'}
                       </Typography>
                     </TableCell>
                     <TableCell align="right">
-                      <Typography variant="body2">
+                      <Typography variant="body2" fontWeight="500">
                         {versiyon.KayitSayisi || 0}
                       </Typography>
                       {versiyon.EklenenSayisi > 0 || versiyon.GuncellenenSayisi > 0 || versiyon.SilinenSayisi > 0 ? (
-                        <Box sx={{ mt: 0.5 }}>
+                        <Box sx={{ mt: 0.5, display: 'flex', flexWrap: 'wrap', gap: 0.5, justifyContent: 'flex-end' }}>
                           {versiyon.EklenenSayisi > 0 && (
-                            <Chip label={`+${versiyon.EklenenSayisi}`} size="small" color="success" sx={{ mr: 0.5, height: 18 }} />
+                            <Chip label={`+${versiyon.EklenenSayisi}`} size="small" color="success" sx={{ height: 20, fontSize: '0.7rem' }} />
                           )}
                           {versiyon.GuncellenenSayisi > 0 && (
-                            <Chip label={`~${versiyon.GuncellenenSayisi}`} size="small" color="warning" sx={{ mr: 0.5, height: 18 }} />
+                            <Chip label={`~${versiyon.GuncellenenSayisi}`} size="small" color="warning" sx={{ height: 20, fontSize: '0.7rem' }} />
                           )}
                           {versiyon.SilinenSayisi > 0 && (
-                            <Chip label={`-${versiyon.SilinenSayisi}`} size="small" color="error" sx={{ height: 18 }} />
+                            <Chip label={`-${versiyon.SilinenSayisi}`} size="small" color="error" sx={{ height: 20, fontSize: '0.7rem' }} />
                           )}
                         </Box>
                       ) : null}
@@ -207,17 +476,18 @@ function VersiyonListesiTab() {
                     <TableCell>
                       <DateDisplay date={versiyon.YuklemeTarihi} />
                     </TableCell>
-                    <TableCell>
-                      <Typography variant="body2" color="text.secondary">
-                        {versiyon.YukleyenKullanici || '-'}
-                      </Typography>
-                    </TableCell>
                     <TableCell align="center">
                       <Tooltip title="Detayları Görüntüle">
                         <IconButton
                           size="small"
                           color="primary"
                           onClick={() => handleDetayAc(versiyon)}
+                          sx={{
+                            '&:hover': {
+                              bgcolor: 'primary.light',
+                              color: 'primary.contrastText',
+                            },
+                          }}
                         >
                           <InfoIcon fontSize="small" />
                         </IconButton>
@@ -245,7 +515,7 @@ function VersiyonListesiTab() {
         <DialogTitle>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <Typography variant="h6">
-              Versiyon Detayları - #{secilenVersiyon?.VersionID}
+              İşlem Detayları
             </Typography>
             <IconButton
               size="small"
@@ -259,7 +529,24 @@ function VersiyonListesiTab() {
             </IconButton>
           </Box>
         </DialogTitle>
-        <DialogContent>
+        <DialogContent sx={{ 
+          maxHeight: 'calc(100vh - 200px)',
+          overflowY: 'auto',
+          '&::-webkit-scrollbar': {
+            width: '8px',
+          },
+          '&::-webkit-scrollbar-track': {
+            background: 'rgba(0,0,0,0.05)',
+            borderRadius: '4px',
+          },
+          '&::-webkit-scrollbar-thumb': {
+            background: 'rgba(0,0,0,0.2)',
+            borderRadius: '4px',
+            '&:hover': {
+              background: 'rgba(0,0,0,0.3)',
+            },
+          },
+        }}>
           {detayLoading ? (
             <LoadingSpinner message="Detaylar yükleniyor..." />
           ) : versiyonDetay ? (
@@ -267,21 +554,21 @@ function VersiyonListesiTab() {
               <Grid container spacing={2} sx={{ mb: 3 }}>
                 <Grid item xs={12} sm={6}>
                   <Typography variant="caption" color="text.secondary">Dosya Adı</Typography>
-                  <Typography variant="body1">{versiyonDetay.version?.dosyaAdi || '-'}</Typography>
+                  <Typography variant="body1">
+                    {versiyonDetay.version?.DosyaAdi || versiyonDetay.version?.dosyaAdi || '-'}
+                  </Typography>
                 </Grid>
                 <Grid item xs={12} sm={6}>
                   <Typography variant="caption" color="text.secondary">Yükleme Tarihi</Typography>
                   <Typography variant="body1">
-                    <DateDisplay date={versiyonDetay.version?.yuklemeTarihi} />
+                    <DateDisplay date={versiyonDetay.version?.YuklemeTarihi || versiyonDetay.version?.yuklemeTarihi} />
                   </Typography>
                 </Grid>
                 <Grid item xs={12} sm={6}>
                   <Typography variant="caption" color="text.secondary">Kayıt Sayısı</Typography>
-                  <Typography variant="body1">{versiyonDetay.version?.kayitSayisi || 0}</Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography variant="caption" color="text.secondary">Yükleyen</Typography>
-                  <Typography variant="body1">{versiyonDetay.version?.yukleyenKullanici || '-'}</Typography>
+                  <Typography variant="body1">
+                    {versiyonDetay.version?.KayitSayisi || versiyonDetay.version?.kayitSayisi || 0}
+                  </Typography>
                 </Grid>
               </Grid>
 
@@ -325,108 +612,58 @@ function VersiyonListesiTab() {
                 </Grid>
               </Grid>
 
-              {versiyonDetay.eklenenler && versiyonDetay.eklenenler.length > 0 && (
-                <Box sx={{ mb: 3 }}>
-                  <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>
-                    Eklenen İl Katsayıları ({versiyonDetay.eklenenler.length})
-                  </Typography>
-                  <TableContainer>
-                    <Table size="small">
-                      <TableHead>
-                        <TableRow>
-                          <TableCell>İl Adı</TableCell>
-                          <TableCell align="center">Plaka</TableCell>
-                          <TableCell align="right">Katsayı</TableCell>
-                        </TableRow>
-                      </TableHead>
-                      <TableBody>
-                        {versiyonDetay.eklenenler.slice(0, 10).map((item, idx) => (
-                          <TableRow key={idx}>
-                            <TableCell>{item.IlAdi || item.ilAdi}</TableCell>
-                            <TableCell align="center">{item.PlakaKodu || item.plakaKodu || '-'}</TableCell>
-                            <TableCell align="right">{item.Katsayi || item.katsayi}</TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </TableContainer>
-                  {versiyonDetay.eklenenler.length > 10 && (
-                    <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
-                      ... ve {versiyonDetay.eklenenler.length - 10} kayıt daha
-                    </Typography>
-                  )}
-                </Box>
-              )}
-
               {versiyonDetay.guncellenenler && versiyonDetay.guncellenenler.length > 0 && (
                 <Box sx={{ mb: 3 }}>
-                  <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>
-                    Güncellenen İl Katsayıları ({versiyonDetay.guncellenenler.length})
-                  </Typography>
-                  <TableContainer>
-                    <Table size="small">
-                      <TableHead>
-                        <TableRow>
-                          <TableCell>İl Adı</TableCell>
-                          <TableCell align="center">Plaka</TableCell>
-                          <TableCell align="right">Eski Katsayı</TableCell>
-                          <TableCell align="right">Yeni Katsayı</TableCell>
-                          <TableCell align="right">Değişim</TableCell>
-                        </TableRow>
-                      </TableHead>
-                      <TableBody>
-                        {versiyonDetay.guncellenenler.slice(0, 10).map((item, idx) => (
-                          <TableRow key={idx}>
-                            <TableCell>{item.IlAdi || item.ilAdi}</TableCell>
-                            <TableCell align="center">{item.PlakaKodu || item.plakaKodu || '-'}</TableCell>
-                            <TableCell align="right">{item.EskiKatsayi || item.eskiKatsayi}</TableCell>
-                            <TableCell align="right">{item.YeniKatsayi || item.yeniKatsayi}</TableCell>
-                            <TableCell align="right">
-                              {((item.YeniKatsayi || item.yeniKatsayi) - (item.EskiKatsayi || item.eskiKatsayi)).toFixed(2)}
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </TableContainer>
-                  {versiyonDetay.guncellenenler.length > 10 && (
-                    <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
-                      ... ve {versiyonDetay.guncellenenler.length - 10} kayıt daha
-                    </Typography>
-                  )}
-                </Box>
-              )}
-
-              {versiyonDetay.silinenler && versiyonDetay.silinenler.length > 0 && (
-                <Box>
-                  <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>
-                    Silinen İl Katsayıları ({versiyonDetay.silinenler.length})
-                  </Typography>
-                  <TableContainer>
-                    <Table size="small">
-                      <TableHead>
-                        <TableRow>
-                          <TableCell>İl Adı</TableCell>
-                          <TableCell align="center">Plaka</TableCell>
-                          <TableCell align="right">Katsayı</TableCell>
-                        </TableRow>
-                      </TableHead>
-                      <TableBody>
-                        {versiyonDetay.silinenler.slice(0, 10).map((item, idx) => (
-                          <TableRow key={idx}>
-                            <TableCell>{item.IlAdi || item.ilAdi}</TableCell>
-                            <TableCell align="center">{item.PlakaKodu || item.plakaKodu || '-'}</TableCell>
-                            <TableCell align="right">{item.Katsayi || item.katsayi}</TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </TableContainer>
-                  {versiyonDetay.silinenler.length > 10 && (
-                    <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
-                      ... ve {versiyonDetay.silinenler.length - 10} kayıt daha
-                    </Typography>
-                  )}
+                  <Accordion 
+                    expanded={expandedSections.guncellenenler}
+                    onChange={(e, isExpanded) => setExpandedSections(prev => ({ ...prev, guncellenenler: isExpanded }))}
+                    sx={{ boxShadow: 2 }}
+                  >
+                    <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                      <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+                        Güncellenen İl Katsayıları ({versiyonDetay.guncellenenler.length})
+                      </Typography>
+                    </AccordionSummary>
+                    <AccordionDetails>
+                      <TableContainer sx={{ maxHeight: 400 }}>
+                        <Table size="small" stickyHeader>
+                          <TableHead>
+                            <TableRow>
+                              <TableCell sx={{ fontWeight: 600 }}>İl Adı</TableCell>
+                              <TableCell align="center" sx={{ fontWeight: 600 }}>Plaka</TableCell>
+                              <TableCell align="right" sx={{ fontWeight: 600 }}>Eski Katsayı</TableCell>
+                              <TableCell align="right" sx={{ fontWeight: 600 }}>Yeni Katsayı</TableCell>
+                              <TableCell align="right" sx={{ fontWeight: 600 }}>Değişim</TableCell>
+                            </TableRow>
+                          </TableHead>
+                          <TableBody>
+                            {versiyonDetay.guncellenenler.map((item, idx) => (
+                              <TableRow key={idx} hover>
+                                <TableCell>{item.IlAdi || item.ilAdi}</TableCell>
+                                <TableCell align="center">{item.PlakaKodu || item.plakaKodu || '-'}</TableCell>
+                                <TableCell align="right">{item.EskiKatsayi || item.eskiKatsayi}</TableCell>
+                                <TableCell align="right">
+                                  <Typography variant="body2" fontWeight="600" color="primary">
+                                    {item.YeniKatsayi || item.yeniKatsayi}
+                                  </Typography>
+                                </TableCell>
+                                <TableCell align="right">
+                                  <Typography 
+                                    variant="body2" 
+                                    fontWeight="600"
+                                    color={((item.YeniKatsayi || item.yeniKatsayi) - (item.EskiKatsayi || item.eskiKatsayi)) >= 0 ? 'success.main' : 'error.main'}
+                                  >
+                                    {((item.YeniKatsayi || item.yeniKatsayi) - (item.EskiKatsayi || item.eskiKatsayi)) >= 0 ? '+' : ''}
+                                    {((item.YeniKatsayi || item.yeniKatsayi) - (item.EskiKatsayi || item.eskiKatsayi)).toFixed(2)}
+                                  </Typography>
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </TableContainer>
+                    </AccordionDetails>
+                  </Accordion>
                 </Box>
               )}
             </Box>
@@ -460,20 +697,32 @@ function IlKatsayiYonetimi() {
   };
 
   return (
-    <Container maxWidth="xl" sx={{ py: 4 }}>
+    <Container maxWidth="xl" sx={{ py: { xs: 2, sm: 3, md: 4 } }}>
       <PageHeader 
         title="İl Katsayıları Yönetimi" 
         subtitle="Excel import ve liste takibi"
         icon="📊"
       />
 
-      <Paper elevation={2}>
+      <Paper elevation={2} sx={{ borderRadius: 2, overflow: 'hidden', mb: { xs: 2, sm: 3 } }}>
         <Tabs
           value={activeTab}
           onChange={handleTabChange}
           variant="scrollable"
           scrollButtons="auto"
-          sx={{ borderBottom: 1, borderColor: 'divider' }}
+          sx={{ 
+            borderBottom: 1, 
+            borderColor: 'divider',
+            bgcolor: 'background.paper',
+            '& .MuiTab-root': {
+              minHeight: 64,
+              textTransform: 'none',
+              fontWeight: 500,
+            },
+            '& .Mui-selected': {
+              fontWeight: 600,
+            },
+          }}
         >
           <Tab 
             label="Yeni Liste Yükle" 
@@ -486,8 +735,8 @@ function IlKatsayiYonetimi() {
             iconPosition="start"
           />
           <Tab 
-            label="Birleşik Liste" 
-            icon={<LinkIcon />} 
+            label="İl Katsayıları Listesi" 
+            icon={<ListIcon />} 
             iconPosition="start"
           />
         </Tabs>
@@ -501,9 +750,7 @@ function IlKatsayiYonetimi() {
         </TabPanel>
 
         <TabPanel value={activeTab} index={2}>
-          <Box sx={{ p: 0 }}>
-            <BirlesikListe />
-          </Box>
+          <IlKatsayilariListesiTab />
         </TabPanel>
       </Paper>
     </Container>

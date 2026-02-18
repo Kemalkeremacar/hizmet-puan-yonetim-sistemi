@@ -41,6 +41,7 @@ import {
   CloudUpload as CloudUploadIcon,
   ListAlt as ListAltIcon,
   LocationCity as LocationCityIcon,
+  Link as LinkIcon,
   Logout as LogoutIcon
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -67,6 +68,7 @@ const iconMap = {
   ListAltIcon: <ListAltIcon />,
   UploadFileIcon: <CloudUploadIcon />,
   LocationCityIcon: <LocationCityIcon />,
+  LinkIcon: <LinkIcon />,
 };
 
 // ============================================

@@ -7,6 +7,7 @@
 
 const { getPool, sql } = require('../config/database');
 const { success, error } = require('../utils/response');
+const cache = require('../utils/cache');
 
 // ============================================
 // GET /api/external/huv
@@ -106,109 +107,102 @@ const getSutList = async (req, res, next) => {
       ORDER BY ab.AnaBaslikNo
     `);
 
-    const result = [];
-
-    for (const anaBaslik of anaBasliklarResult.recordset) {
-      // Bu ana başlığın ilk alt seviyesini bul (Seviye 2)
-      // Eğer yoksa, ana başlığı alt teminat olarak kullan
-      const altSeviyeResult = await pool.request()
-        .input('parentID', sql.Int, anaBaslik.HiyerarsiID)
-        .query(`
-          SELECT TOP 1
-            HiyerarsiID,
-            Baslik,
-            SeviyeNo
+    // ============================================
+    // OPTİMİZASYON: N+1 Query Problemi Çözüldü
+    // ============================================
+    // Tüm veriyi tek seferde çek, JS tarafında grupla
+    // "DB pahalıdır, JS ucuzdur" prensibi
+    // ÖNCE: 100 ana başlık × 3 sorgu = 300 sorgu
+    // SONRA: 3 sorgu (tüm veri)
+    
+    // 1. Tüm hiyerarşi yapısını tek seferde çek
+    const hiyerarsiResult = await pool.request().query(`
+      SELECT 
+        ab.AnaBaslikNo,
+        ab.AnaBaslikAdi,
+        ab.HiyerarsiID as AnaBaslikID,
+        h2.HiyerarsiID as AltSeviyeID,
+        h2.Baslik as AltSeviyeAdi,
+        h2.SeviyeNo as AltSeviyeSeviye,
+        h3.HiyerarsiID as EnUstSeviyeID,
+        h3.Baslik as EnUstSeviyeAdi
+      FROM SutAnaBasliklar ab
+      LEFT JOIN SutHiyerarsi h2 ON h2.ParentID = ab.HiyerarsiID 
+        AND h2.SeviyeNo = 2 
+        AND h2.AktifMi = 1
+        AND h2.HiyerarsiID = (
+          SELECT TOP 1 HiyerarsiID
           FROM SutHiyerarsi
-          WHERE ParentID = @parentID 
-            AND SeviyeNo = 2 
-            AND AktifMi = 1
+          WHERE ParentID = ab.HiyerarsiID AND SeviyeNo = 2 AND AktifMi = 1
           ORDER BY Sira
-        `);
+        )
+      LEFT JOIN SutHiyerarsi h3 ON h3.ParentID = COALESCE(h2.HiyerarsiID, ab.HiyerarsiID)
+        AND h3.AktifMi = 1
+        AND h3.SeviyeNo > COALESCE(h2.SeviyeNo, 1)
+        AND h3.HiyerarsiID = (
+          SELECT TOP 1 HiyerarsiID
+          FROM SutHiyerarsi
+          WHERE ParentID = COALESCE(h2.HiyerarsiID, ab.HiyerarsiID)
+            AND AktifMi = 1
+            AND SeviyeNo > COALESCE(h2.SeviyeNo, 1)
+          ORDER BY SeviyeNo, Sira
+        )
+      WHERE ab.AktifMi = 1
+      ORDER BY ab.AnaBaslikNo
+    `);
 
-      // Alt seviye yoksa, ana başlığı alt teminat olarak kullan
-      let altTeminat = {
-        kod: anaBaslik.HiyerarsiID,
-        adi: anaBaslik.AnaBaslikAdi
+    // 2. Tüm SUT işlemlerini tek seferde çek
+    const sutIslemlerResult = await pool.request().query(`
+      SELECT 
+        s.SutID,
+        s.SutKodu,
+        s.IslemAdi,
+        s.Puan,
+        s.Aciklama,
+        s.HiyerarsiID
+      FROM SutIslemler s
+      WHERE s.AktifMi = 1
+      ORDER BY s.SutKodu
+    `);
+
+    // 3. İşlemleri HiyerarsiID'ye göre Map'e al (hızlı erişim için)
+    const islemlerByHiyerarsiID = new Map();
+    for (const islem of sutIslemlerResult.recordset) {
+      const hiyerarsiID = islem.HiyerarsiID;
+      if (!islemlerByHiyerarsiID.has(hiyerarsiID)) {
+        islemlerByHiyerarsiID.set(hiyerarsiID, []);
+      }
+      islemlerByHiyerarsiID.get(hiyerarsiID).push({
+        sutId: islem.SutID,
+        sutKodu: islem.SutKodu,
+        islemAdi: islem.IslemAdi,
+        puan: islem.Puan,
+        aciklama: islem.Aciklama
+      });
+    }
+
+    // 4. JS tarafında grupla
+    const result = [];
+    for (const row of hiyerarsiResult.recordset) {
+      // Alt teminat belirleme
+      const altTeminat = {
+        kod: row.AltSeviyeID || row.AnaBaslikID,
+        adi: row.AltSeviyeAdi || row.AnaBaslikAdi
       };
 
-      if (altSeviyeResult.recordset.length > 0) {
-        altTeminat = {
-          kod: altSeviyeResult.recordset[0].HiyerarsiID,
-          adi: altSeviyeResult.recordset[0].Baslik
-        };
-      }
+      // İşlem HiyerarsiID: En üst seviye varsa onu kullan, yoksa alt seviye veya ana başlık
+      const islemHiyerarsiID = row.EnUstSeviyeID || row.AltSeviyeID || row.AnaBaslikID;
 
-      // Bu alt teminata bağlı işlemleri al
-      // KURAL: Sadece en yukarıdaki kırılımları al
-      // Eğer alt teminatın altında başka seviyeler varsa, 
-      // sadece en üstteki seviyeye bağlı işlemleri al
-      
-      let islemlerResult;
-      
-      // Alt teminatın altında başka seviyeler var mı?
-      const altSeviyeVarMi = await pool.request()
-        .input('parentID', sql.Int, altTeminat.kod)
-        .query(`
-          SELECT TOP 1
-            HiyerarsiID,
-            Baslik,
-            SeviyeNo
-          FROM SutHiyerarsi
-          WHERE ParentID = @parentID AND AktifMi = 1
-          ORDER BY SeviyeNo, Sira
-        `);
-
-      if (altSeviyeVarMi.recordset.length > 0) {
-        // Alt teminatın altında başka seviyeler var
-        // En üstteki seviyeye bağlı işlemleri al
-        const enUstSeviyeID = altSeviyeVarMi.recordset[0].HiyerarsiID;
-        
-        islemlerResult = await pool.request()
-          .input('hiyerarsiID', sql.Int, enUstSeviyeID)
-          .query(`
-            SELECT 
-              s.SutID,
-              s.SutKodu,
-              s.IslemAdi,
-              s.Puan,
-              s.Aciklama
-            FROM SutIslemler s
-            WHERE s.HiyerarsiID = @hiyerarsiID AND s.AktifMi = 1
-            ORDER BY s.SutKodu
-          `);
-      } else {
-        // Alt teminata direkt bağlı işlemler
-        islemlerResult = await pool.request()
-          .input('hiyerarsiID', sql.Int, altTeminat.kod)
-          .query(`
-            SELECT 
-              s.SutID,
-              s.SutKodu,
-              s.IslemAdi,
-              s.Puan,
-              s.Aciklama
-            FROM SutIslemler s
-            WHERE s.HiyerarsiID = @hiyerarsiID AND s.AktifMi = 1
-            ORDER BY s.SutKodu
-          `);
-      }
+      // İşlemleri Map'ten al
+      const islemler = islemlerByHiyerarsiID.get(islemHiyerarsiID) || [];
 
       result.push({
         ustTeminat: {
-          kod: anaBaslik.AnaBaslikNo,
-          adi: anaBaslik.AnaBaslikAdi
+          kod: row.AnaBaslikNo,
+          adi: row.AnaBaslikAdi
         },
-        altTeminat: {
-          kod: altTeminat.kod,
-          adi: altTeminat.adi
-        },
-        islemler: islemlerResult.recordset.map(islem => ({
-          sutId: islem.SutID,
-          sutKodu: islem.SutKodu,
-          islemAdi: islem.IslemAdi,
-          puan: islem.Puan,
-          aciklama: islem.Aciklama
-        }))
+        altTeminat: altTeminat,
+        islemler: islemler
       });
     }
 
@@ -873,8 +867,10 @@ const calculateSimilarity = (str1, str2) => {
   
   const charSimilarity = matches / maxLen;
   
-  // Kombine skor (anahtar kelimeler daha önemli)
-  return (keywordSimilarity * 0.5) + (wordSimilarity * 0.3) + (charSimilarity * 0.2);
+  // Kombine skor (anahtar kelimeler daha önemli, char similarity ağırlığı düşürüldü)
+  // ÖNCE: keyword: 0.5, word: 0.3, char: 0.2
+  // SONRA: keyword: 0.6, word: 0.3, char: 0.1 (char similarity sadece prefix benzerliği, yanıltıcı)
+  return (keywordSimilarity * 0.6) + (wordSimilarity * 0.3) + (charSimilarity * 0.1);
 };
 
 // ============================================
@@ -927,9 +923,21 @@ const getBirlesikList = async (req, res, next) => {
   const startTime = Date.now();
   console.log('🔄 Birleşik liste isteği alındı');
   
+  // Cache kontrolü
+  const cacheKey = 'birlesik_liste';
+  const cachedData = cache.get(cacheKey);
+  if (cachedData) {
+    console.log('✅ Cache\'den döndürülüyor');
+    return success(res, cachedData, 'Birleştirilmiş HUV + SUT listesi (Cache)');
+  }
+  
   try {
     const pool = await getPool();
     console.log('✅ Database bağlantısı kuruldu');
+
+    // Düşük güven (0.3-0.5) eşleşmeleri için özet sayaç
+    // Tek tek log basmak terminali boğuyor; özetlemek daha faydalı.
+    const lowConfidenceAgg = new Map(); // key -> { count, sample }
 
     // 1. HUV listesini al (teminat bazlı)
     // Key: normalize edilmiş üst teminat adı + normalize edilmiş alt teminat adı
@@ -987,17 +995,25 @@ const getBirlesikList = async (req, res, next) => {
         ? altTeminatAdi.split('→').pop().trim()
         : altTeminatAdi;
       
+      // Alt teminat kodu: Synthetic key (collision önleme)
+      // ÖNCE: AnaDalKodu (aynı ana dal altında farklı UstBaslik'ler aynı kodu paylaşıyordu)
+      // SONRA: AnaDalKodu + normalize edilmiş alt teminat adı
+      const altTeminatKod = `${islem.AnaDalKodu}_${normalizeTeminatAdi(altTeminatAdi)}`;
+      
       const altTeminat = {
-        kod: islem.AnaDalKodu, // Alt teminat için kod olarak AnaDalKodu kullanıyoruz
+        kod: altTeminatKod, // Synthetic key: collision önleme
+        anaDalKodu: islem.AnaDalKodu, // Orijinal AnaDalKodu (referans için)
         adi: altTeminatAdi, // Orijinal ad (eşleştirme için)
         adiGosterim: altTeminatAdiGosterim, // Gösterim için temizlenmiş ad
         tip: 'HUV'
       };
 
-      // Eşleştirme key'i: normalize edilmiş üst + alt teminat
+      // Eşleştirme key'i: normalize edilmiş üst + alt teminat + kod kontrolü (collision önleme)
+      // ÖNCE: Sadece normalize edilmiş string (collision riski)
+      // SONRA: Normalize string + kod kontrolü
       const normalizeUst = normalizeTeminatAdi(ustTeminat.adi);
       const normalizeAlt = normalizeTeminatAdi(altTeminat.adi);
-      const teminatKey = `${normalizeUst}|||${normalizeAlt}`;
+      const teminatKey = `${normalizeUst}|||${normalizeAlt}|||${ustTeminat.kod}|||${altTeminat.kod}`;
 
       // İşlem objesi
       const huvIslem = {
@@ -1118,9 +1134,115 @@ const getBirlesikList = async (req, res, next) => {
       }
     }
 
+    // ============================================
+    // Manuel Yerleştirmeler (Doktor) - OVERRIDE
+    // ============================================
+    // Not: Manuel düzenlemeler birleşik listede ANINDA uygulanmalı.
+    console.log('📊 Manuel yerleştirmeler sorgulanıyor...');
+    const manuelOverrideBySutId = new Map(); // SutID -> { yeniUstKod, yeniAltKod, not, tarih }
+    try {
+      const manuelResult = await pool.request().query(`
+        WITH ranked AS (
+          SELECT
+            DuzenlemeID,
+            SutID,
+            SutKodu,
+            YeniHuvUstTeminatKod,
+            YeniHuvAltTeminatKod,
+            DuzenlemeNotu,
+            DuzenlemeTarihi,
+            ROW_NUMBER() OVER (PARTITION BY SutID ORDER BY DuzenlemeTarihi DESC, DuzenlemeID DESC) AS rn
+          FROM SutEslestirmeManuelDuzenlemeler
+          WHERE AktifMi = 1
+        )
+        SELECT
+          SutID,
+          SutKodu,
+          YeniHuvUstTeminatKod,
+          YeniHuvAltTeminatKod,
+          DuzenlemeNotu,
+          DuzenlemeTarihi
+        FROM ranked
+        WHERE rn = 1
+      `);
+
+      for (const row of manuelResult.recordset) {
+        manuelOverrideBySutId.set(row.SutID, {
+          yeniUstKod: String(row.YeniHuvUstTeminatKod).trim(),
+          yeniAltKod: String(row.YeniHuvAltTeminatKod).trim(),
+          not: row.DuzenlemeNotu || null,
+          tarih: row.DuzenlemeTarihi || null
+        });
+      }
+      console.log(`✅ ${manuelOverrideBySutId.size} manuel yerleştirme bulundu`);
+    } catch (e) {
+      console.warn('⚠️ Manuel yerleştirmeler alınamadı (devam ediliyor):', e.message);
+    }
+
+    // Grup kodlarına göre hızlı erişim (ustKod|||altKod -> teminatGruplari key)
+    const huvGroupKeyByCodes = new Map();
+    for (const [key, group] of teminatGruplari.entries()) {
+      const codeKey = `${String(group.ustTeminat.kod)}|||${String(group.altTeminat.kod)}`;
+      if (!huvGroupKeyByCodes.has(codeKey)) {
+        huvGroupKeyByCodes.set(codeKey, key);
+      }
+    }
+
+    // "GENEL İLKELER" grubunu önceden bul veya oluştur (eşleşmeyen işlemler için)
+    let genelIlkelerGrup = null;
+    let genelIlkelerKey = null;
+    
+    // "GENEL İLKELER" grubunu mevcut gruplar arasında ara
+    for (const [key, grup] of teminatGruplari.entries()) {
+      const ustNorm = normalizeTeminatAdi(grup.ustTeminat.adi);
+      if (ustNorm.includes('genel') && ustNorm.includes('ilkeler')) {
+        genelIlkelerGrup = grup;
+        genelIlkelerKey = key;
+        break;
+      }
+    }
+    
+    // Eğer "GENEL İLKELER" grubu yoksa, oluştur
+    if (!genelIlkelerGrup) {
+      const genelIlkelerResult = await pool.request().query(`
+        SELECT TOP 1 AnaDalKodu, BolumAdi
+        FROM AnaDallar
+        WHERE LOWER(BolumAdi) LIKE '%genel%' AND LOWER(BolumAdi) LIKE '%ilkeler%'
+        ORDER BY AnaDalKodu
+      `);
+      
+      if (genelIlkelerResult.recordset.length > 0) {
+        const genelIlkeler = genelIlkelerResult.recordset[0];
+        genelIlkelerKey = `genelilkeler|||genelilkeler|||${genelIlkeler.AnaDalKodu}|||${genelIlkeler.AnaDalKodu}_genelilkeler`;
+        
+        genelIlkelerGrup = {
+          ustTeminat: {
+            kod: genelIlkeler.AnaDalKodu,
+            adi: genelIlkeler.BolumAdi,
+            tip: 'HUV'
+          },
+          altTeminat: {
+            kod: `${genelIlkeler.AnaDalKodu}_genelilkeler`,
+            anaDalKodu: genelIlkeler.AnaDalKodu,
+            adi: genelIlkeler.BolumAdi,
+            adiGosterim: genelIlkeler.BolumAdi,
+            tip: 'HUV'
+          },
+          huvIslemler: [],
+          sutIslemler: []
+        };
+        
+        teminatGruplari.set(genelIlkelerKey, genelIlkelerGrup);
+        console.log(`📝 "GENEL İLKELER" grubu oluşturuldu (eşleşmeyen işlemler için)`);
+      } else {
+        console.warn(`⚠️ "GENEL İLKELER" grubu AnaDallar tablosunda bulunamadı`);
+      }
+    }
+
     // Her SUT işlemini en uygun HUV teminat grubuna eşleştir
     let eslesmeyenSutIslemler = 0;
     let sutKoduEslestirme = 0; // SUT kodu ile eşleştirilen işlem sayısı
+    let manuelEslestirme = 0; // Manuel override ile eşleştirilen işlem sayısı
     
     const toplamSutIslem = sutIslemlerResult.recordset.length;
     console.log(`📊 ${toplamSutIslem} SUT işlemi eşleştirilecek`);
@@ -1142,9 +1264,30 @@ const getBirlesikList = async (req, res, next) => {
       let bestGroup = null;
       let bestScore = 0;
       let eslestirmeTipi = 'benzerlik'; // 'sutKodu' veya 'benzerlik'
+      let manuelMeta = null;
+
+      // 0) Manuel yerleştirme varsa her şeyin üstünde (override)
+      const manuelOverride = manuelOverrideBySutId.get(islem.SutID);
+      if (manuelOverride) {
+        const targetKey = huvGroupKeyByCodes.get(`${manuelOverride.yeniUstKod}|||${manuelOverride.yeniAltKod}`);
+        if (targetKey) {
+          bestGroup = teminatGruplari.get(targetKey);
+          bestScore = 1.0;
+          eslestirmeTipi = 'manuel';
+          manuelMeta = manuelOverride;
+          manuelEslestirme++;
+        } else {
+          console.warn('⚠️ Manuel yerleştirme hedef grubu bulunamadı:', {
+            sutId: islem.SutID,
+            sutKodu: islem.SutKodu,
+            hedefUst: manuelOverride.yeniUstKod,
+            hedefAlt: manuelOverride.yeniAltKod
+          });
+        }
+      }
       
       const sutKoduNorm = islem.SutKodu.trim();
-      if (huvSutKoduMap.has(sutKoduNorm)) {
+      if (!bestGroup && huvSutKoduMap.has(sutKoduNorm)) {
         // SUT kodu ile eşleşen HUV grupları var
         const eslesenGruplar = huvSutKoduMap.get(sutKoduNorm);
         
@@ -1165,16 +1308,56 @@ const getBirlesikList = async (req, res, next) => {
         
         for (const [key, group] of huvGruplari) {
         
+        // ============================================
+        // STRATEJİ 1: Üst ve Alt Teminat Benzerliği
+        // ============================================
         // Üst teminat benzerliği
         const ustSimilarity = calculateSimilarity(sutUstTeminat, group.ustTeminat.adi);
         
         // Alt teminat benzerliği (daha önemli - özel kurallar burada devreye girer)
         const altSimilarity = calculateSimilarity(sutAltTeminat, group.altTeminat.adi);
         
+        // ============================================
+        // STRATEJİ 2: İşlem Adı Bazlı Eşleştirme (YENİ)
+        // ============================================
+        // SUT işlem adı ile HUV işlem adları arasında benzerlik kontrolü
+        // Eğer işlem adları çok benziyorsa, skor artırılabilir
+        // PERFORMANS: Sadece ilk 10 HUV işlemini kontrol et (çok fazla işlem varsa)
+        let islemAdiBoost = 0;
+        const sutIslemAdiNorm = normalizeTeminatAdi(islem.IslemAdi || '');
+        
+        if (sutIslemAdiNorm) {
+          // HUV grubundaki işlem adları ile karşılaştır (performans için sınırla)
+          const maxHuvIslemCheck = Math.min(group.huvIslemler.length, 10);
+          for (let i = 0; i < maxHuvIslemCheck; i++) {
+            const huvIslem = group.huvIslemler[i];
+            const huvIslemAdiNorm = normalizeTeminatAdi(huvIslem.islemAdi || '');
+            if (huvIslemAdiNorm) {
+              // İşlem adları aynı veya çok benzer ise
+              if (sutIslemAdiNorm === huvIslemAdiNorm) {
+                islemAdiBoost = 0.3; // %30 boost
+                break; // En yüksek boost bulundu, döngüden çık
+              }
+              // İşlem adlarında ortak anahtar kelimeler varsa
+              if (islemAdiBoost < 0.3) { // Sadece daha düşük boost varsa kontrol et
+                const sutWords = sutIslemAdiNorm.split(/\s+/).filter(w => w.length > 3);
+                const huvWords = huvIslemAdiNorm.split(/\s+/).filter(w => w.length > 3);
+                const commonWords = sutWords.filter(w => huvWords.includes(w));
+                if (commonWords.length >= 2) {
+                  islemAdiBoost = Math.max(islemAdiBoost, 0.15); // %15 boost
+                }
+              }
+            }
+          }
+        }
+        
         // Özel durum: Tüm SUT üst teminatları için özel eşleştirme kuralları
-        let altSimilarityBoost = 0;
+        // NOT: altSimilarityBoost başlangıç değeri 1.0 olmalı (1.0 = boost yok)
+        // Boost miktarı hesaplanırken: boostAmount = altSimilarityBoost - 1.0
+        let altSimilarityBoost = 1.0; // 1.0 = boost yok, 1.1-1.5 = %10-50 boost
         let useSpecialRule = false;
         
+        // Normalize edilmiş değerleri önce tanımla (diğer stratejilerde kullanılacak)
         const sutUstNorm = normalizeTeminatAdi(sutUstTeminat);
         const huvUstNorm = normalizeTeminatAdi(group.ustTeminat.adi);
         const sutAltNorm = normalizeTeminatAdi(sutAltTeminat);
@@ -1183,16 +1366,32 @@ const getBirlesikList = async (req, res, next) => {
           : group.altTeminat.adi;
         const huvAltGosterimNorm = normalizeTeminatAdi(huvAltGosterim);
         
+        // ============================================
+        // STRATEJİ 3: Anahtar Kelime Bazlı Eşleştirme (YENİ)
+        // ============================================
+        // Önemli tıbbi terimler (BT, MRG, PATOLOJİ, vb.) eşleşirse skor artırılabilir
+        let anahtarKelimeBoost = 0;
+        const anahtarKelimeler = ['bt', 'mrg', 'mr', 'patoloji', 'mikrobiyoloji', 'biyokimya', 
+                                  'hematoloji', 'onkoloji', 'anjiyografi', 'artrografi', 
+                                  'girisimsel', 'tomografi', 'rezonans'];
+        
+        // Anahtar kelime kontrolü için normalize edilmiş metinleri kullan (tutarlılık için)
+        const sutText = `${sutUstNorm} ${sutAltNorm} ${sutIslemAdiNorm}`.toLowerCase();
+        const huvText = `${huvUstNorm} ${huvAltGosterimNorm}`.toLowerCase();
+        
+        for (const kelime of anahtarKelimeler) {
+          if (sutText.includes(kelime) && huvText.includes(kelime)) {
+            anahtarKelimeBoost += 0.05; // Her eşleşen anahtar kelime için %5 boost
+          }
+        }
+        anahtarKelimeBoost = Math.min(anahtarKelimeBoost, 0.2); // Maksimum %20 boost
+        
         // 1. RADYOLOJİK GÖRÜNTÜLEME VE TEDAVİ → RADYOLOJİ eşleştirmesi
         if ((sutUstNorm.includes('radyolojik') || sutUstNorm.includes('radyoloji')) && 
             huvUstNorm.includes('radyoloji')) {
           
-          const sutAltNorm = normalizeTeminatAdi(sutAltTeminat);
-          const huvAltNorm = normalizeTeminatAdi(group.altTeminat.adi);
-          const huvAltGosterim = group.altTeminat.adi.includes('→')
-            ? group.altTeminat.adi.split('→').pop().trim()
-            : group.altTeminat.adi;
-          const huvAltGosterimNorm = normalizeTeminatAdi(huvAltGosterim);
+          // sutAltNorm, huvAltGosterim ve huvAltGosterimNorm zaten yukarıda tanımlı
+          // Tekrar tanımlamaya gerek yok (performans ve tutarlılık için)
           
           // SUT: "BT Anjiyografiler" → HUV: "ANJİYOGRAFİK İNCELEMELER"
           if (sutAltNorm.includes('bt') && sutAltNorm.includes('anjiyografi') && 
@@ -1411,12 +1610,84 @@ const getBirlesikList = async (req, res, next) => {
         // Normal durumda: alt teminat %60, üst teminat %40
         const altWeight = useSpecialRule ? 0.8 : 0.6;
         const ustWeight = useSpecialRule ? 0.2 : 0.4;
-        const combinedScore = (ustSimilarity * ustWeight) + (altSimilarity * altWeight) + altSimilarityBoost;
         
-        if (combinedScore > bestScore) {
-          bestScore = combinedScore;
+        // Boost'u altSimilarity'ye uygula (toplama olarak, ama 1.0'ı geçmesin)
+        // altSimilarityBoost değerleri: 1.0 = boost yok, 1.1-1.5 = %10-50 boost
+        // Boost miktarını hesapla: 1.2 → 0.2, 1.3 → 0.3, 1.4 → 0.4, 1.5 → 0.5
+        const boostAmount = Math.max(0, altSimilarityBoost - 1.0);
+        
+        // Boost'u altSimilarity'ye ekle (ama 1.0'ı geçmesin)
+        // Örnek: altSimilarity = 0.6, boostAmount = 0.3 → boostedAltSimilarity = 0.9
+        const boostedAltSimilarity = Math.min(altSimilarity + boostAmount, 1.0);
+        
+        // ============================================
+        // STRATEJİ 4: Çoklu Boost Kombinasyonu (YENİ)
+        // ============================================
+        // İşlem adı ve anahtar kelime boost'larını da ekle
+        // Bu boost'lar altSimilarity'ye değil, genel skora eklenir
+        const totalBoost = islemAdiBoost + anahtarKelimeBoost;
+        
+        // Kombine skor hesapla
+        // Örnek: ustSimilarity = 0.8, boostedAltSimilarity = 0.9
+        // Normal: (0.8 * 0.4) + (0.9 * 0.6) = 0.32 + 0.54 = 0.86
+        // Özel kural: (0.8 * 0.2) + (0.9 * 0.8) = 0.16 + 0.72 = 0.88
+        let combinedScore = (ustSimilarity * ustWeight) + (boostedAltSimilarity * altWeight);
+        
+        // İşlem adı ve anahtar kelime boost'larını ekle (ama 1.0'ı geçmesin)
+        combinedScore = Math.min(combinedScore + totalBoost, 1.0);
+        
+        // Skor 1.0'ı geçmemeli (güvenlik kontrolü)
+        const finalScore = Math.min(combinedScore, 1.0);
+        
+        if (finalScore > bestScore) {
+          bestScore = finalScore;
           bestGroup = group;
         }
+        }
+      }
+      
+      // Özel kontrol: "GENEL İLKELER" genel bir kategori olduğu için, sadece gerçekten eşleşen işlemler buraya gitmeli
+      // "GENEL İLKELER" için daha sıkı kurallar:
+      // 1. SUT üst teminatı "GENEL İLKELER" içermeli VEYA
+      // 2. Skor çok yüksek olmalı (>= 0.7) VEYA
+      // 3. SUT kodu ile direkt eşleştirme olmalı
+      const isGenelIlkeler = bestGroup && (
+        normalizeTeminatAdi(bestGroup.ustTeminat.adi).includes('genel') && 
+        normalizeTeminatAdi(bestGroup.ustTeminat.adi).includes('ilkeler')
+      );
+      
+      if (isGenelIlkeler && eslestirmeTipi === 'benzerlik') {
+        const sutUstNorm = normalizeTeminatAdi(sutUstTeminat);
+        const sutAltNorm = normalizeTeminatAdi(sutAltTeminat);
+        const isGenelIlkelerRelated = 
+          sutUstNorm.includes('genel') || 
+          sutUstNorm.includes('ilkeler') ||
+          sutAltNorm.includes('genel') ||
+          sutAltNorm.includes('ilkeler');
+        
+        // Eğer SUT "GENEL İLKELER" ile ilgili değilse VE skor düşükse (< 0.7), eşleştirmeyi reddet
+        if (!isGenelIlkelerRelated && bestScore < 0.7) {
+          bestGroup = null;
+          bestScore = 0;
+        }
+      }
+      
+      // Düşük skorlu eşleşmeleri özetle (0.3-0.5 arası)
+      // Not: Aynı üst/alt teminat altında çok işlem olduğu için tek tek log spam yapar.
+      if (bestGroup && eslestirmeTipi === 'benzerlik' && bestScore >= 0.3 && bestScore < 0.5) {
+        const k = `${sutUstTeminat}|||${sutAltTeminat} -> ${bestGroup.ustTeminat.adi}|||${bestGroup.altTeminat.adi}`;
+        const prev = lowConfidenceAgg.get(k);
+        if (prev) {
+          prev.count += 1;
+        } else {
+          lowConfidenceAgg.set(k, {
+            count: 1,
+            sample: {
+              sutKodu: islem.SutKodu,
+              islemAdi: islem.IslemAdi,
+              skor: Number(bestScore.toFixed(3))
+            }
+          });
         }
       }
       
@@ -1438,15 +1709,41 @@ const getBirlesikList = async (req, res, next) => {
           tip: 'SUT'
         },
         eslestirmeSkoru: bestScore,
-        eslestirmeTipi: eslestirmeTipi // 'sutKodu' veya 'benzerlik'
+        eslestirmeTipi: eslestirmeTipi, // 'sutKodu' | 'benzerlik' | 'manuel'
+        lowConfidence: eslestirmeTipi === 'benzerlik' && bestScore >= 0.3 && bestScore < 0.5, // 0.3-0.5 arası düşük skorlu eşleşmeler için flag
+        manuel: eslestirmeTipi === 'manuel',
+        manuelNotu: manuelMeta?.not || null,
+        manuelTarihi: manuelMeta?.tarih || null
       };
 
       if (bestGroup) {
         // En uygun HUV grubuna ekle
         bestGroup.sutIslemler.push(sutIslem);
       } else {
-        // Hiç HUV grubu yoksa (olması gerekmez ama güvenlik için)
-        eslesmeyenSutIslemler++;
+        // Eşleşmeyen işlemi "GENEL İLKELER" grubuna ekle
+        if (genelIlkelerGrup) {
+          genelIlkelerGrup.sutIslemler.push(sutIslem);
+          eslesmeyenSutIslemler++;
+          // Her işlem için log spam yapmamak için sadece özet log
+        } else {
+          // "GENEL İLKELER" grubu bulunamadı, sadece say
+          eslesmeyenSutIslemler++;
+          console.error(`❌ Eşleşmeyen SUT işlemi ve "GENEL İLKELER" grubu bulunamadı: ${islem.SutKodu} - ${islem.IslemAdi}`);
+        }
+      }
+    }
+
+    // Düşük güven özetini logla (en çok görülen ilk 20)
+    if (lowConfidenceAgg.size > 0) {
+      const top = Array.from(lowConfidenceAgg.entries())
+        .sort((a, b) => b[1].count - a[1].count)
+        .slice(0, 20);
+
+      console.log(`⚠️ [LOW_CONFIDENCE_SUMMARY] Toplam farklı eşleşme: ${lowConfidenceAgg.size}`);
+      for (const [k, v] of top) {
+        console.log(
+          `⚠️ [LOW_CONFIDENCE_SUMMARY] ${v.count} adet | ${k} | örnek: ${v.sample.sutKodu ?? '-'} - ${v.sample.islemAdi ?? '-'} (skor: ${v.sample.skor})`
+        );
       }
     }
 
@@ -1463,11 +1760,11 @@ const getBirlesikList = async (req, res, next) => {
           ...grup.altTeminat,
           adi: altTeminatGosterim // Gösterim için temizlenmiş ad
         },
-        huvIslemler: grup.huvIslemler,
+        huvIslemler: [], // HUV işlemleri gösterilmiyor, sadece SUT işlemleri gösteriliyor
         sutIslemler: grup.sutIslemler,
-        toplamHuvIslem: grup.huvIslemler.length,
+        toplamHuvIslem: 0, // HUV işlemleri gösterilmiyor
         toplamSutIslem: grup.sutIslemler.length,
-        toplamIslem: grup.huvIslemler.length + grup.sutIslemler.length
+        toplamIslem: grup.sutIslemler.length // Sadece SUT işlemleri
       };
     });
 
@@ -1479,21 +1776,31 @@ const getBirlesikList = async (req, res, next) => {
     const duration = Date.now() - startTime;
     console.log(`✅ Birleşik liste hazırlandı (${duration}ms)`);
     console.log(`📊 İstatistikler: ${result.length} grup, ${result.reduce((sum, item) => sum + item.toplamHuvIslem, 0)} HUV, ${result.reduce((sum, item) => sum + item.toplamSutIslem, 0)} SUT`);
+    if (eslesmeyenSutIslemler > 0) {
+      console.log(`⚠️ ${eslesmeyenSutIslemler} SUT işlemi eşleşmedi ve "GENEL İLKELER" grubuna eklendi`);
+    }
 
-    return success(res, {
-      listeTipi: 'BIRLESIK',
-      aciklama: 'HUV ve SUT listeleri birleştirilmiş. Her SUT işlemi, teminat bilgisine göre (benzerlik skoru ile) en uygun HUV teminat grubuna eşleştirilir. Tüm SUT işlemleri mutlaka bir HUV grubuna dahil edilir.',
+    const responseData = {
+      listeTipi: 'SUT_HUV_GRUPLANDIRMA',
+      aciklama: 'SUT işlemleri HUV teminat gruplarına göre kategorize edilmiştir. Her SUT işlemi, teminat bilgisine göre (benzerlik skoru ile) en uygun HUV teminat grubuna eşleştirilir. Tüm SUT işlemleri mutlaka bir HUV grubuna dahil edilir.',
       toplamGrup: result.length,
       birlesikGrup: birlesikGruplar,
       sadeceHuvGrup: sadeceHuvGruplar,
       sadeceSutGrup: sadeceSutGruplar,
       eslesmeyenSutIslem: eslesmeyenSutIslemler,
       sutKoduEslestirme: sutKoduEslestirme, // SUT kodu ile direkt eşleştirilen işlem sayısı
-      toplamHuvIslem: result.reduce((sum, item) => sum + item.toplamHuvIslem, 0),
+      manuelEslestirme: manuelEslestirme, // Doktor manuel yerleştirmesi ile override edilen işlem sayısı
+      toplamHuvIslem: 0, // HUV işlemleri gösterilmiyor
       toplamSutIslem: result.reduce((sum, item) => sum + item.toplamSutIslem, 0),
-      toplamIslem: result.reduce((sum, item) => sum + item.toplamIslem, 0),
+      toplamIslem: result.reduce((sum, item) => sum + item.toplamSutIslem, 0), // Sadece SUT işlemleri
       data: result
-    }, 'Birleştirilmiş HUV + SUT listesi (SUT işlemleri HUV gruplarına eşleştirilmiş)');
+    };
+
+    // Cache'e kaydet (15 dakika TTL - büyük veri seti için)
+    cache.set(cacheKey, responseData, 15 * 60 * 1000);
+    console.log('💾 Cache\'e kaydedildi (15 dakika TTL)');
+
+    return success(res, responseData, 'SUT işlemleri HUV teminat gruplarına göre kategorize edilmiş liste');
   } catch (err) {
     const duration = Date.now() - startTime;
     console.error(`❌ Birleşik liste hatası (${duration}ms):`, err.message);
@@ -1502,6 +1809,480 @@ const getBirlesikList = async (req, res, next) => {
   }
 };
 
+// ============================================
+// GET /api/external/birlesik/gruplar
+// Birleşik liste - Sadece grup özetleri (Lazy Loading için)
+// SUT işlemlerini dahil etmez, sadece grup bilgilerini döner
+// Çok daha hızlı yükleme (~1-2 saniye)
+// ============================================
+const getBirlesikGruplar = async (req, res, next) => {
+  const startTime = Date.now();
+  console.log('🔄 Birleşik grup özetleri isteği alındı');
+  
+  // Cache kontrolü - tam liste cache'den alınır, sadece özet çıkarılır
+  const cacheKey = 'birlesik_liste';
+  const cachedData = cache.get(cacheKey);
+  
+  if (cachedData && cachedData.data) {
+    console.log('✅ Cache\'den grup özetleri çıkarılıyor');
+    // Cache'den sadece grup özetlerini çıkar
+    const grupOzetleri = cachedData.data.map(grup => ({
+      ustTeminat: grup.ustTeminat,
+      altTeminat: grup.altTeminat,
+      toplamHuvIslem: 0, // HUV işlemleri gösterilmiyor
+      toplamSutIslem: grup.toplamSutIslem,
+      toplamIslem: grup.toplamSutIslem, // Sadece SUT işlemleri
+      // Ortalama skor hesapla (SUT işlemlerinden)
+      ortalamaSkor: grup.sutIslemler && grup.sutIslemler.length > 0
+        ? grup.sutIslemler.reduce((sum, s) => sum + (s.uyumSkoru || 0), 0) / grup.sutIslemler.length
+        : null
+    }));
+    
+    return success(res, {
+      listeTipi: 'BIRLESIK_GRUPLAR',
+      aciklama: 'HUV gruplarının özet bilgileri. Detaylar için /birlesik/grup endpoint\'ini kullanın.',
+      toplamGrup: grupOzetleri.length,
+      data: grupOzetleri
+    }, 'Birleşik grup özetleri (Cache)');
+  }
+  
+  // Cache yoksa, tam listeyi hesapla ve cache'e kaydet
+  // Ama response'da sadece özetleri döndür
+  try {
+    console.log('⚠️ Cache yok, tam liste hesaplanıyor (ilk yükleme)...');
+    
+    // getBirlesikList fonksiyonunu çağır ama response'u intercept et
+    // Bunun için getBirlesikList'in iç mantığını kullanacağız
+    // Ama daha basit: sadece grup sayılarını hesapla, SUT eşleştirmesini yapma
+    // Ya da: getBirlesikList'i çağır, cache'e kaydet, sonra özet çıkar
+    
+    // En basit çözüm: getBirlesikList'i çağır, cache'e kaydet, sonra özet döndür
+    // Ama bu recursive olabilir, o yüzden dikkatli olalım
+    
+    // Alternatif: Sadece HUV gruplarını çek, SUT eşleştirmesini yapma
+    const pool = await getPool();
+    
+    // Sadece HUV gruplarını al (SUT eşleştirmesi yapmadan)
+    const anaDallarResult = await pool.request().query(`
+      SELECT 
+        AnaDalKodu as UstTeminatKodu,
+        BolumAdi as UstTeminatAdi,
+        AnaDalKodu as AltTeminatKodu,
+        BolumAdi as AltTeminatAdi
+      FROM AnaDallar
+      ORDER BY AnaDalKodu
+    `);
+    
+    // Her grup için HUV işlem sayısını al
+    const grupOzetleri = [];
+    for (const anaDal of anaDallarResult.recordset) {
+      const huvSayisiResult = await pool.request()
+        .input('anaDalKodu', sql.Int, anaDal.UstTeminatKodu)
+        .query(`
+          SELECT COUNT(*) as Toplam
+          FROM HuvIslemler
+          WHERE AnaDalKodu = @anaDalKodu AND AktifMi = 1
+        `);
+      
+      const toplamHuv = huvSayisiResult.recordset[0].Toplam;
+      
+      // SUT sayısını hesaplamak için tam eşleştirme gerekir
+      // Şimdilik 0 olarak bırak, tam liste yüklendiğinde güncellenir
+      grupOzetleri.push({
+        ustTeminat: {
+          kod: anaDal.UstTeminatKodu,
+          adi: anaDal.UstTeminatAdi
+        },
+        altTeminat: {
+          kod: anaDal.AltTeminatKodu,
+          adi: anaDal.AltTeminatAdi
+        },
+        toplamHuvIslem: toplamHuv,
+        toplamSutIslem: 0, // Tam eşleştirme yapılmadığı için bilinmiyor
+        toplamIslem: toplamHuv,
+        ortalamaSkor: null
+      });
+    }
+    
+    const duration = Date.now() - startTime;
+    console.log(`✅ Grup özetleri hazırlandı (${duration}ms) - Not: SUT sayıları için tam liste gerekli`);
+    
+    return success(res, {
+      listeTipi: 'BIRLESIK_GRUPLAR',
+      aciklama: 'HUV gruplarının özet bilgileri. SUT sayıları için tam liste hesaplanmalı. Detaylar için /birlesik/grup endpoint\'ini kullanın.',
+      toplamGrup: grupOzetleri.length,
+      data: grupOzetleri,
+      uyari: 'SUT sayıları için tam eşleştirme gerekli. İlk grup detayı istendiğinde tam liste hesaplanacak.'
+    }, 'Birleşik grup özetleri (Hızlı)');
+  } catch (err) {
+    const duration = Date.now() - startTime;
+    console.error(`❌ Grup özetleri hatası (${duration}ms):`, err.message);
+    next(err);
+  }
+};
+
+// ============================================
+// GET /api/external/birlesik/grup?ustKod=X&altKod=Y
+// Birleşik liste - Belirli bir grubun detayları (Lazy Loading için)
+// Sadece istenen grubun HUV ve SUT işlemlerini döner
+// ============================================
+const getBirlesikGrup = async (req, res, next) => {
+  const startTime = Date.now();
+  const { ustKod, altKod } = req.query;
+  
+  if (!ustKod || !altKod) {
+    return error(res, 400, 'ustKod ve altKod parametreleri gereklidir');
+  }
+  
+  console.log(`🔄 Birleşik grup detayı isteği: ${ustKod} / ${altKod}`);
+  
+  // Cache kontrolü
+  const cacheKey = 'birlesik_liste';
+  let cachedData = cache.get(cacheKey);
+  
+  // Cache yoksa, tam listeyi hesapla ve cache'e kaydet
+  if (!cachedData || !cachedData.data) {
+    console.log('⚠️ Cache yok, tam liste hesaplanıyor (ilk grup detayı - bu biraz zaman alabilir)...');
+    
+    try {
+      // getBirlesikList'in iç mantığını kullanarak tam listeyi hesapla
+      // getBirlesikList bir Express handler, o yüzden doğrudan çağıramayız
+      // Alternatif: getBirlesikList'in iç mantığını ayrı bir helper'a çıkar
+      // Şimdilik: Basit bir çözüm - cache yoksa, kullanıcıya önce /birlesik endpoint'ini çağırmasını söyle
+      // Ya da: getBirlesikList'i manuel çağır (ama bu karmaşık)
+      
+      // Geçici çözüm: Cache yoksa, tam listeyi hesaplamak için getBirlesikList'i çağır
+      // getBirlesikList bir Express handler, o yüzden mock req/res objesi oluştur
+      let cacheUpdated = false;
+      const mockReq = { ...req };
+      const mockRes = {
+        status: (code) => mockRes,
+        json: (data) => {
+          // Response'u yakala ve cache'e kaydet
+          if (data && data.success && data.data) {
+            cache.set(cacheKey, data.data, 15 * 60 * 1000);
+            cachedData = data.data;
+            cacheUpdated = true;
+            console.log('✅ Tam liste hesaplandı ve cache\'e kaydedildi');
+          }
+        }
+      };
+      
+      // getBirlesikList'i çağır (cache'e kaydeder)
+      await new Promise((resolve, reject) => {
+        getBirlesikList(mockReq, mockRes, (err) => {
+          if (err) {
+            reject(err);
+          } else {
+            resolve();
+          }
+        });
+      });
+      
+      // Cache'den tekrar al (getBirlesikList cache'e kaydetti)
+      if (!cacheUpdated) {
+        cachedData = cache.get(cacheKey);
+      }
+      
+      if (!cachedData || !cachedData.data) {
+        return error(res, 500, 'Tam liste hesaplanamadı. Lütfen önce /birlesik endpoint\'ini çağırarak tam listeyi yükleyin.');
+      }
+    } catch (err) {
+      console.error('❌ Grup detayı hatası (cache yokken):', err.message);
+      return error(res, 500, `Tam liste hesaplanamadı: ${err.message}. Lütfen önce /birlesik endpoint'ini çağırarak tam listeyi yükleyin.`);
+    }
+  }
+  
+  // Cache'den istenen grubu bul
+  const grup = cachedData.data.find(g => 
+    g.ustTeminat.kod.toString() === ustKod.toString() && 
+    g.altTeminat.kod.toString() === altKod.toString()
+  );
+  
+  if (!grup) {
+    return error(res, 404, `Grup bulunamadı: ${ustKod} / ${altKod}`);
+  }
+  
+  const duration = Date.now() - startTime;
+  console.log(`✅ Grup detayı hazırlandı (${duration}ms)`);
+  
+  return success(res, {
+    listeTipi: 'BIRLESIK_GRUP',
+    aciklama: `HUV grubu detayı: ${grup.ustTeminat.adi} / ${grup.altTeminat.adi}`,
+    grup: grup
+  }, 'Birleşik grup detayı');
+};
+
+
+// ============================================
+// GET /api/external/sut-huv-eslestirme
+// SUT listesi - SUT kırılımlarına göre, yanında HUV teminat bilgisi
+// Üst Teminat: Ana Başlık (Seviye 1)
+// Alt Teminat: İlk alt seviye (Seviye 2) - yoksa Ana Başlık
+// İşlem: SutIslem (yanında eşleştirildiği HUV üst ve alt teminat bilgisi)
+// ============================================
+const getSutHuvEslestirme = async (req, res, next) => {
+  try {
+    const pool = await getPool();
+    console.log('🔄 SUT-HUV eşleştirme listesi isteği alındı');
+
+    // Cache kontrolü
+    const cacheKey = 'sut_huv_eslestirme_liste';
+    const cachedData = cache.get(cacheKey);
+    if (cachedData) {
+      console.log('✅ Cache\'den döndürülüyor');
+      return success(res, cachedData, 'SUT listesi HUV eşleştirmeli (Cache)');
+    }
+
+    // 1. SUT listesini al (getSutList mantığı ile)
+    const hiyerarsiResult = await pool.request().query(`
+      SELECT 
+        ab.AnaBaslikNo,
+        ab.AnaBaslikAdi,
+        ab.HiyerarsiID as AnaBaslikID,
+        h2.HiyerarsiID as AltSeviyeID,
+        h2.Baslik as AltSeviyeAdi,
+        h2.SeviyeNo as AltSeviyeSeviye,
+        h3.HiyerarsiID as EnUstSeviyeID,
+        h3.Baslik as EnUstSeviyeAdi
+      FROM SutAnaBasliklar ab
+      LEFT JOIN SutHiyerarsi h2 ON h2.ParentID = ab.HiyerarsiID 
+        AND h2.SeviyeNo = 2 
+        AND h2.AktifMi = 1
+        AND h2.HiyerarsiID = (
+          SELECT TOP 1 HiyerarsiID
+          FROM SutHiyerarsi
+          WHERE ParentID = ab.HiyerarsiID AND SeviyeNo = 2 AND AktifMi = 1
+          ORDER BY Sira
+        )
+      LEFT JOIN SutHiyerarsi h3 ON h3.ParentID = COALESCE(h2.HiyerarsiID, ab.HiyerarsiID)
+        AND h3.AktifMi = 1
+        AND h3.SeviyeNo > COALESCE(h2.SeviyeNo, 1)
+        AND h3.HiyerarsiID = (
+          SELECT TOP 1 HiyerarsiID
+          FROM SutHiyerarsi
+          WHERE ParentID = COALESCE(h2.HiyerarsiID, ab.HiyerarsiID)
+            AND AktifMi = 1
+            AND SeviyeNo > COALESCE(h2.SeviyeNo, 1)
+          ORDER BY SeviyeNo, Sira
+        )
+      WHERE ab.AktifMi = 1
+      ORDER BY ab.AnaBaslikNo
+    `);
+
+    // 2. Tüm SUT işlemlerini çek
+    const sutIslemlerResult = await pool.request().query(`
+      SELECT 
+        s.SutID,
+        s.SutKodu,
+        s.IslemAdi,
+        s.Puan,
+        s.Aciklama,
+        s.HiyerarsiID
+      FROM SutIslemler s
+      WHERE s.AktifMi = 1
+      ORDER BY s.SutKodu
+    `);
+
+    // 3. Manuel eşleştirmeleri al (aktif olanlar)
+    const manuelEslestirmelerResult = await pool.request().query(`
+      SELECT 
+        SutID,
+        YeniHuvUstTeminatKod,
+        YeniHuvAltTeminatKod
+      FROM SutEslestirmeManuelDuzenlemeler
+      WHERE AktifMi = 1
+    `);
+
+    // Manuel eşleştirmeleri Map'e al (SutID -> { ustKod, altKod })
+    const manuelEslestirmeMap = new Map();
+    for (const manuel of manuelEslestirmelerResult.recordset) {
+      manuelEslestirmeMap.set(manuel.SutID, {
+        ustKod: manuel.YeniHuvUstTeminatKod,
+        altKod: manuel.YeniHuvAltTeminatKod
+      });
+    }
+
+    // 4. Birleşik listeden eşleştirme bilgilerini al (cache'den)
+    // getBirlesikList'in cache'inden SUT işlemlerinin HUV eşleştirmelerini çıkar
+    const birlesikCacheKey = 'birlesik_liste';
+    const birlesikData = cache.get(birlesikCacheKey);
+    
+    // SUT işlemlerini HiyerarsiID'ye göre Map'e al
+    const islemlerByHiyerarsiID = new Map();
+    for (const islem of sutIslemlerResult.recordset) {
+      const hiyerarsiID = islem.HiyerarsiID;
+      if (!islemlerByHiyerarsiID.has(hiyerarsiID)) {
+        islemlerByHiyerarsiID.set(hiyerarsiID, []);
+      }
+      islemlerByHiyerarsiID.get(hiyerarsiID).push({
+        sutId: islem.SutID,
+        sutKodu: islem.SutKodu,
+        islemAdi: islem.IslemAdi,
+        puan: islem.Puan,
+        aciklama: islem.Aciklama
+      });
+    }
+
+    // 5. Birleşik listeden SUT işlemlerinin HUV eşleştirmelerini çıkar
+    const sutHuvEslestirmeMap = new Map(); // SutID -> { ustTeminat, altTeminat, eslestirmeTipi, eslestirmeSkoru }
+    
+    if (birlesikData && birlesikData.data) {
+      // Birleşik listeden SUT işlemlerinin HUV eşleştirmelerini çıkar
+      for (const grup of birlesikData.data) {
+        if (grup.sutIslemler && grup.sutIslemler.length > 0) {
+          for (const sutIslem of grup.sutIslemler) {
+            sutHuvEslestirmeMap.set(sutIslem.sutId, {
+              huvUstTeminat: grup.ustTeminat,
+              huvAltTeminat: grup.altTeminat,
+              eslestirmeTipi: sutIslem.eslestirmeTipi || 'benzerlik',
+              eslestirmeSkoru: sutIslem.eslestirmeSkoru || sutIslem.uyumSkoru || 0
+            });
+          }
+        }
+      }
+    } else {
+      console.log('⚠️ Birleşik liste cache\'i yok, eşleştirme bilgileri bulunamadı. Önce /birlesik endpoint\'ini çağırın.');
+    }
+
+    // 6. Sonucu oluştur
+    const result = [];
+    for (const row of hiyerarsiResult.recordset) {
+      const altTeminat = {
+        kod: row.AltSeviyeID || row.AnaBaslikID,
+        adi: row.AltSeviyeAdi || row.AnaBaslikAdi
+      };
+
+      const islemHiyerarsiID = row.EnUstSeviyeID || row.AltSeviyeID || row.AnaBaslikID;
+      const islemler = islemlerByHiyerarsiID.get(islemHiyerarsiID) || [];
+
+      // Her SUT işleminin yanına HUV eşleştirme bilgisini ekle
+      const islemlerHuvEslestirmeli = islemler.map(islem => {
+        // Önce manuel eşleştirmeye bak
+        const manuelEslestirme = manuelEslestirmeMap.get(islem.sutId);
+        if (manuelEslestirme) {
+          // Manuel eşleştirme varsa, HUV teminat bilgilerini al
+          // AnaDallar tablosundan teminat adlarını al
+          return {
+            ...islem,
+            huvEslestirme: {
+              ustTeminat: {
+                kod: manuelEslestirme.ustKod,
+                adi: null // Sonra doldurulacak
+              },
+              altTeminat: {
+                kod: manuelEslestirme.altKod,
+                adi: null // Sonra doldurulacak
+              },
+              eslestirmeTipi: 'manuel',
+              eslestirmeSkoru: 1.0
+            }
+          };
+        }
+
+        // Manuel eşleştirme yoksa, birleşik listeden al
+        const eslestirme = sutHuvEslestirmeMap.get(islem.sutId);
+        if (eslestirme) {
+          return {
+            ...islem,
+            huvEslestirme: {
+              ustTeminat: eslestirme.huvUstTeminat,
+              altTeminat: eslestirme.huvAltTeminat,
+              eslestirmeTipi: eslestirme.eslestirmeTipi,
+              eslestirmeSkoru: eslestirme.eslestirmeSkoru
+            }
+          };
+        }
+
+        // Eşleştirme bulunamadı
+        return {
+          ...islem,
+          huvEslestirme: null
+        };
+      });
+
+      result.push({
+        ustTeminat: {
+          kod: row.AnaBaslikNo,
+          adi: row.AnaBaslikAdi
+        },
+        altTeminat: altTeminat,
+        islemler: islemlerHuvEslestirmeli
+      });
+    }
+
+    // 7. HUV teminat adlarını doldur (manuel eşleştirmeler için)
+    const huvTeminatKodlari = new Set();
+    for (const grup of result) {
+      for (const islem of grup.islemler) {
+        if (islem.huvEslestirme) {
+          if (islem.huvEslestirme.ustTeminat.kod) {
+            huvTeminatKodlari.add(islem.huvEslestirme.ustTeminat.kod);
+          }
+        }
+      }
+    }
+
+    if (huvTeminatKodlari.size > 0) {
+      // SQL injection önleme için parametreli sorgu kullan
+      const kodlar = Array.from(huvTeminatKodlari);
+      const placeholders = kodlar.map((_, i) => `@kod${i}`).join(',');
+      const request = pool.request();
+      
+      // Kodları integer'a çevir (AnaDalKodu INT)
+      kodlar.forEach((kod, i) => {
+        const kodInt = parseInt(kod);
+        if (!isNaN(kodInt)) {
+          request.input(`kod${i}`, sql.Int, kodInt);
+        }
+      });
+      
+      const huvTeminatlarResult = await request.query(`
+        SELECT AnaDalKodu, BolumAdi
+        FROM AnaDallar
+        WHERE AnaDalKodu IN (${placeholders})
+      `);
+
+      const huvTeminatMap = new Map();
+      for (const teminat of huvTeminatlarResult.recordset) {
+        huvTeminatMap.set(teminat.AnaDalKodu, teminat.BolumAdi);
+      }
+
+      // Teminat adlarını doldur
+      for (const grup of result) {
+        for (const islem of grup.islemler) {
+          if (islem.huvEslestirme && islem.huvEslestirme.ustTeminat.kod) {
+            const kodInt = parseInt(islem.huvEslestirme.ustTeminat.kod);
+            const teminatAdi = huvTeminatMap.get(kodInt);
+            if (teminatAdi) {
+              islem.huvEslestirme.ustTeminat.adi = teminatAdi;
+              // Alt teminat da aynı (HUV'de üst ve alt teminat aynı)
+              islem.huvEslestirme.altTeminat.adi = teminatAdi;
+            }
+          }
+        }
+      }
+    }
+
+    const responseData = {
+      listeTipi: 'SUT_HUV_ESLESTIRME',
+      aciklama: 'SUT işlemleri SUT kırılımlarına göre listelenmiş, yanında eşleştirildiği HUV teminat bilgisi var',
+      toplamUstTeminat: result.length,
+      toplamIslem: result.reduce((sum, item) => sum + item.islemler.length, 0),
+      data: result
+    };
+
+    // Cache'e kaydet (15 dakika TTL)
+    cache.set(cacheKey, responseData, 15 * 60 * 1000);
+    console.log('💾 Cache\'e kaydedildi (15 dakika TTL)');
+
+    return success(res, responseData, 'SUT listesi HUV eşleştirmeli');
+  } catch (err) {
+    console.error('❌ SUT-HUV eşleştirme listesi hatası:', err.message);
+    console.error(err.stack);
+    next(err);
+  }
+};
 
 module.exports = {
   getHuvList,
@@ -1510,5 +2291,8 @@ module.exports = {
   getSutChanges,
   getIlKatsayiList,
   getIlKatsayiChanges,
-  getBirlesikList
+  getBirlesikList,
+  getBirlesikGruplar,
+  getBirlesikGrup,
+  getSutHuvEslestirme
 };

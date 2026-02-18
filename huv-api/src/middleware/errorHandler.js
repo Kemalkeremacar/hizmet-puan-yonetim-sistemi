@@ -13,7 +13,22 @@ const errorHandler = (err, req, res, next) => {
   console.error('❌ Error:', err);
 
   // SQL Server errors
-  if (err.name === 'RequestError') {
+  if (err.name === 'RequestError' || err.number) {
+    console.error('❌ SQL Server Error:', {
+      message: err.message,
+      number: err.number,
+      state: err.state,
+      class: err.class,
+      serverName: err.serverName,
+      procName: err.procName,
+      lineNumber: err.lineNumber
+    });
+    
+    // Invalid object name (tablo yok)
+    if (err.number === 208) {
+      return error(res, `Tablo bulunamadı: ${err.message}. Lütfen migration scriptini çalıştırın.`, 500);
+    }
+    
     return error(res, 'Database error: ' + err.message, 500);
   }
 

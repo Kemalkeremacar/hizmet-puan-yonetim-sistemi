@@ -21,9 +21,9 @@ import { useAuth } from './app/context/AuthContext';
 const Login = lazy(() => import('./pages/Login'));
 const HuvListe = lazy(() => import('./pages/HiyerarsiAgaci'));
 const SutListe = lazy(() => import('./pages/SutListe'));
-const IlKatsayilariListesi = lazy(() => import('./pages/IlKatsayilariListesi'));
 const HuvTarihsel = lazy(() => import('./pages/HuvTarihsel'));
 const SutTarihsel = lazy(() => import('./pages/SutTarihsel'));
+const BirlesikListe = lazy(() => import('./pages/BirlesikListe'));
 const HuvYonetimi = lazy(() => import('./pages/HuvYonetimi'));
 const SutYonetimi = lazy(() => import('./pages/SutYonetimi'));
 const IlKatsayiYonetimi = lazy(() => import('./pages/IlKatsayiYonetimi'));
@@ -63,11 +63,6 @@ function AppRoutes() {
           <SutListe />
         </ProtectedRoute>
       } />
-      <Route path={ROUTES.ilKatsayilariListesi} element={
-        <ProtectedRoute>
-          <IlKatsayilariListesi />
-        </ProtectedRoute>
-      } />
       <Route path={ROUTES.huvTarihsel} element={
         <ProtectedRoute>
           <HuvTarihsel />
@@ -76,6 +71,11 @@ function AppRoutes() {
       <Route path={ROUTES.sutTarihsel} element={
         <ProtectedRoute>
           <SutTarihsel />
+        </ProtectedRoute>
+      } />
+      <Route path={ROUTES.birlesikListe} element={
+        <ProtectedRoute>
+          <BirlesikListe />
         </ProtectedRoute>
       } />
       
