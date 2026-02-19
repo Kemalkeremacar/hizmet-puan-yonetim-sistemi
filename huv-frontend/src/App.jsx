@@ -23,7 +23,6 @@ const HuvListe = lazy(() => import('./pages/HiyerarsiAgaci'));
 const SutListe = lazy(() => import('./pages/SutListe'));
 const HuvTarihsel = lazy(() => import('./pages/HuvTarihsel'));
 const SutTarihsel = lazy(() => import('./pages/SutTarihsel'));
-const BirlesikListe = lazy(() => import('./pages/BirlesikListe'));
 const HuvYonetimi = lazy(() => import('./pages/HuvYonetimi'));
 const SutYonetimi = lazy(() => import('./pages/SutYonetimi'));
 const IlKatsayiYonetimi = lazy(() => import('./pages/IlKatsayiYonetimi'));
@@ -71,11 +70,6 @@ function AppRoutes() {
       <Route path={ROUTES.sutTarihsel} element={
         <ProtectedRoute>
           <SutTarihsel />
-        </ProtectedRoute>
-      } />
-      <Route path={ROUTES.birlesikListe} element={
-        <ProtectedRoute>
-          <BirlesikListe />
         </ProtectedRoute>
       } />
       

@@ -78,7 +78,6 @@ export const ROUTES = {
   sutListe: '/sut-liste',
   huvTarihsel: '/huv-tarihsel',
   sutTarihsel: '/sut-tarihsel',
-  birlesikListe: '/birlesik-liste',
   huvYonetimi: '/huv-yonetimi',
   sutYonetimi: '/sut-yonetimi',
   ilKatsayiYonetimi: '/il-katsayi-yonetimi',
@@ -98,13 +97,6 @@ export const NAVIGATION_ITEMS = [
     path: ROUTES.sutListe,
     icon: 'ListAltIcon',
     description: 'SUT kodları kategori görünümü',
-  },
-  {
-    id: 'birlesik-liste',
-    title: 'SUT Liste - HUV Teminatlı',
-    path: ROUTES.birlesikListe,
-    icon: 'LinkIcon',
-    description: 'SUT işlemleri HUV teminat gruplarına göre kategorize edilmiş liste',
   },
   {
     id: 'huv-tarihsel',
