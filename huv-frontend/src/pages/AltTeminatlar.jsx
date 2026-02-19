@@ -30,16 +30,12 @@ import {
   ListItemSecondaryAction,
   InputAdornment,
   Autocomplete,
-  Checkbox,
-  FormControlLabel,
 } from '@mui/material';
 import {
   LocalHospital as LocalHospitalIcon,
   Add as AddIcon,
   Delete as DeleteIcon,
   Search as SearchIcon,
-  CheckBox as CheckBoxIcon,
-  CheckBoxOutlineBlank as CheckBoxOutlineBlankIcon,
 } from '@mui/icons-material';
 import { PageHeader } from '../components/common';
 import { 
@@ -64,10 +60,6 @@ function AltTeminatlar() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [teminatIslemler, setTeminatIslemler] = useState([]);
   const [islemlerLoading, setIslemlerLoading] = useState(false);
-  
-  // Toplu atama için
-  const [topluAtamaMode, setTopluAtamaMode] = useState(false);
-  const [selectedTeminatlar, setSelectedTeminatlar] = useState([]);
   
   // İşlem arama
   const [islemOptions, setIslemOptions] = useState([]);
@@ -145,44 +137,25 @@ function AltTeminatlar() {
   };
 
   // ============================================
-  // İşlem ekle (tekli veya toplu)
+  // İşlem ekle
   // ============================================
   const handleAddIslem = async () => {
-    if (!selectedIslem) return;
+    if (!selectedIslem || !selectedTeminat) return;
 
-    // Toplu atama modunda mı?
-    if (topluAtamaMode && selectedTeminatlar.length > 0) {
-      try {
-        // Toplu atama - ilk seçili teminata gönder ama tüm ID'leri ekle
-        await addAltTeminatIslem(selectedTeminatlar[0], selectedIslem.SutID, selectedTeminatlar);
-        toast.success(`İşlem ${selectedTeminatlar.length} teminata eklendi`);
-        
-        // Tüm verileri yenile
-        fetchTeminatlar();
-        setSelectedIslem(null);
-        setSelectedTeminatlar([]);
-        setTopluAtamaMode(false);
-      } catch (err) {
-        console.error('Toplu işlem ekleme hatası:', err);
-        toast.error(err.response?.data?.message || 'İşlem eklenirken hata oluştu');
-      }
-    } else if (selectedTeminat) {
-      // Tekli atama
-      try {
-        await addAltTeminatIslem(selectedTeminat.AltTeminatID, selectedIslem.SutID);
-        toast.success('İşlem başarıyla eklendi');
-        
-        // İşlemleri yeniden yükle
-        const islemler = await getAltTeminatIslemler(selectedTeminat.AltTeminatID);
-        setTeminatIslemler(islemler);
-        setSelectedIslem(null);
-        
-        // Ana listeyi de güncelle (sayaç için)
-        fetchTeminatlar();
-      } catch (err) {
-        console.error('İşlem ekleme hatası:', err);
-        toast.error(err.response?.data?.message || 'İşlem eklenirken hata oluştu');
-      }
+    try {
+      await addAltTeminatIslem(selectedTeminat.AltTeminatID, selectedIslem.SutID);
+      toast.success('İşlem başarıyla eklendi');
+      
+      // İşlemleri yeniden yükle
+      const islemler = await getAltTeminatIslemler(selectedTeminat.AltTeminatID);
+      setTeminatIslemler(islemler);
+      setSelectedIslem(null);
+      
+      // Ana listeyi de güncelle (sayaç için)
+      fetchTeminatlar();
+    } catch (err) {
+      console.error('İşlem ekleme hatası:', err);
+      toast.error(err.response?.data?.message || 'İşlem eklenirken hata oluştu');
     }
   };
 
@@ -243,33 +216,6 @@ function AltTeminatlar() {
       />
 
       <Paper sx={{ p: 3 }}>
-        {/* Toplu Atama Modu Toggle */}
-        <Box sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 2 }}>
-          <FormControlLabel
-            control={
-              <Checkbox
-                checked={topluAtamaMode}
-                onChange={(e) => {
-                  setTopluAtamaMode(e.target.checked);
-                  if (!e.target.checked) {
-                    setSelectedTeminatlar([]);
-                  }
-                }}
-                icon={<CheckBoxOutlineBlankIcon />}
-                checkedIcon={<CheckBoxIcon />}
-              />
-            }
-            label="Toplu Atama Modu"
-          />
-          {topluAtamaMode && selectedTeminatlar.length > 0 && (
-            <Chip 
-              label={`${selectedTeminatlar.length} teminat seçildi`}
-              color="primary"
-              onDelete={() => setSelectedTeminatlar([])}
-            />
-          )}
-        </Box>
-
         {/* İçerik */}
         {loading ? (
           <Box display="flex" justifyContent="center" alignItems="center" py={8}>
@@ -312,34 +258,10 @@ function AltTeminatlar() {
                         hover
                         sx={{ 
                           '&:last-child td': { borderBottom: 0 },
-                          cursor: 'pointer',
-                          bgcolor: topluAtamaMode && selectedTeminatlar.includes(item.AltTeminatID) 
-                            ? 'primary.lighter' 
-                            : 'inherit'
+                          cursor: 'pointer'
                         }}
-                        onClick={() => {
-                          if (topluAtamaMode) {
-                            // Toplu atama modunda checkbox toggle
-                            setSelectedTeminatlar(prev => 
-                              prev.includes(item.AltTeminatID)
-                                ? prev.filter(id => id !== item.AltTeminatID)
-                                : [...prev, item.AltTeminatID]
-                            );
-                          } else {
-                            // Normal mod - dialog aç
-                            handleTeminatClick(item);
-                          }
-                        }}
+                        onClick={() => handleTeminatClick(item)}
                       >
-                        {topluAtamaMode && (
-                          <TableCell sx={{ width: 50 }}>
-                            <Checkbox
-                              checked={selectedTeminatlar.includes(item.AltTeminatID)}
-                              onChange={() => {}}
-                              onClick={(e) => e.stopPropagation()}
-                            />
-                          </TableCell>
-                        )}
                         <TableCell sx={{ fontWeight: 500 }}>
                           <Box display="flex" alignItems="center" gap={1}>
                             {item.AltTeminatAdi || '-'}
@@ -354,20 +276,18 @@ function AltTeminatlar() {
                             )}
                           </Box>
                         </TableCell>
-                        {!topluAtamaMode && (
-                          <TableCell align="right" sx={{ width: 100 }}>
-                            <IconButton 
-                              size="small" 
-                              color="primary"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleTeminatClick(item);
-                              }}
-                            >
-                              <AddIcon fontSize="small" />
-                            </IconButton>
-                          </TableCell>
-                        )}
+                        <TableCell align="right" sx={{ width: 100 }}>
+                          <IconButton 
+                            size="small" 
+                            color="primary"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleTeminatClick(item);
+                            }}
+                          >
+                            <AddIcon fontSize="small" />
+                          </IconButton>
+                        </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -389,25 +309,15 @@ function AltTeminatlar() {
           <Box display="flex" alignItems="center" gap={1}>
             <LocalHospitalIcon color="primary" />
             <Typography variant="h6">
-              {topluAtamaMode && selectedTeminatlar.length > 0
-                ? `${selectedTeminatlar.length} Teminata İşlem Ata`
-                : selectedTeminat?.AltTeminatAdi
-              }
+              {selectedTeminat?.AltTeminatAdi}
             </Typography>
           </Box>
           <Typography variant="caption" color="text.secondary">
-            {topluAtamaMode ? 'Toplu İşlem Atama' : 'İşlem Atama'}
+            İşlem Atama
           </Typography>
         </DialogTitle>
         
         <DialogContent dividers>
-          {/* Toplu Atama Modunda Bilgi */}
-          {topluAtamaMode && selectedTeminatlar.length > 0 && (
-            <Alert severity="info" sx={{ mb: 2 }}>
-              Seçtiğiniz SUT işlemi {selectedTeminatlar.length} teminata birden atanacak
-            </Alert>
-          )}
-
           {/* İşlem Arama ve Ekleme */}
           <Box sx={{ mb: 3 }}>
             <Typography variant="subtitle2" gutterBottom>
@@ -452,12 +362,11 @@ function AltTeminatlar() {
             </Box>
           </Box>
 
-          {/* Atanmış İşlemler Listesi - Sadece tekli modda göster */}
-          {!topluAtamaMode && (
-            <Box>
-              <Typography variant="subtitle2" gutterBottom>
-                Atanmış İşlemler ({teminatIslemler.length})
-              </Typography>
+          {/* Atanmış İşlemler Listesi */}
+          <Box>
+            <Typography variant="subtitle2" gutterBottom>
+              Atanmış İşlemler ({teminatIslemler.length})
+            </Typography>
             
             {islemlerLoading ? (
               <Box display="flex" justifyContent="center" py={4}>
@@ -507,7 +416,6 @@ function AltTeminatlar() {
               </List>
             )}
           </Box>
-          )}
         </DialogContent>
         
         <DialogActions>

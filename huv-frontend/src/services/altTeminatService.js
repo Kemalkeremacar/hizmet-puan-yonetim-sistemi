@@ -24,13 +24,9 @@ export const getAltTeminatIslemler = async (altTeminatId) => {
   return response.data?.data || response.data || [];
 };
 
-// Alt teminata işlem ata (tekli veya toplu)
-export const addAltTeminatIslem = async (altTeminatId, sutID, altTeminatIDs = null) => {
-  const payload = altTeminatIDs && altTeminatIDs.length > 0
-    ? { sutID, altTeminatIDs }
-    : { sutID };
-    
-  const response = await axios.post(`/alt-teminatlar/${altTeminatId}/islemler`, payload);
+// Alt teminata işlem ata
+export const addAltTeminatIslem = async (altTeminatId, sutID) => {
+  const response = await axios.post(`/alt-teminatlar/${altTeminatId}/islemler`, { sutID });
   return response.data?.data || response.data;
 };
 
