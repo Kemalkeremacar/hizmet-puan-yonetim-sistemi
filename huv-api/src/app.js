@@ -112,6 +112,9 @@ app.use(`${API_PREFIX}/admin/import`, authenticate, authorizeAdmin, require('./r
 // Versiyonlar API - ADMIN ONLY
 app.use(`${API_PREFIX}/admin/versiyonlar`, authenticate, authorizeAdmin, require('./routes/versiyonlar'));
 
+// Alt Teminatlar API
+app.use(`${API_PREFIX}/alt-teminatlar`, authenticate, require('./routes/altTeminatlar'));
+
 
 // ============================================
 // Welcome route

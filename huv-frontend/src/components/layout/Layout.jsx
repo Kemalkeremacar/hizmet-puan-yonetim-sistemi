@@ -41,6 +41,7 @@ import {
   CloudUpload as CloudUploadIcon,
   ListAlt as ListAltIcon,
   LocationCity as LocationCityIcon,
+  LocalHospital as LocalHospitalIcon,
   Link as LinkIcon,
   Logout as LogoutIcon
 } from '@mui/icons-material';
@@ -68,6 +69,7 @@ const iconMap = {
   ListAltIcon: <ListAltIcon />,
   UploadFileIcon: <CloudUploadIcon />,
   LocationCityIcon: <LocationCityIcon />,
+  LocalHospitalIcon: <LocalHospitalIcon />,
   LinkIcon: <LinkIcon />,
 };
 

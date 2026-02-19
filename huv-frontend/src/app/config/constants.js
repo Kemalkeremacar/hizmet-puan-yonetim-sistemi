@@ -81,6 +81,7 @@ export const ROUTES = {
   huvYonetimi: '/huv-yonetimi',
   sutYonetimi: '/sut-yonetimi',
   ilKatsayiYonetimi: '/il-katsayi-yonetimi',
+  altTeminatlar: '/alt-teminatlar',
 };
 
 export const NAVIGATION_ITEMS = [
@@ -132,6 +133,13 @@ export const NAVIGATION_ITEMS = [
     path: ROUTES.ilKatsayiYonetimi,
     icon: 'LocationCityIcon',
     description: 'İl katsayıları yükleme ve versiyon yönetimi',
+  },
+  {
+    id: 'alt-teminatlar',
+    title: 'Alt Teminatlar',
+    path: ROUTES.altTeminatlar,
+    icon: 'LocalHospitalIcon',
+    description: 'Alt teminatlar listesi',
   },
 ];
 

@@ -26,6 +26,7 @@ const SutTarihsel = lazy(() => import('./pages/SutTarihsel'));
 const HuvYonetimi = lazy(() => import('./pages/HuvYonetimi'));
 const SutYonetimi = lazy(() => import('./pages/SutYonetimi'));
 const IlKatsayiYonetimi = lazy(() => import('./pages/IlKatsayiYonetimi'));
+const AltTeminatlar = lazy(() => import('./pages/AltTeminatlar'));
 
 // ============================================
 // App Routes Component
@@ -70,6 +71,11 @@ function AppRoutes() {
       <Route path={ROUTES.sutTarihsel} element={
         <ProtectedRoute>
           <SutTarihsel />
+        </ProtectedRoute>
+      } />
+      <Route path={ROUTES.altTeminatlar} element={
+        <ProtectedRoute>
+          <AltTeminatlar />
         </ProtectedRoute>
       } />
       
