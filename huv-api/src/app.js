@@ -88,29 +88,29 @@ app.use(`${API_PREFIX}/auth`, require('./routes/auth'));
 // Auth middleware
 const { authenticate, authorizeAdmin } = require('./middleware/auth');
 
-// İşlemler API (HUV Liste için)
-app.use(`${API_PREFIX}/islemler`, authenticate, require('./routes/islemler'));
+// External API
+app.use(`${API_PREFIX}/external`, authenticate, require('./routes/external'));
 
-// Ana Dallar API (HUV Liste için)
+// Ana Dal API
 app.use(`${API_PREFIX}/anadal`, authenticate, require('./routes/anadal'));
 
-// SUT Kodları API (SUT Liste için)
+// SUT API
 app.use(`${API_PREFIX}/sut`, authenticate, require('./routes/sut'));
 
-// Tarihsel Sorgular API (HUV Tarihsel için)
+// SUT Tarihsel API
+app.use(`${API_PREFIX}/sut-tarihsel`, authenticate, require('./routes/sutTarihsel'));
+
+// İşlemler API
+app.use(`${API_PREFIX}/islemler`, authenticate, require('./routes/islemler'));
+
+// Tarihsel API
 app.use(`${API_PREFIX}/tarihsel`, authenticate, require('./routes/tarihsel'));
 
-// SUT Tarihsel Sorgular API (SUT Tarihsel için)
-app.use(`${API_PREFIX}/tarihsel/sut`, authenticate, require('./routes/sutTarihsel'));
-
-// Import API (HUV ve SUT Yönetimi için) - ADMIN ONLY
+// Import API - ADMIN ONLY
 app.use(`${API_PREFIX}/admin/import`, authenticate, authorizeAdmin, require('./routes/import'));
 
-// Versiyonlar API (HUV ve SUT Yönetimi için) - ADMIN ONLY
+// Versiyonlar API - ADMIN ONLY
 app.use(`${API_PREFIX}/admin/versiyonlar`, authenticate, authorizeAdmin, require('./routes/versiyonlar'));
-
-// External API (Dış servisler için - 2 seviye kırılım) - AUTHENTICATED USERS
-app.use(`${API_PREFIX}/external`, authenticate, require('./routes/external'));
 
 
 // ============================================
