@@ -104,11 +104,21 @@ const getAltTeminatIslemler = async (req, res, next) => {
           s.SutKodu,
           s.IslemAdi,
           s.Puan,
-          ai.EklemeTarihi
+          ai.ConfidenceScore,
+          ai.MatchingRuleType,
+          ai.IsAutomatic,
+          ai.IsApproved,
+          ai.IsOverridden,
+          ai.CreatedAt,
+          ab.AnaBaslikAdi as SutUstTeminat,
+          -- Başlıktaki numaraları temizle (örn: "7.3 Radyoloji" -> "Radyoloji")
+          LTRIM(SUBSTRING(h.Baslik, PATINDEX('%[A-Za-zÇçĞğİıÖöŞşÜü]%', h.Baslik), LEN(h.Baslik))) as SutAltTeminat
         FROM AltTeminatIslemler ai
         INNER JOIN SutIslemler s ON ai.SutID = s.SutID
+        LEFT JOIN SutAnaBasliklar ab ON s.AnaBaslikNo = ab.AnaBaslikNo
+        LEFT JOIN SutHiyerarsi h ON s.HiyerarsiID = h.HiyerarsiID
         WHERE ai.AltTeminatID = @AltTeminatID
-        ORDER BY ai.EklemeTarihi DESC
+        ORDER BY ai.CreatedAt DESC
       `);
 
     return success(res, result.recordset, 'Alt teminat işlemleri listelendi');
@@ -157,13 +167,31 @@ const addAltTeminatIslem = async (req, res, next) => {
           continue;
         }
 
-        // İşlemi ata
+        // İşlemi ata (manuel atama)
         const result = await pool.request()
           .input('AltTeminatID', sql.Int, teminatID)
           .input('SutID', sql.Int, sutID)
           .query(`
-            INSERT INTO AltTeminatIslemler (AltTeminatID, SutID, EklemeTarihi)
-            VALUES (@AltTeminatID, @SutID, GETDATE())
+            INSERT INTO AltTeminatIslemler (
+              AltTeminatID, 
+              SutID, 
+              ConfidenceScore,
+              MatchingRuleType,
+              IsAutomatic,
+              IsApproved,
+              IsOverridden,
+              CreatedAt
+            )
+            VALUES (
+              @AltTeminatID, 
+              @SutID, 
+              100.0,
+              'manual',
+              0,
+              1,
+              1,
+              GETDATE()
+            )
             
             SELECT 
               ai.ID,
@@ -172,7 +200,9 @@ const addAltTeminatIslem = async (req, res, next) => {
               s.SutKodu,
               s.IslemAdi,
               s.Puan,
-              ai.EklemeTarihi
+              ai.ConfidenceScore,
+              ai.MatchingRuleType,
+              ai.CreatedAt
             FROM AltTeminatIslemler ai
             INNER JOIN SutIslemler s ON ai.SutID = s.SutID
             WHERE ai.ID = SCOPE_IDENTITY()

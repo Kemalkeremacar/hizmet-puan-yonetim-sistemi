@@ -98,7 +98,7 @@ app.use(`${API_PREFIX}/anadal`, authenticate, require('./routes/anadal'));
 app.use(`${API_PREFIX}/sut`, authenticate, require('./routes/sut'));
 
 // SUT Tarihsel API
-app.use(`${API_PREFIX}/sut-tarihsel`, authenticate, require('./routes/sutTarihsel'));
+app.use(`${API_PREFIX}/tarihsel/sut`, authenticate, require('./routes/sutTarihsel'));
 
 // İşlemler API
 app.use(`${API_PREFIX}/islemler`, authenticate, require('./routes/islemler'));
@@ -114,6 +114,9 @@ app.use(`${API_PREFIX}/admin/versiyonlar`, authenticate, authorizeAdmin, require
 
 // Alt Teminatlar API
 app.use(`${API_PREFIX}/alt-teminatlar`, authenticate, require('./routes/altTeminatlar'));
+
+// Matching API
+app.use(`${API_PREFIX}/matching`, authenticate, require('./routes/matching'));
 
 
 // ============================================

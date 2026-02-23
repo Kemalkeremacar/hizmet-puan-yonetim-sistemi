@@ -614,12 +614,38 @@ const importSutList = async (req, res, next) => {
         const endTime = Date.now();
         const duration = ((endTime - startTime) / 1000).toFixed(2);
         
+        // ============================================
+        // OTOMATIK BATCH EŞLEŞTİRME
+        // ============================================
+        // Yeni eklenen veya güncellenen kayıtlar için otomatik eşleştirme başlat
+        let matchingSummary = null;
+        if (comparison.summary.added > 0 || comparison.summary.updated > 0) {
+          try {
+            console.log('🔄 Otomatik batch eşleştirme başlatılıyor...');
+            const MatchingEngine = require('../services/matching/MatchingEngine');
+            const matchingEngine = new MatchingEngine(pool);
+            
+            // Sadece eşleşmemiş kayıtları eşleştir (forceRematch = false)
+            matchingSummary = await matchingEngine.runBatch({
+              batchSize: 10000, // Tüm yeni kayıtlar
+              anaDalKodu: null,
+              forceRematch: false
+            });
+            
+            console.log('✅ Otomatik eşleştirme tamamlandı:', matchingSummary);
+          } catch (matchErr) {
+            console.error('⚠️ Otomatik eşleştirme hatası (import devam etti):', matchErr.message);
+            // Eşleştirme hatası import'u durdurmaz
+          }
+        }
+        
         return success(res, {
           versionID: versionID,
           summary: comparison.summary,
+          matchingSummary: matchingSummary,
           listeTipi: 'SUT',
           duration: `${duration} saniye`
-        }, 'SUT listesi başarıyla import edildi');
+        }, 'SUT listesi başarıyla import edildi ve otomatik eşleştirme tamamlandı');
         
       } catch (err) {
         await transaction.rollback();

@@ -327,6 +327,58 @@ const getHiyerarsi = async (req, res, next) => {
 };
 
 // ============================================
+// GET /api/sut/unmatched
+// Eşleşmemiş SUT işlemleri
+// ============================================
+const getUnmatchedRecords = async (req, res, next) => {
+  try {
+    const { page = 1, limit = 50 } = req.query;
+    const offset = (page - 1) * limit;
+    const pool = await getPool();
+
+    // Toplam eşleşmemiş kayıt sayısı
+    const countResult = await pool.request().query(`
+      SELECT COUNT(*) as total
+      FROM SutIslemler s
+      WHERE s.AktifMi = 1
+        AND NOT EXISTS (
+          SELECT 1 FROM AltTeminatIslemler a
+          WHERE a.SutID = s.SutID
+        )
+    `);
+    const total = countResult.recordset[0].total;
+
+    // Eşleşmemiş kayıtları getir - SUT hiyerarşi bilgileri ile
+    const dataResult = await pool.request()
+      .input('offset', sql.Int, offset)
+      .input('limit', sql.Int, parseInt(limit))
+      .query(`
+        SELECT 
+          s.SutID,
+          s.SutKodu,
+          s.IslemAdi,
+          h.Baslik as AltTeminatAdi,
+          ab.AnaBaslikAdi as UstTeminatAdi
+        FROM SutIslemler s
+        LEFT JOIN SutHiyerarsi h ON s.HiyerarsiID = h.HiyerarsiID
+        LEFT JOIN SutAnaBasliklar ab ON s.AnaBaslikNo = ab.AnaBaslikNo
+        WHERE s.AktifMi = 1
+          AND NOT EXISTS (
+            SELECT 1 FROM AltTeminatIslemler a
+            WHERE a.SutID = s.SutID
+          )
+        ORDER BY ab.AnaBaslikAdi, h.Baslik, s.SutKodu
+        OFFSET @offset ROWS
+        FETCH NEXT @limit ROWS ONLY
+      `);
+
+    return paginated(res, dataResult.recordset, page, limit, total, 'Eşleşmemiş kayıtlar listelendi');
+  } catch (err) {
+    next(err);
+  }
+};
+
+// ============================================
 // EXPORT
 // ============================================
 module.exports = {
@@ -339,4 +391,5 @@ module.exports = {
   araSut,
   getSutStats,
   getHiyerarsi,
+  getUnmatchedRecords,
 };

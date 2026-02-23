@@ -43,7 +43,9 @@ import {
   LocationCity as LocationCityIcon,
   LocalHospital as LocalHospitalIcon,
   Link as LinkIcon,
-  Logout as LogoutIcon
+  LinkOff as LinkOffIcon,
+  Logout as LogoutIcon,
+  CheckCircle as CheckCircleIcon
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useTheme } from '../../app/context/ThemeContext';
@@ -71,6 +73,8 @@ const iconMap = {
   LocationCityIcon: <LocationCityIcon />,
   LocalHospitalIcon: <LocalHospitalIcon />,
   LinkIcon: <LinkIcon />,
+  LinkOffIcon: <LinkOffIcon />,
+  CheckCircleIcon: <CheckCircleIcon />,
 };
 
 // ============================================
@@ -83,12 +87,9 @@ function Layout({ children }) {
   const { mode, toggleTheme, isDark } = useTheme();
   const { user, isAdmin, logout } = useAuth();
   
-  // Admin sayfaları: yönetim sayfaları
-  const adminPages = ['huv-yonetimi', 'sut-yonetimi', 'il-katsayi-yonetimi'];
-  
   // Navigation items'ı filtrele (admin sayfalarını sadece admin görsün)
   const filteredNavigationItems = NAVIGATION_ITEMS.filter(item => {
-    if (adminPages.includes(item.id)) {
+    if (item.adminOnly) {
       return isAdmin;
     }
     return true;

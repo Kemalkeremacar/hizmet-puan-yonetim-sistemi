@@ -403,8 +403,8 @@ function SutTarihsel() {
               </Alert>
             </Box>
 
-            <Grid container spacing={3}>
-              <Grid item xs={12} md={5}>
+            <Box sx={{ display: 'flex', gap: 3, flexWrap: 'wrap' }}>
+              <Box sx={{ flex: '1 1 300px', minWidth: 0 }}>
                 <TextField
                   fullWidth
                   label="SUT Kodu"
@@ -421,8 +421,8 @@ function SutTarihsel() {
                     }
                   }}
                 />
-              </Grid>
-              <Grid item xs={12} md={4}>
+              </Box>
+              <Box sx={{ flex: '1 1 250px', minWidth: 0 }}>
                 <TextField
                   fullWidth
                   label="Tarih"
@@ -434,8 +434,8 @@ function SutTarihsel() {
                     htmlInput: { max: getTodayString() }
                   }}
                 />
-              </Grid>
-              <Grid item xs={12} md={3}>
+              </Box>
+              <Box sx={{ flex: '0 1 200px', minWidth: 0 }}>
                 <Button
                   fullWidth
                   variant="contained"
@@ -446,8 +446,8 @@ function SutTarihsel() {
                 >
                   {loading ? <LoadingSpinner size={24} inline /> : 'Sorgula'}
                 </Button>
-              </Grid>
-            </Grid>
+              </Box>
+            </Box>
 
             {puanResult && (
               <Card variant="outlined" sx={{ bgcolor: 'background.default' }}>
@@ -467,62 +467,54 @@ function SutTarihsel() {
                       </Button>
                     </Box>
 
-                    <Grid container spacing={3}>
-                      <Grid item xs={12} md={6}>
-                        <Paper sx={{ p: 2, bgcolor: 'background.paper' }}>
-                          <Typography variant="caption" color="textSecondary" gutterBottom display="block">
-                            SUT Kodu
-                          </Typography>
-                          <Typography variant="h6" fontWeight="600">
-                            {puanResult.SutKodu}
-                          </Typography>
-                        </Paper>
-                      </Grid>
-                      <Grid item xs={12} md={6}>
-                        <Paper sx={{ p: 2, bgcolor: 'background.paper' }}>
-                          <Typography variant="caption" color="textSecondary" gutterBottom display="block">
-                            İşlem Adı
-                          </Typography>
-                          <Typography variant="h6" fontWeight="600">
-                            {puanResult.IslemAdi}
-                          </Typography>
-                        </Paper>
-                      </Grid>
-                      <Grid item xs={12} md={4}>
-                        <Paper sx={{ p: 2, bgcolor: 'primary.light' }}>
-                          <Typography variant="caption" color="textSecondary" gutterBottom display="block">
-                            Puan
-                          </Typography>
-                          <Typography variant="h4" color="primary.main" fontWeight="700">
-                            {puanResult.Puan || 'Belirtilmemiş'}
-                          </Typography>
-                        </Paper>
-                      </Grid>
-                      <Grid item xs={12} md={4}>
-                        <Paper sx={{ p: 2, bgcolor: 'background.paper' }}>
-                          <Typography variant="caption" color="textSecondary" gutterBottom display="block">
-                            Tarih
-                          </Typography>
-                          <Typography variant="h6" fontWeight="600">
-                            {new Date(puanForm.tarih).toLocaleDateString('tr-TR', { 
-                              day: 'numeric', 
-                              month: 'long', 
-                              year: 'numeric' 
-                            })}
-                          </Typography>
-                        </Paper>
-                      </Grid>
-                      <Grid item xs={12} md={4}>
-                        <Paper sx={{ p: 2, bgcolor: 'background.paper' }}>
-                          <Typography variant="caption" color="textSecondary" gutterBottom display="block">
-                            Hiyerarşi Seviyesi
-                          </Typography>
-                          <Typography variant="h6" fontWeight="600">
-                            {puanResult.HiyerarsiSeviyesi || '-'}
-                          </Typography>
-                        </Paper>
-                      </Grid>
-                    </Grid>
+                    <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(2, 1fr)' }, gap: 3 }}>
+                      <Paper sx={{ p: 2, bgcolor: 'background.paper' }}>
+                        <Typography variant="caption" color="textSecondary" gutterBottom display="block">
+                          SUT Kodu
+                        </Typography>
+                        <Typography variant="h6" fontWeight="600">
+                          {puanResult.SutKodu}
+                        </Typography>
+                      </Paper>
+                      <Paper sx={{ p: 2, bgcolor: 'background.paper' }}>
+                        <Typography variant="caption" color="textSecondary" gutterBottom display="block">
+                          İşlem Adı
+                        </Typography>
+                        <Typography variant="h6" fontWeight="600">
+                          {puanResult.IslemAdi}
+                        </Typography>
+                      </Paper>
+                    </Box>
+                    <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(3, 1fr)' }, gap: 3, mt: 3 }}>
+                      <Paper sx={{ p: 2, bgcolor: 'primary.light' }}>
+                        <Typography variant="caption" color="textSecondary" gutterBottom display="block">
+                          Puan
+                        </Typography>
+                        <Typography variant="h4" color="primary.main" fontWeight="700">
+                          {puanResult.Puan || 'Belirtilmemiş'}
+                        </Typography>
+                      </Paper>
+                      <Paper sx={{ p: 2, bgcolor: 'background.paper' }}>
+                        <Typography variant="caption" color="textSecondary" gutterBottom display="block">
+                          Tarih
+                        </Typography>
+                        <Typography variant="h6" fontWeight="600">
+                          {new Date(puanForm.tarih).toLocaleDateString('tr-TR', { 
+                            day: 'numeric', 
+                            month: 'long', 
+                            year: 'numeric' 
+                          })}
+                        </Typography>
+                      </Paper>
+                      <Paper sx={{ p: 2, bgcolor: 'background.paper' }}>
+                        <Typography variant="caption" color="textSecondary" gutterBottom display="block">
+                          Hiyerarşi Seviyesi
+                        </Typography>
+                        <Typography variant="h6" fontWeight="600">
+                          {puanResult.HiyerarsiSeviyesi || '-'}
+                        </Typography>
+                      </Paper>
+                    </Box>
                   </Stack>
                 </CardContent>
               </Card>
@@ -544,8 +536,8 @@ function SutTarihsel() {
               </Alert>
             </Box>
 
-            <Grid container spacing={3}>
-              <Grid item xs={12} md={4}>
+            <Box sx={{ display: 'flex', gap: 3, flexWrap: 'wrap' }}>
+              <Box sx={{ flex: '1 1 250px', minWidth: 0 }}>
                 <TextField
                   fullWidth
                   label="Başlangıç Tarihi"
@@ -563,8 +555,8 @@ function SutTarihsel() {
                     }
                   }}
                 />
-              </Grid>
-              <Grid item xs={12} md={4}>
+              </Box>
+              <Box sx={{ flex: '1 1 250px', minWidth: 0 }}>
                 <TextField
                   fullWidth
                   label="Bitiş Tarihi"
@@ -573,8 +565,8 @@ function SutTarihsel() {
                   onChange={(e) => setDegişenlerForm({ ...degişenlerForm, bitis: e.target.value })}
                   slotProps={{ inputLabel: { shrink: true } }}
                 />
-              </Grid>
-              <Grid item xs={12} md={4}>
+              </Box>
+              <Box sx={{ flex: '0 1 200px', minWidth: 0 }}>
                 <Button
                   fullWidth
                   variant="contained"
@@ -585,8 +577,8 @@ function SutTarihsel() {
                 >
                   {loading ? <LoadingSpinner size={24} inline /> : 'Sorgula'}
                 </Button>
-              </Grid>
-            </Grid>
+              </Box>
+            </Box>
 
             {degişenlerResult && degişenlerResult.length > 0 && (
               <Box>
@@ -701,8 +693,8 @@ function SutTarihsel() {
               </Alert>
             </Box>
 
-            <Grid container spacing={3}>
-              <Grid item xs={12} md={9}>
+            <Box sx={{ display: 'flex', gap: 3, flexWrap: 'wrap' }}>
+              <Box sx={{ flex: '1 1 400px', minWidth: 0 }}>
                 <TextField
                   fullWidth
                   label="SUT Kodu"
@@ -719,8 +711,8 @@ function SutTarihsel() {
                     }
                   }}
                 />
-              </Grid>
-              <Grid item xs={12} md={3}>
+              </Box>
+              <Box sx={{ flex: '0 1 200px', minWidth: 0 }}>
                 <Button
                   fullWidth
                   variant="contained"
@@ -731,8 +723,8 @@ function SutTarihsel() {
                 >
                   {loading ? <LoadingSpinner size={24} inline /> : 'Sorgula'}
                 </Button>
-              </Grid>
-            </Grid>
+              </Box>
+            </Box>
 
             {gecmisResult && gecmisResult.sut && (
               <Stack spacing={3}>
@@ -774,40 +766,40 @@ function SutTarihsel() {
                         </Button>
                       </Box>
 
-                      <Grid container spacing={2}>
-                        <Grid item xs={12} md={gecmisResult.mevcutMu ? 4 : 6}>
-                          <Paper sx={{ p: 2, bgcolor: 'background.paper' }}>
-                            <Typography variant="caption" color="textSecondary" gutterBottom display="block">
-                              SUT Kodu
-                            </Typography>
-                            <Typography variant="h6" fontWeight="600">
-                              {gecmisResult.sut?.SutKodu}
-                            </Typography>
-                          </Paper>
-                        </Grid>
-                        <Grid item xs={12} md={gecmisResult.mevcutMu ? 5 : 6}>
-                          <Paper sx={{ p: 2, bgcolor: 'background.paper' }}>
-                            <Typography variant="caption" color="textSecondary" gutterBottom display="block">
-                              İşlem Adı
-                            </Typography>
-                            <Typography variant="h6" fontWeight="600">
-                              {gecmisResult.sut?.IslemAdi}
-                            </Typography>
-                          </Paper>
-                        </Grid>
+                      <Box sx={{ 
+                        display: 'grid', 
+                        gridTemplateColumns: gecmisResult.mevcutMu 
+                          ? { xs: '1fr', md: '1fr 1.5fr 0.8fr' } 
+                          : { xs: '1fr', md: 'repeat(2, 1fr)' }, 
+                        gap: 2 
+                      }}>
+                        <Paper sx={{ p: 2, bgcolor: 'background.paper' }}>
+                          <Typography variant="caption" color="textSecondary" gutterBottom display="block">
+                            SUT Kodu
+                          </Typography>
+                          <Typography variant="h6" fontWeight="600">
+                            {gecmisResult.sut?.SutKodu}
+                          </Typography>
+                        </Paper>
+                        <Paper sx={{ p: 2, bgcolor: 'background.paper' }}>
+                          <Typography variant="caption" color="textSecondary" gutterBottom display="block">
+                            İşlem Adı
+                          </Typography>
+                          <Typography variant="h6" fontWeight="600">
+                            {gecmisResult.sut?.IslemAdi}
+                          </Typography>
+                        </Paper>
                         {gecmisResult.mevcutMu && (
-                          <Grid item xs={12} md={3}>
-                            <Paper sx={{ p: 2, bgcolor: 'primary.light' }}>
-                              <Typography variant="caption" color="textSecondary" gutterBottom display="block">
-                                Güncel Puan
-                              </Typography>
-                              <Typography variant="h5" color="primary.main" fontWeight="700">
-                                {gecmisResult.sut?.GuncelPuan || '-'}
-                              </Typography>
-                            </Paper>
-                          </Grid>
+                          <Paper sx={{ p: 2, bgcolor: 'primary.light' }}>
+                            <Typography variant="caption" color="textSecondary" gutterBottom display="block">
+                              Güncel Puan
+                            </Typography>
+                            <Typography variant="h5" color="primary.main" fontWeight="700">
+                              {gecmisResult.sut?.GuncelPuan || '-'}
+                            </Typography>
+                          </Paper>
                         )}
-                      </Grid>
+                      </Box>
                     </Stack>
                   </CardContent>
                 </Card>

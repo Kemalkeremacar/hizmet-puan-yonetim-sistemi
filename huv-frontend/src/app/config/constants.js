@@ -82,6 +82,9 @@ export const ROUTES = {
   sutYonetimi: '/sut-yonetimi',
   ilKatsayiYonetimi: '/il-katsayi-yonetimi',
   altTeminatlar: '/alt-teminatlar',
+  matchingDashboard: '/matching-dashboard',
+  matchingReview: '/matching-review',
+  unmatchedRecords: '/matching/unmatched',
 };
 
 export const NAVIGATION_ITEMS = [
@@ -119,6 +122,7 @@ export const NAVIGATION_ITEMS = [
     path: ROUTES.huvYonetimi,
     icon: 'CloudUploadIcon',
     description: 'HUV liste yükleme ve versiyon yönetimi',
+    adminOnly: true,
   },
   {
     id: 'sut-yonetimi',
@@ -126,6 +130,7 @@ export const NAVIGATION_ITEMS = [
     path: ROUTES.sutYonetimi,
     icon: 'UploadFileIcon',
     description: 'SUT liste yükleme ve versiyon yönetimi',
+    adminOnly: true,
   },
   {
     id: 'il-katsayi-yonetimi',
@@ -133,6 +138,7 @@ export const NAVIGATION_ITEMS = [
     path: ROUTES.ilKatsayiYonetimi,
     icon: 'LocationCityIcon',
     description: 'İl katsayıları yükleme ve versiyon yönetimi',
+    adminOnly: true,
   },
   {
     id: 'alt-teminatlar',
@@ -140,6 +146,22 @@ export const NAVIGATION_ITEMS = [
     path: ROUTES.altTeminatlar,
     icon: 'LocalHospitalIcon',
     description: 'Alt teminatlar listesi',
+  },
+  {
+    id: 'matching-review',
+    title: 'Eşleşme Yönetimi',
+    path: ROUTES.matchingReview,
+    icon: 'CheckCircleIcon',
+    description: 'Otomatik eşleştirme ve gözden geçirme',
+    adminOnly: true,
+  },
+  {
+    id: 'unmatched-records',
+    title: 'Eşleşmemiş Kayıtlar',
+    path: ROUTES.unmatchedRecords,
+    icon: 'LinkOffIcon',
+    description: 'Manuel eşleştirme gereken SUT işlemleri',
+    adminOnly: true,
   },
 ];
 

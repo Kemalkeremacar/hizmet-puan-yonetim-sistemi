@@ -17,33 +17,25 @@ import {
   Alert,
   Container,
   Chip,
-  IconButton,
   Dialog,
   DialogTitle,
   DialogContent,
   DialogActions,
   Button,
-  TextField,
   List,
   ListItem,
   ListItemText,
-  ListItemSecondaryAction,
-  InputAdornment,
-  Autocomplete,
+  Popover,
+  Stack,
 } from '@mui/material';
 import {
   LocalHospital as LocalHospitalIcon,
-  Add as AddIcon,
-  Delete as DeleteIcon,
-  Search as SearchIcon,
+  Visibility as VisibilityIcon,
 } from '@mui/icons-material';
 import { PageHeader } from '../components/common';
 import { 
   getAltTeminatlar, 
-  searchSutIslemler,
   getAltTeminatIslemler,
-  addAltTeminatIslem,
-  removeAltTeminatIslem
 } from '../services/altTeminatService';
 import { toast } from 'react-toastify';
 
@@ -60,11 +52,10 @@ function AltTeminatlar() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [teminatIslemler, setTeminatIslemler] = useState([]);
   const [islemlerLoading, setIslemlerLoading] = useState(false);
-  
-  // İşlem arama
-  const [islemOptions, setIslemOptions] = useState([]);
-  const [islemSearchLoading, setIslemSearchLoading] = useState(false);
-  const [selectedIslem, setSelectedIslem] = useState(null);
+
+  // Popover states for SUT code hover
+  const [popoverAnchor, setPopoverAnchor] = useState(null);
+  const [hoveredIslem, setHoveredIslem] = useState(null);
 
   // ============================================
   // Verileri yükle
@@ -112,75 +103,22 @@ function AltTeminatlar() {
     setDialogOpen(false);
     setSelectedTeminat(null);
     setTeminatIslemler([]);
-    setSelectedIslem(null);
-    setIslemOptions([]);
   };
 
   // ============================================
-  // İşlem ara
+  // Popover handlers
   // ============================================
-  const handleIslemSearch = async (searchTerm) => {
-    if (!searchTerm || searchTerm.length < 2) {
-      setIslemOptions([]);
-      return;
-    }
-
-    try {
-      setIslemSearchLoading(true);
-      const islemler = await searchSutIslemler(searchTerm, 20);
-      setIslemOptions(islemler);
-    } catch (err) {
-      console.error('İşlem arama hatası:', err);
-    } finally {
-      setIslemSearchLoading(false);
-    }
+  const handlePopoverOpen = (event, islem) => {
+    setPopoverAnchor(event.currentTarget);
+    setHoveredIslem(islem);
   };
 
-  // ============================================
-  // İşlem ekle
-  // ============================================
-  const handleAddIslem = async () => {
-    if (!selectedIslem || !selectedTeminat) return;
-
-    try {
-      await addAltTeminatIslem(selectedTeminat.AltTeminatID, selectedIslem.SutID);
-      toast.success('İşlem başarıyla eklendi');
-      
-      // İşlemleri yeniden yükle
-      const islemler = await getAltTeminatIslemler(selectedTeminat.AltTeminatID);
-      setTeminatIslemler(islemler);
-      setSelectedIslem(null);
-      
-      // Ana listeyi de güncelle (sayaç için)
-      fetchTeminatlar();
-    } catch (err) {
-      console.error('İşlem ekleme hatası:', err);
-      toast.error(err.response?.data?.message || 'İşlem eklenirken hata oluştu');
-    }
+  const handlePopoverClose = () => {
+    setPopoverAnchor(null);
+    setHoveredIslem(null);
   };
 
-  // ============================================
-  // İşlem kaldır
-  // ============================================
-  const handleRemoveIslem = async (sutID) => {
-    if (!selectedTeminat) return;
-
-    if (!window.confirm('Bu işlemi kaldırmak istediğinizden emin misiniz?')) {
-      return;
-    }
-
-    try {
-      await removeAltTeminatIslem(selectedTeminat.AltTeminatID, sutID);
-      toast.success('İşlem başarıyla kaldırıldı');
-      
-      // İşlemleri yeniden yükle
-      const islemler = await getAltTeminatIslemler(selectedTeminat.AltTeminatID);
-      setTeminatIslemler(islemler);
-    } catch (err) {
-      console.error('İşlem kaldırma hatası:', err);
-      toast.error('İşlem kaldırılırken hata oluştu');
-    }
-  };
+  const popoverOpen = Boolean(popoverAnchor);
 
   // ============================================
   // Anadalkodu'na göre grupla
@@ -277,16 +215,17 @@ function AltTeminatlar() {
                           </Box>
                         </TableCell>
                         <TableCell align="right" sx={{ width: 100 }}>
-                          <IconButton 
+                          <Chip 
+                            icon={<VisibilityIcon />}
+                            label="Görüntüle"
                             size="small" 
                             color="primary"
+                            variant="outlined"
                             onClick={(e) => {
                               e.stopPropagation();
                               handleTeminatClick(item);
                             }}
-                          >
-                            <AddIcon fontSize="small" />
-                          </IconButton>
+                          />
                         </TableCell>
                       </TableRow>
                     ))}
@@ -298,7 +237,7 @@ function AltTeminatlar() {
         )}
       </Paper>
 
-      {/* İşlem Atama Dialog */}
+      {/* İşlem Görüntüleme Dialog */}
       <Dialog 
         open={dialogOpen} 
         onClose={handleDialogClose}
@@ -313,59 +252,15 @@ function AltTeminatlar() {
             </Typography>
           </Box>
           <Typography variant="caption" color="text.secondary">
-            İşlem Atama
+            Eşleştirilmiş SUT İşlemleri
           </Typography>
         </DialogTitle>
         
         <DialogContent dividers>
-          {/* İşlem Arama ve Ekleme */}
-          <Box sx={{ mb: 3 }}>
-            <Typography variant="subtitle2" gutterBottom>
-              Yeni İşlem Ekle
-            </Typography>
-            <Box display="flex" gap={1}>
-              <Autocomplete
-                fullWidth
-                options={islemOptions}
-                getOptionLabel={(option) => `${option.SutKodu} - ${option.IslemAdi}`}
-                loading={islemSearchLoading}
-                value={selectedIslem}
-                onChange={(_, newValue) => setSelectedIslem(newValue)}
-                onInputChange={(_, newInputValue) => {
-                  handleIslemSearch(newInputValue);
-                }}
-                renderInput={(params) => (
-                  <TextField
-                    {...params}
-                    placeholder="SUT işlemi ara (SUT kodu veya isim)..."
-                    size="small"
-                    InputProps={{
-                      ...params.InputProps,
-                      startAdornment: (
-                        <InputAdornment position="start">
-                          <SearchIcon />
-                        </InputAdornment>
-                      ),
-                    }}
-                  />
-                )}
-                noOptionsText="İşlem bulunamadı"
-              />
-              <Button
-                variant="contained"
-                onClick={handleAddIslem}
-                disabled={!selectedIslem}
-                startIcon={<AddIcon />}
-              >
-                Ekle
-              </Button>
-            </Box>
-          </Box>
-
           {/* Atanmış İşlemler Listesi */}
           <Box>
             <Typography variant="subtitle2" gutterBottom>
-              Atanmış İşlemler ({teminatIslemler.length})
+              Toplam {teminatIslemler.length} işlem
             </Typography>
             
             {islemlerLoading ? (
@@ -373,7 +268,7 @@ function AltTeminatlar() {
                 <CircularProgress size={30} />
               </Box>
             ) : teminatIslemler.length === 0 ? (
-              <Alert severity="info">Henüz işlem atanmamış</Alert>
+              <Alert severity="info">Henüz işlem eşleştirilmemiş</Alert>
             ) : (
               <List dense>
                 {teminatIslemler.map((islem) => (
@@ -394,6 +289,15 @@ function AltTeminatlar() {
                             size="small"
                             color="success"
                             variant="outlined"
+                            onMouseEnter={(e) => handlePopoverOpen(e, islem)}
+                            onMouseLeave={handlePopoverClose}
+                            sx={{ 
+                              cursor: 'help',
+                              '&:hover': { 
+                                backgroundColor: 'success.light',
+                                color: 'white'
+                              }
+                            }}
                           />
                           <Typography variant="body2">
                             {islem.IslemAdi}
@@ -402,15 +306,6 @@ function AltTeminatlar() {
                       }
                       secondary={`Puan: ${islem.Puan || '-'}`}
                     />
-                    <ListItemSecondaryAction>
-                      <IconButton
-                        edge="end"
-                        color="error"
-                        onClick={() => handleRemoveIslem(islem.SutID)}
-                      >
-                        <DeleteIcon />
-                      </IconButton>
-                    </ListItemSecondaryAction>
                   </ListItem>
                 ))}
               </List>
@@ -422,6 +317,71 @@ function AltTeminatlar() {
           <Button onClick={handleDialogClose}>Kapat</Button>
         </DialogActions>
       </Dialog>
+
+      {/* SUT Kodu Hover Popover */}
+      <Popover
+        open={popoverOpen}
+        anchorEl={popoverAnchor}
+        onClose={handlePopoverClose}
+        anchorOrigin={{
+          vertical: 'bottom',
+          horizontal: 'center',
+        }}
+        transformOrigin={{
+          vertical: 'top',
+          horizontal: 'center',
+        }}
+        disableRestoreFocus
+        sx={{
+          pointerEvents: 'none',
+        }}
+        slotProps={{
+          paper: {
+            sx: {
+              pointerEvents: 'auto',
+              maxWidth: 500,
+              boxShadow: 3,
+            }
+          }
+        }}
+      >
+        {hoveredIslem && (
+          <Box sx={{ p: 2 }}>
+            <Stack spacing={1.5}>
+              {/* SUT Üst Teminat */}
+              {hoveredIslem.SutUstTeminat && (
+                <Box>
+                  <Typography variant="caption" color="text.secondary" display="block">
+                    SUT Üst Teminat
+                  </Typography>
+                  <Typography variant="body2" fontWeight="600">
+                    {hoveredIslem.SutUstTeminat}
+                  </Typography>
+                </Box>
+              )}
+
+              {/* SUT Alt Teminat */}
+              {hoveredIslem.SutAltTeminat && (
+                <Box>
+                  <Typography variant="caption" color="text.secondary" display="block">
+                    SUT Alt Teminat
+                  </Typography>
+                  <Typography variant="body2" fontWeight="600">
+                    {hoveredIslem.SutAltTeminat}
+                  </Typography>
+                </Box>
+              )}
+
+              {/* Eğer hiçbiri yoksa */}
+              {!hoveredIslem.SutUstTeminat && !hoveredIslem.SutAltTeminat && (
+                <Typography variant="body2" color="text.secondary">
+                  Teminat bilgisi bulunamadı
+                </Typography>
+              )}
+            </Stack>
+          </Box>
+        )}
+      </Popover>
     </Container>
   );
 }

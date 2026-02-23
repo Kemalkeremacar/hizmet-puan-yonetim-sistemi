@@ -27,6 +27,8 @@ const HuvYonetimi = lazy(() => import('./pages/HuvYonetimi'));
 const SutYonetimi = lazy(() => import('./pages/SutYonetimi'));
 const IlKatsayiYonetimi = lazy(() => import('./pages/IlKatsayiYonetimi'));
 const AltTeminatlar = lazy(() => import('./pages/AltTeminatlar'));
+const MatchingReview = lazy(() => import('./pages/MatchingReview'));
+const UnmatchedRecords = lazy(() => import('./pages/UnmatchedRecords'));
 
 // ============================================
 // App Routes Component
@@ -93,6 +95,16 @@ function AppRoutes() {
       <Route path={ROUTES.ilKatsayiYonetimi} element={
         <ProtectedRoute adminOnly>
           <IlKatsayiYonetimi />
+        </ProtectedRoute>
+      } />
+      <Route path={ROUTES.matchingReview} element={
+        <ProtectedRoute adminOnly>
+          <MatchingReview />
+        </ProtectedRoute>
+      } />
+      <Route path="/matching/unmatched" element={
+        <ProtectedRoute adminOnly>
+          <UnmatchedRecords />
         </ProtectedRoute>
       } />
       

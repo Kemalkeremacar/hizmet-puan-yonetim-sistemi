@@ -21,6 +21,9 @@ router.get('/ana-baslik/:no', sutController.getAnaBaslikDetay);
 // Hiyerarşi ağacı
 router.get('/hiyerarsi', sutController.getHiyerarsi);
 
+// Eşleşmemiş kayıtlar
+router.get('/unmatched', sutController.getUnmatchedRecords);
+
 // Kategoriler
 router.get('/kategoriler', sutController.getKategoriler);
 
