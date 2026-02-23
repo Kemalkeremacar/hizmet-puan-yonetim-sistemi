@@ -33,7 +33,7 @@ router.get('/ara', sutController.araSut);
 // İstatistikler
 router.get('/stats', sutController.getSutStats);
 
-// Belirli SUT kodu (en sona)
+// Belirli SUT kodu
 router.get('/:kod', sutController.getSutByKod);
 
 // Tüm SUT kodları (sayfalı) - en sona

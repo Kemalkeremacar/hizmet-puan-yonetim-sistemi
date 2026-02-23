@@ -288,11 +288,22 @@ function SutListe() {
     // Yolu bul (breadcrumb için)
     const path = findNodePath(node, hiyerarsi);
     
+    // Yoldan teminat bilgilerini çıkar
+    // Ana başlık selectedAnaBaslik'ten gelir (üst teminat)
+    // path[0] = alt teminat (örn: 6.9. GÖZ VE ADNEKSLERİ)
+    const sutUstTeminat = selectedAnaBaslik?.AnaBaslikAdi || '-';
+    const sutAltTeminat = path && path.length > 0 ? path[0].name : '-';
+    
     setSelectedSut({
       ...node,
-      path: path
+      path: path,
+      teminatlar: {
+        sutUstTeminat,
+        sutAltTeminat,
+        huvUstTeminat: '-',
+        huvAltTeminat: '-'
+      }
     });
-    
   };
 
   // ============================================
@@ -752,6 +763,79 @@ function SutListe() {
                     </Box>
                   )}
                 </Stack>
+
+                {/* Sağ Kolon - Teminat Bilgileri */}
+                {selectedSut.teminatlar && (
+                  <Stack spacing={2}>
+                    <Typography variant="h6" color="primary" fontWeight={600}>
+                      Teminat Bilgileri
+                    </Typography>
+
+                    {/* SUT Üst Teminat */}
+                    <Box sx={{ 
+                      p: 2, 
+                      bgcolor: 'info.lighter', 
+                      borderRadius: 1,
+                      border: '1px solid',
+                      borderColor: 'info.light'
+                    }}>
+                      <Typography variant="caption" color="info.dark" fontWeight={600}>
+                        SUT ÜST TEMİNAT
+                      </Typography>
+                      <Typography variant="body2" sx={{ mt: 0.5, fontWeight: 500 }}>
+                        {selectedSut.teminatlar.sutUstTeminat}
+                      </Typography>
+                    </Box>
+
+                    {/* SUT Alt Teminat */}
+                    <Box sx={{ 
+                      p: 2, 
+                      bgcolor: 'info.lighter', 
+                      borderRadius: 1,
+                      border: '1px solid',
+                      borderColor: 'info.light'
+                    }}>
+                      <Typography variant="caption" color="info.dark" fontWeight={600}>
+                        SUT ALT TEMİNAT
+                      </Typography>
+                      <Typography variant="body2" sx={{ mt: 0.5, fontWeight: 500 }}>
+                        {selectedSut.teminatlar.sutAltTeminat}
+                      </Typography>
+                    </Box>
+
+                    {/* HUV Üst Teminat */}
+                    <Box sx={{ 
+                      p: 2, 
+                      bgcolor: 'success.lighter', 
+                      borderRadius: 1,
+                      border: '1px solid',
+                      borderColor: 'success.light'
+                    }}>
+                      <Typography variant="caption" color="success.dark" fontWeight={600}>
+                        HUV ÜST TEMİNAT
+                      </Typography>
+                      <Typography variant="body2" sx={{ mt: 0.5, fontWeight: 500 }}>
+                        {selectedSut.teminatlar.huvUstTeminat}
+                      </Typography>
+                    </Box>
+
+                    {/* HUV Alt Teminat */}
+                    <Box sx={{ 
+                      p: 2, 
+                      bgcolor: 'success.lighter', 
+                      borderRadius: 1,
+                      border: '1px solid',
+                      borderColor: 'success.light'
+                    }}>
+                      <Typography variant="caption" color="success.dark" fontWeight={600}>
+                        HUV ALT TEMİNAT
+                      </Typography>
+                      <Typography variant="body2" sx={{ mt: 0.5, fontWeight: 500 }}>
+                        {selectedSut.teminatlar.huvAltTeminat}
+                      </Typography>
+                    </Box>
+                  </Stack>
+                )}
 
               </Box>
             </Stack>
