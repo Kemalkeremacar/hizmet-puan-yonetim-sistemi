@@ -118,6 +118,9 @@ app.use(`${API_PREFIX}/alt-teminatlar`, authenticate, require('./routes/altTemin
 // Matching API
 app.use(`${API_PREFIX}/matching`, authenticate, require('./routes/matching'));
 
+// AI Matching API
+app.use(`${API_PREFIX}/ai-matching`, authenticate, require('./routes/aiMatching'));
+
 
 // ============================================
 // Welcome route

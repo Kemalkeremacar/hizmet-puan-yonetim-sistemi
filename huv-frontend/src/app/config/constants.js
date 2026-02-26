@@ -85,6 +85,7 @@ export const ROUTES = {
   matchingDashboard: '/matching-dashboard',
   matchingReview: '/matching-review',
   unmatchedRecords: '/matching/unmatched',
+  aiMatching: '/ai-matching',
 };
 
 export const NAVIGATION_ITEMS = [
@@ -146,6 +147,14 @@ export const NAVIGATION_ITEMS = [
     path: ROUTES.altTeminatlar,
     icon: 'LocalHospitalIcon',
     description: 'Alt teminatlar listesi',
+  },
+  {
+    id: 'ai-matching',
+    title: '🤖 AI Eşleştirme',
+    path: ROUTES.aiMatching,
+    icon: 'PsychologyIcon',
+    description: 'Yapay zeka ile akıllı eşleştirme',
+    adminOnly: true,
   },
   {
     id: 'matching-review',

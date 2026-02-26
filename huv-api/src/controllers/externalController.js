@@ -42,9 +42,14 @@ const getHuvList = async (req, res, next) => {
       const anaDalAdi = islem.AnaDalAdi;
 
       // Üst ve Alt Teminat belirleme:
-      // UstBaslik formatı: "KALP VE DAMAR CERRAHİSİ → ERİŞKİN KALP CERRAHİSİ → ..."
+      // UstBaslik formatı: "KALP VE DAMAR CERRAHİSİ → ERİŞKİN KALP CERRAHİSİ → Kapak Cerrahisi → Mitral Kapak"
+      // 
+      // ÖNEMLİ: External API sadece ilk 2 seviye döner (basitleştirilmiş gruplama)
       // Üst Teminat: 1. kısım (parts[0])
       // Alt Teminat: 2. kısım (parts[1])
+      // 
+      // Not: 3-4 seviye hiyerarşi olan işlemler aynı alt teminat altında toplanır.
+      //      Tam hiyerarşi bilgisi her işlemin ustBaslik alanında mevcuttur.
       
       let ustTeminatAdi = anaDalAdi; // Varsayılan: Ana dal
       let altTeminatAdi = anaDalAdi; // Varsayılan: Ana dal
@@ -86,8 +91,8 @@ const getHuvList = async (req, res, next) => {
         islemAdi: islem.IslemAdi,
         birim: islem.Birim,
         sutKodu: islem.SutKodu,
-        ustBaslik: islem.UstBaslik,
-        hiyerarsiSeviyesi: islem.HiyerarsiSeviyesi,
+        ustBaslik: islem.UstBaslik,              // Tam hiyerarşi (3-4 seviye olabilir)
+        hiyerarsiSeviyesi: islem.HiyerarsiSeviyesi, // Gerçek seviye sayısı
         notlar: islem.Notlar
       });
     }

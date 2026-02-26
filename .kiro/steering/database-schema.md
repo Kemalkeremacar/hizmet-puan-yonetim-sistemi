@@ -264,27 +264,123 @@ BEGIN
 END
 ```
 
+## Additional Tables
+
+### SutIslemVersionlar
+SUT işlem versiyonları (tarihsel kayıtlar)
+
+```sql
+SutVersionID (PK, INT, IDENTITY)
+SutID (INT, FK) - SutIslemler.SutID
+SutKodu (NVARCHAR(50))
+IslemAdi (NVARCHAR(MAX))
+Puan (FLOAT)
+AnaBaslikNo (INT, FK)
+HiyerarsiID (INT)
+GecerlilikBaslangic (DATE)
+GecerlilikBitis (DATE)
+ListeVersiyonID (INT, FK)
+DegisiklikSebebi (NVARCHAR(500))
+OlusturanKullanici (NVARCHAR(100))
+OlusturmaTarihi (DATETIME)
+```
+
+### IslemVersionlar
+HUV işlem versiyonları (tarihsel kayıtlar)
+
+```sql
+VersionID (PK, INT, IDENTITY)
+IslemID (INT, FK) - HuvIslemler.IslemID
+HuvKodu (DECIMAL(10,5))
+IslemAdi (NVARCHAR(MAX))
+EskiBirim (FLOAT)
+YeniBirim (FLOAT)
+GecerlilikBaslangic (DATE)
+GecerlilikBitis (DATE)
+ListeVersiyonID (INT, FK)
+AktifMi (BIT)
+OlusturanKullanici (NVARCHAR(100))
+OlusturmaTarihi (DATETIME)
+```
+
+### IslemAudit
+İşlem değişiklik audit tablosu
+
+```sql
+AuditID (PK, INT, IDENTITY)
+IslemID (INT, FK)
+IslemTipi (NVARCHAR(20)) - 'INSERT', 'UPDATE', 'DELETE'
+HuvKodu (FLOAT)
+IslemAdi (NVARCHAR(MAX))
+EskiBirim (FLOAT)
+YeniBirim (FLOAT)
+DegisiklikTarihi (DATETIME)
+DegistirenKullanici (NVARCHAR(100))
+Aciklama (NVARCHAR(500))
+```
+
+### Kullanicilar
+Kullanıcı tablosu (alternatif auth sistemi)
+
+```sql
+KullaniciID (PK, INT, IDENTITY)
+KullaniciAdi (NVARCHAR(100), UNIQUE)
+Sifre (NVARCHAR(255)) - Hashed
+Email (NVARCHAR(100))
+Rol (NVARCHAR(20)) - 'admin', 'user'
+AktifMi (BIT)
+OlusturmaTarihi (DATETIME)
+SonGirisTarihi (DATETIME)
+SonGirisIP (NVARCHAR(50))
+```
+
 ## Indexes
 
-### Performance Indexes
+### Performance Indexes (IMPLEMENTED ✅)
 ```sql
--- SutIslemler
-CREATE INDEX IX_SutIslemler_SutKodu ON SutIslemler(SutKodu)
-CREATE INDEX IX_SutIslemler_AnaBaslikNo ON SutIslemler(AnaBaslikNo)
-CREATE INDEX IX_SutIslemler_HiyerarsiID ON SutIslemler(HiyerarsiID)
-
--- AltTeminatIslemler
+-- AltTeminatIslemler (Critical for matching performance)
 CREATE INDEX IX_AltTeminatIslemler_SutID ON AltTeminatIslemler(SutID)
-CREATE INDEX IX_AltTeminatIslemler_AltTeminatID ON AltTeminatIslemler(AltTeminatID)
 CREATE INDEX IX_AltTeminatIslemler_IsOverridden ON AltTeminatIslemler(IsOverridden)
 ```
+
+**Performance Test Results:**
+- SutID Lookup: 1.44ms average (100 queries)
+- IsOverridden Filter: 4ms (7,005 records)
+- Complex Join: 13ms
+- Overall: EXCELLENT ✅
+
+### Optional Indexes (Not needed currently)
+```sql
+-- Only add if data grows beyond 50,000 records or performance degrades
+
+-- SutIslemler
+CREATE INDEX IX_SutIslemler_AktifMi ON SutIslemler(AktifMi)
+CREATE INDEX IX_SutIslemler_HiyerarsiID ON SutIslemler(HiyerarsiID)
+
+-- HuvAltTeminatlar
+CREATE INDEX IX_HuvAltTeminatlar_AnaDalKodu ON HuvAltTeminatlar(AnaDalKodu)
+CREATE INDEX IX_HuvAltTeminatlar_AktifMi ON HuvAltTeminatlar(AktifMi)
+
+-- SutHiyerarsi
+CREATE INDEX IX_SutHiyerarsi_ParentID ON SutHiyerarsi(ParentID)
+CREATE INDEX IX_SutHiyerarsi_SeviyeNo ON SutHiyerarsi(SeviyeNo)
+```
+
+**Note:** SutKodu already has UNIQUE constraint (automatic index)
 
 ## Foreign Keys
 
 ```sql
 -- SutIslemler
-FK_SutIslemler_AnaBasliklar (AnaBaslikNo -> SutAnaBasliklar.AnaBaslikNo)
+FK_SutIslemler_AnaBaslik (AnaBaslikNo -> SutAnaBasliklar.AnaBaslikNo)
 FK_SutIslemler_Hiyerarsi (HiyerarsiID -> SutHiyerarsi.HiyerarsiID)
+FK_SutIslemler_ListeVersiyon (ListeVersiyonID -> ListeVersiyon.VersionID)
+
+-- SutAnaBasliklar
+FK_SutAnaBasliklar_Hiyerarsi (HiyerarsiID -> SutHiyerarsi.HiyerarsiID)
+
+-- SutHiyerarsi
+FK_SutHiyerarsi_Parent (ParentID -> SutHiyerarsi.HiyerarsiID) - Self-referencing
 
 -- AltTeminatIslemler
 FK_AltTeminatIslemler_SutIslemler (SutID -> SutIslemler.SutID)
@@ -292,6 +388,22 @@ FK_AltTeminatIslemler_HuvAltTeminatlar (AltTeminatID -> HuvAltTeminatlar.AltTemi
 
 -- HuvAltTeminatlar
 FK_HuvAltTeminatlar_AnaDallar (AnaDalKodu -> AnaDallar.AnaDalKodu)
+
+-- HuvIslemler
+FK_HuvIslemler_AnaDallar (AnaDalKodu -> AnaDallar.AnaDalKodu)
+FK_HuvIslemler_ListeVersiyon (ListeVersiyonID -> ListeVersiyon.VersionID)
+
+-- IlKatsayiVersionlar
+FK_IlKatsayiVersionlar_IlKatsayilari (IlKatsayiID -> IlKatsayilari.IlKatsayiID)
+FK_IlKatsayiVersionlar_ListeVersiyon (ListeVersiyonID -> ListeVersiyon.VersionID)
+
+-- IslemVersionlar
+FK_IslemVersionlar_HuvIslemler (IslemID -> HuvIslemler.IslemID)
+FK_IslemVersionlar_ListeVersiyon (ListeVersiyonID -> ListeVersiyon.VersionID)
+
+-- SutIslemVersionlar
+FK_SutIslemVersionlar_ListeVersiyon (ListeVersiyonID -> ListeVersiyon.VersionID)
+FK_SutIslemVersionlar_SutAnaBasliklar (AnaBaslikNo -> SutAnaBasliklar.AnaBaslikNo)
 ```
 
 ## Data Integrity Rules

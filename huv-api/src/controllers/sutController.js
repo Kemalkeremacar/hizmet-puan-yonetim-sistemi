@@ -97,7 +97,7 @@ const getSutByKategori = async (req, res, next) => {
       .input('kategoriId', sql.Int, kategoriId)
       .query(`
         SELECT * FROM vw_SutIslemDetay
-        WHERE KategoriID = @kategoriId
+        WHERE KategoriID = @kategoriId AND AktifMi = 1
         ORDER BY SutKodu
       `);
 
@@ -127,7 +127,7 @@ const getSutKodlari = async (req, res, next) => {
     const pool = await getPool();
 
     // Toplam kayıt sayısı
-    let countQuery = 'SELECT COUNT(*) as total FROM vw_SutIslemDetay WHERE 1=1';
+    let countQuery = 'SELECT COUNT(*) as total FROM vw_SutIslemDetay WHERE AktifMi = 1';
     const countParams = [];
 
     if (kategoriId) {
@@ -136,7 +136,7 @@ const getSutKodlari = async (req, res, next) => {
     }
 
     if (anaBaslikNo) {
-      countQuery += ' AND AnaBaslikNo = @anaBaslikNo';
+      countQuery += ' AND AnaBaslikID = @anaBaslikNo';
       countParams.push({ name: 'anaBaslikNo', type: sql.Int, value: parseInt(anaBaslikNo) });
     }
 
@@ -157,7 +157,7 @@ const getSutKodlari = async (req, res, next) => {
 
     let dataQuery = `
       SELECT * FROM vw_SutIslemDetay
-      WHERE 1=1
+      WHERE AktifMi = 1
     `;
 
     if (kategoriId) {
@@ -165,7 +165,7 @@ const getSutKodlari = async (req, res, next) => {
     }
 
     if (anaBaslikNo) {
-      dataQuery += ' AND AnaBaslikNo = @anaBaslikNo';
+      dataQuery += ' AND AnaBaslikID = @anaBaslikNo';
     }
 
     if (search) {
@@ -245,7 +245,8 @@ const araSut = async (req, res, next) => {
       .query(`
         SELECT COUNT(*) as total 
         FROM vw_SutIslemDetay 
-        WHERE SutKodu LIKE @search OR IslemAdi LIKE @search OR Aciklama LIKE @search
+        WHERE AktifMi = 1 
+          AND (SutKodu LIKE @search OR IslemAdi LIKE @search OR Aciklama LIKE @search)
       `);
 
     const total = countResult.recordset[0].total;
@@ -257,7 +258,8 @@ const araSut = async (req, res, next) => {
       .input('limit', sql.Int, parseInt(limit))
       .query(`
         SELECT * FROM vw_SutIslemDetay
-        WHERE SutKodu LIKE @search OR IslemAdi LIKE @search OR Aciklama LIKE @search
+        WHERE AktifMi = 1 
+          AND (SutKodu LIKE @search OR IslemAdi LIKE @search OR Aciklama LIKE @search)
         ORDER BY 
           CASE 
             WHEN SutKodu LIKE '[0-9]%' THEN 0  -- Sayısal kodlar önce
@@ -291,6 +293,7 @@ const getSutStats = async (req, res, next) => {
         AVG(Puan) as OrtalamaPuan,
         SUM(CASE WHEN Puan > 0 THEN 1 ELSE 0 END) as PuanliIslemSayisi
       FROM vw_SutIslemDetay
+      WHERE AktifMi = 1
     `);
 
     return success(res, result.recordset[0], 'SUT istatistikleri');
