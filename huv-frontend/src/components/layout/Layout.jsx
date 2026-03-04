@@ -45,8 +45,7 @@ import {
   Link as LinkIcon,
   LinkOff as LinkOffIcon,
   Logout as LogoutIcon,
-  CheckCircle as CheckCircleIcon,
-  Psychology as PsychologyIcon
+  CheckCircle as CheckCircleIcon
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useTheme } from '../../app/context/ThemeContext';
@@ -76,7 +75,6 @@ const iconMap = {
   LinkIcon: <LinkIcon />,
   LinkOffIcon: <LinkOffIcon />,
   CheckCircleIcon: <CheckCircleIcon />,
-  PsychologyIcon: <PsychologyIcon />,
 };
 
 // ============================================

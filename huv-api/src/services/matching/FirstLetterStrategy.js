@@ -7,6 +7,7 @@
 
 const MatchingStrategy = require('./MatchingStrategy');
 const SimilarityCalculator = require('../../utils/matching/SimilarityCalculator');
+const StringNormalizer = require('../../utils/matching/StringNormalizer');
 
 /**
  * First Letter Matching Strategy
@@ -22,7 +23,7 @@ const SimilarityCalculator = require('../../utils/matching/SimilarityCalculator'
 class FirstLetterStrategy extends MatchingStrategy {
   constructor() {
     super();
-    this.minSimilarity = 0.50; // Minimum %50 benzerlik gerekli
+    this.minSimilarity = 0.70; // Standart %70 threshold (GeneralSimilarityStrategy ile aynı)
     
     // Cerrahi/işlem terimleri - bunlar varsa laboratuvar değildir
     this.nonLabKeywords = [
@@ -40,7 +41,12 @@ class FirstLetterStrategy extends MatchingStrategy {
       'tiroid', 'insülin', 'insulin', 'glukoz', 'hemoglobin',
       'lökosit', 'eritrosit', 'trombosit', 'sedim', 'üre', 'kreatinin',
       'kolesterol', 'trigliserid', 'alt', 'ast', 'ggt', 'ldh',
-      'uyarı testi', 'baskılama testi', 'yükleme testi'
+      'uyarı testi', 'baskılama testi', 'yükleme testi',
+      // Yeni eklenen laboratuvar terimleri
+      'hematolojik', 'boya', 'boyalar', 'esteraz', 'periyodik asit',
+      'peroksidaz', 'prusya mavisi', 'sudan black', 'tartarat rezistan',
+      'asit fosfataz', 'jak2', 'geni', 'mutasyon', 'ekzon', 'qf pcr',
+      'anoploidi', 'molekuler genetik', 'genetik tetkik'
     ];
   }
   
@@ -52,15 +58,7 @@ class FirstLetterStrategy extends MatchingStrategy {
   isLaboratoryRelated(text) {
     if (!text) return false;
     
-    const normalized = text.toLowerCase()
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
-      .replace(/[şŞ]/g, 's')
-      .replace(/[ğĞ]/g, 'g')
-      .replace(/[üÜ]/g, 'u')
-      .replace(/[öÖ]/g, 'o')
-      .replace(/[çÇ]/g, 'c')
-      .replace(/[ıİ]/g, 'i');
+    const normalized = StringNormalizer.normalizeForKeywords(text);
     
     // Önce pozitif laboratuvar terimleri kontrol et
     for (const keyword of this.labKeywords) {
@@ -80,25 +78,8 @@ class FirstLetterStrategy extends MatchingStrategy {
     // (Ana Başlık 9 zaten laboratuvar ana başlığı)
     return true;
   }
-  /**
-   * Get first letter from text, skipping numbers and special characters
-   * @param {string} text - Text to extract first letter from
-   * @returns {string|null} First letter or null
-   */
   getFirstLetter(text) {
-    if (!text) return null;
-    
-    const normalized = SimilarityCalculator.normalizeString(text);
-    
-    // Find first alphabetic character
-    for (let i = 0; i < normalized.length; i++) {
-      const char = normalized[i];
-      if (char >= 'a' && char <= 'z') {
-        return char;
-      }
-    }
-    
-    return null;
+    return StringNormalizer.getFirstLetter(text);
   }
   
   /**
@@ -108,13 +89,15 @@ class FirstLetterStrategy extends MatchingStrategy {
    * @param {Array} huvList - Array of HUV teminat objects
    * @returns {Object} Match result
    */
-  match(sutIslem, huvList) {
+  async match(sutIslem, huvList) {
     if (!sutIslem || !sutIslem.islemAdi || !huvList || huvList.length === 0) {
       return { matched: false, ruleType: this.getRuleType() };
     }
     
     // Önce SUT işleminin laboratuvar testi olduğunu kontrol et
-    if (!this.isLaboratoryRelated(sutIslem.islemAdi)) {
+    const isLab = this.isLaboratoryRelated(sutIslem.islemAdi);
+    
+    if (!isLab) {
       return { matched: false, ruleType: this.getRuleType() };
     }
     
@@ -162,7 +145,7 @@ class FirstLetterStrategy extends MatchingStrategy {
     const isAnaDal34 = huvList.length > 0 && huvList[0].anaDalKodu === 34;
     
     if (isAnaDal34 && bestMatch) {
-      // Ana Dal 34'te tek harf eşleşmesi %80-90 güven
+      // Ana Dal 34'te tek harf eşleşmesi %85 güven (standart formül)
       const confidence = 85;
       
       return {
@@ -178,7 +161,7 @@ class FirstLetterStrategy extends MatchingStrategy {
       return { matched: false, ruleType: this.getRuleType() };
     }
     
-    // Calculate confidence score: 70-95 based on similarity
+    // Calculate confidence score: standart formül kullan
     const confidence = this.calculateConfidence(bestSimilarity);
     
     return {
@@ -190,14 +173,13 @@ class FirstLetterStrategy extends MatchingStrategy {
   }
   
   /**
-   * Calculate confidence score for first letter strategy
-   * Formula: 70 + (similarity * 25)
-   * Range: 70-95 (daha düşük başlangıç, daha güvenli)
+   * Calculate confidence score - STANDART FORMÜL
+   * Formula: similarity * 100 (0-100 arası)
    * @param {number} similarity - Similarity score (0.0 to 1.0)
-   * @returns {number} Confidence score (70 to 95)
+   * @returns {number} Confidence score (0 to 100)
    */
   calculateConfidence(similarity) {
-    return 70 + (similarity * 25);
+    return similarity * 100; // Standart formül
   }
   
   /**

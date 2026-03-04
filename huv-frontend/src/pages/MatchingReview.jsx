@@ -31,7 +31,9 @@ import {
   CheckCircle as CheckCircleIcon,
   Edit as EditIcon,
   Refresh as RefreshIcon,
+  LinkOff as LinkOffIcon,
 } from '@mui/icons-material';
+import { useNavigate } from 'react-router-dom';
 import { PageHeader } from '../components/common';
 import { matchingService } from '../services/matchingService';
 import { toast } from 'react-toastify';
@@ -44,6 +46,7 @@ import BatchMatchingPanel from '../components/matching/BatchMatchingPanel';
 // ============================================
 function MatchingReview() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -209,6 +212,29 @@ function MatchingReview() {
       {/* Toplu Eşleştirme Paneli */}
       <Box sx={{ mb: 3 }}>
         <BatchMatchingPanel onBatchComplete={handleBatchComplete} stats={stats} />
+      </Box>
+
+      {/* Eşleşmemiş Kayıtlar Butonu */}
+      <Box sx={{ mb: 3 }}>
+        <Button
+          variant="contained"
+          color="warning"
+          size="large"
+          fullWidth
+          startIcon={<LinkOffIcon />}
+          onClick={() => navigate('/matching/unmatched')}
+          sx={{
+            py: 2,
+            fontSize: '1.1rem',
+            fontWeight: 600,
+            boxShadow: 3,
+            '&:hover': {
+              boxShadow: 6,
+            },
+          }}
+        >
+          Eşleşmemiş Kayıtlar {stats && `(${stats.unmatchedCount})`}
+        </Button>
       </Box>
 
       {/* İstatistikler */}

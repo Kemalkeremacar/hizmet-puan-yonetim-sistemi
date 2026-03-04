@@ -7,6 +7,7 @@
 
 const MatchingStrategy = require('./MatchingStrategy');
 const SimilarityCalculator = require('../../utils/matching/SimilarityCalculator');
+const StringNormalizer = require('../../utils/matching/StringNormalizer');
 
 /**
  * General Similarity Matching Strategy
@@ -29,20 +30,7 @@ class GeneralSimilarityStrategy extends MatchingStrategy {
    * @param {string} str - String to normalize
    * @returns {string} Normalized string
    */
-  normalizeForKeywords(str) {
-    if (!str) return '';
-    return str
-      .toLowerCase()
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
-      .replace(/[şŞ]/g, 's')
-      .replace(/[ğĞ]/g, 'g')
-      .replace(/[üÜ]/g, 'u')
-      .replace(/[öÖ]/g, 'o')
-      .replace(/[çÇ]/g, 'c')
-      .replace(/[ıİ]/g, 'i')
-      .trim();
-  }
+  // String normalizasyon artık StringNormalizer utility'sinde
   
   /**
    * Check if there's a rule-based match
@@ -51,9 +39,9 @@ class GeneralSimilarityStrategy extends MatchingStrategy {
    * @param {string} huvTeminatAdi - HUV teminat name
    * @returns {number|null} Confidence score (0.70-1.0) or null
    */
-  checkRuleBasedMatch(sutIslemAdi, huvTeminatAdi) {
-    const sutNorm = this.normalizeForKeywords(sutIslemAdi);
-    const huvNorm = this.normalizeForKeywords(huvTeminatAdi);
+  checkRuleBasedMatch(sutIslem, huvTeminatAdi) {
+    const sutNorm = StringNormalizer.normalizeForKeywords(sutIslem.islemAdi);
+    const huvNorm = StringNormalizer.normalizeForKeywords(huvTeminatAdi);
     
     // ============================================
     // NEGATİF FİLTRELER - Yanlış eşleşmeleri engelle
@@ -92,7 +80,218 @@ class GeneralSimilarityStrategy extends MatchingStrategy {
     }
     
     // ============================================
-    // POZİTİF KURALLAR
+    // SPESİFİK SUT ALT TEMİNAT EŞLEŞTİRMELERİ
+    // ============================================
+    
+    // SUT Alt Teminat kontrolü - eğer sutIslem.sutAltTeminat varsa
+    if (sutIslem.sutAltTeminat) {
+      const sutAltTeminatNorm = StringNormalizer.normalizeForKeywords(sutIslem.sutAltTeminat);
+      
+      // KURAL 150: MOLEKÜLER GENETİK TETKİKLER → G (Ana Dal 34) → %95
+      if ((sutAltTeminatNorm.includes('molekuler genetik tetkikler') || 
+           sutAltTeminatNorm.includes('molekuler genetik')) && huvNorm === 'g') {
+        return 0.95;
+      }
+      
+      // KURAL 151: Brakiterapi doz hesapları → Brakiterapi/Doz/Radyoterapi → %90
+      if ((sutAltTeminatNorm.includes('brakiterapi doz hesaplari') || 
+           sutAltTeminatNorm.includes('brakiterapi')) && 
+          (huvNorm.includes('brakiterapi') || huvNorm.includes('doz') || huvNorm.includes('radyoterapi'))) {
+        return 0.90;
+      }
+      
+      // KURAL 152: Portal görüntüleme → Portal/Radyoloji/Görüntüleme → %90
+      if ((sutAltTeminatNorm.includes('portal goruntulem') || sutAltTeminatNorm.includes('portal')) && 
+          (huvNorm.includes('portal') || huvNorm.includes('radyoloji') || huvNorm.includes('goruntulem'))) {
+        return 0.90;
+      }
+      
+      // KURAL 153: ÜRİNER SİSTEM-NEFROLOJİ-DİYALİZ → Nefroloji/Diyaliz/Üroloji/Muayene → %90
+      if (sutAltTeminatNorm.includes('uriner sistem-nefroloji-diyaliz') && 
+          (huvNorm.includes('nefroloji') || huvNorm.includes('diyaliz') || huvNorm.includes('uroloji') ||
+           huvNorm.includes('muayene') || huvNorm.includes('tani'))) {
+        return 0.90;
+      }
+      
+      // KURAL 154: HEMATOLOJİ-ONKOLOJİ-KEMOTERAPİ → Hematoloji/Onkoloji → %90
+      if (sutAltTeminatNorm.includes('hematoloji-onkoloji-kemoterapi') && 
+          (huvNorm.includes('hematoloji') || huvNorm.includes('onkoloji'))) {
+        return 0.90;
+      }
+      
+      // KURAL 155: SİNDİRİM SİSTEMİ → Sindirim/Gastroenteroloji/Endoskopi → %90
+      if (sutAltTeminatNorm.includes('sindirim sistemi') && 
+          (huvNorm.includes('sindirim') || huvNorm.includes('gastroenteroloji') || huvNorm.includes('endoskopi'))) {
+        return 0.90;
+      }
+      
+      // KURAL 156: GÖZ VE ADNEKSLERİ → Göz/Adneks/Oftalmoloji/Muayene/Cerrahi → %90
+      if (sutAltTeminatNorm.includes('goz ve adneksleri') && 
+          (huvNorm.includes('goz') || huvNorm.includes('adneks') || huvNorm.includes('oftalmoloji') ||
+           huvNorm.includes('muayene') || huvNorm.includes('cerrahi') || huvNorm.includes('optik'))) {
+        return 0.90;
+      }
+      
+      // KURAL 157: SES VE İŞİTME İLE İLGİLİ ÇALIŞMALAR → Ses/İşitme/Odyoloji/Muayene → %90
+      if (sutAltTeminatNorm.includes('ses ve isitme ile ilgili calismalar') && 
+          (huvNorm.includes('ses') || huvNorm.includes('isitme') || huvNorm.includes('odyoloji') ||
+           huvNorm.includes('muayene') || huvNorm.includes('tani'))) {
+        return 0.90;
+      }
+      
+      // KURAL 158: Brakiterapi doz hesapları (spesifik) → Brakiterapi/Doz/Radyoterapi/Planlama → %95
+      // SUT Kodu: 800235 - "a) Temel radyasyon doz hesapları"
+      if ((sutAltTeminatNorm.includes('brakiterapi doz hesaplari') || 
+           sutAltTeminatNorm.includes('brakiterapi')) && 
+          (huvNorm.includes('brakiterapi') || huvNorm.includes('doz') || 
+           huvNorm.includes('radyoterapi') || huvNorm.includes('planlama') || 
+           huvNorm.includes('tasarim'))) {
+        return 0.95;
+      }
+      
+      // KURAL 159: ÜRİNER SİSTEM-NEFROLOJİ-DİYALİZ (kemoterapi içeren) → Onkoloji/Kemoterapi/Hematoloji → %95
+      // SUT Kodu: 704370 - "İntrakaviter kemo veya immünoterapi"
+      if (sutAltTeminatNorm.includes('uriner sistem-nefroloji-diyaliz') && 
+          (sutNorm.includes('kemo') || sutNorm.includes('immuno')) &&
+          (huvNorm.includes('onkoloji') || huvNorm.includes('kemoterapi') || 
+           huvNorm.includes('hematoloji') || huvNorm.includes('tibbi onkoloji'))) {
+        return 0.95;
+      }
+      
+      // KURAL 160: ÜRİNER SİSTEM-NEFROLOJİ-DİYALİZ (sinir/mesane içeren) → Üroloji/Mesane/Nefroloji → %95
+      // SUT Kodu: 704410 - "Perkütan sinir incelemesi (PNE), mesane için"
+      if (sutAltTeminatNorm.includes('uriner sistem-nefroloji-diyaliz') && 
+          (sutNorm.includes('sinir') || sutNorm.includes('pne') || sutNorm.includes('mesane')) &&
+          (huvNorm.includes('uroloji') || huvNorm.includes('mesane') || 
+           huvNorm.includes('nefroloji') || huvNorm.includes('urodinamik') ||
+           huvNorm.includes('muayene') || huvNorm.includes('tani'))) {
+        return 0.95;
+      }
+    }
+    
+    // ============================================
+    // SPESİFİK SUT ALT TEMİNAT EŞLEŞTİRMELERİ
+    // ============================================
+    
+    // ============================================
+    // SPESİFİK SUT İŞLEM ADI EŞLEŞTİRMELERİ (SUT Alt Teminat yerine)
+    // ============================================
+    
+    // KURAL 138: Göz işlemleri (işlem adından) → Cerrahi İşlemler (Göz) → %95
+    if ((sutNorm.includes('kamara') || sutNorm.includes('iris') || sutNorm.includes('lens') || 
+         sutNorm.includes('silikon') || sutNorm.includes('goz')) && 
+        huvNorm.includes('cerrahi islemler')) {
+      return 0.95;
+    }
+    
+    // KURAL 139: Hematoloji işlemleri (işlem adından) → Tıbbi Onkoloji, Hematoloji → %95
+    if ((sutNorm.includes('cd 34') || sutNorm.includes('hucre seleksiyon') || 
+         sutNorm.includes('infuzyon kemoterapi') || sutNorm.includes('kemoterapi')) && 
+        huvNorm.includes('tibbi onkoloji')) {
+      return 0.95;
+    }
+    
+    // KURAL 140: Laboratuvar işlemleri (işlem adından) → A, B, C, D, E, F, G, H, I, K, L, M, N, O, P, R, S, T, U, V, W, Y → %95
+    if ((sutNorm.includes('jak2 geni') || sutNorm.includes('pcr') || sutNorm.includes('mutasyon analizi') ||
+         sutNorm.includes('anaplasma') || sutNorm.includes('coxiella') || sutNorm.includes('erlichia')) && 
+        (huvNorm === 'a' || huvNorm === 'b' || huvNorm === 'c' || huvNorm === 'd' || huvNorm === 'e' || 
+         huvNorm === 'f' || huvNorm === 'g' || huvNorm === 'h' || huvNorm === 'i' || huvNorm === 'k' || 
+         huvNorm === 'l' || huvNorm === 'm' || huvNorm === 'n' || huvNorm === 'o' || huvNorm === 'p' || 
+         huvNorm === 'r' || huvNorm === 's' || huvNorm === 't' || huvNorm === 'u' || huvNorm === 'v' || 
+         huvNorm === 'w' || huvNorm === 'y')) {
+      return 0.95;
+    }
+    
+    // KURAL 141: Üroloji işlemleri (işlem adından) → Nefroloji, Böbrek, Mesane, Prostat → %90
+    if ((sutNorm.includes('hemodiyaliz') || sutNorm.includes('diyaliz') || sutNorm.includes('sistometri') ||
+         sutNorm.includes('urodinamik') || sutNorm.includes('prostat') || sutNorm.includes('penil') ||
+         sutNorm.includes('kateter') || sutNorm.includes('hemoperfuzyon') || sutNorm.includes('ultrafiltrasyon') ||
+         sutNorm.includes('heparinizasyon') || sutNorm.includes('empotans') || sutNorm.includes('vezikul')) && 
+        (huvNorm.includes('nefroloji') || huvNorm.includes('bobrek') || huvNorm.includes('mesane') || 
+         huvNorm.includes('prostat') || huvNorm.includes('urodinam') || huvNorm.includes('ureter') ||
+         huvNorm.includes('uretra') || huvNorm.includes('penis'))) {
+      return 0.90;
+    }
+    
+    // KURAL 142: Dermatoloji işlemleri (işlem adından) → Genel İşlemler, Cerrahi İşlemler → %85
+    if ((sutNorm.includes('fototerapi') || sutNorm.includes('puva') || sutNorm.includes('kriyoterapi') ||
+         sutNorm.includes('kimyasal') || sutNorm.includes('peeling')) && 
+        (huvNorm.includes('genel islemler') || huvNorm.includes('cerrahi islemler'))) {
+      return 0.85;
+    }
+    
+    // KURAL 143: Sindirim işlemleri (işlem adından) → Gastroenteroloji → %90
+    if ((sutNorm.includes('ph monitoriz') || sutNorm.includes('enteroskopi') || sutNorm.includes('endoskopik') ||
+         sutNorm.includes('biliyer') || sutNorm.includes('polipektomi')) && 
+        huvNorm.includes('gastroenteroloji')) {
+      return 0.90;
+    }
+    
+    // KURAL 144: KBB işlemleri (işlem adından) → Muayene, Tanı, Tedavi İşlemleri → %90
+    if ((sutNorm.includes('bekesy') || sutNorm.includes('odyometri') || sutNorm.includes('timpanometri') ||
+         sutNorm.includes('videonistagmografi') || sutNorm.includes('enog')) && 
+        huvNorm.includes('muayene, tani, tedavi')) {
+      return 0.90;
+    }
+    
+    // KURAL 145: Göz muayene işlemleri (işlem adından) → Muayene ve Tanısal İşlemler → %85
+    if ((sutNorm.includes('biyometri') || sutNorm.includes('erg') || sutNorm.includes('ver') ||
+         sutNorm.includes('eog') || sutNorm.includes('perimetri') || sutNorm.includes('pakimetri')) && 
+        huvNorm.includes('muayene ve tanisal')) {
+      return 0.85;
+    }
+    
+    // KURAL 161: Radyasyon doz hesapları (işlem adından) → Radyoterapi/Brakiterapi/Doz/Planlama → %95
+    // SUT Kodu: 800235 - "a) Temel radyasyon doz hesapları"
+    if ((sutNorm.includes('radyasyon doz hesab') || sutNorm.includes('temel radyasyon doz') ||
+         sutNorm.includes('radyasyon doz') || sutNorm.includes('doz hesab')) && 
+        (huvNorm.includes('radyoterapi') || huvNorm.includes('brakiterapi') || 
+         huvNorm.includes('doz') || huvNorm.includes('planlama') || huvNorm.includes('tasarim') ||
+         huvNorm.includes('radyasyon') || huvNorm.includes('tedavi'))) {
+      return 0.95;
+    }
+    
+    // KURAL 161.1: Radyasyon/Doz (genel) → Radyoterapi/Brakiterapi/Doz → %85
+    if ((sutNorm.includes('radyasyon') || sutNorm.includes('doz hesab')) && 
+        (huvNorm.includes('radyoterapi') || huvNorm.includes('brakiterapi') || 
+         huvNorm.includes('doz') || huvNorm.includes('radyasyon'))) {
+      return 0.85;
+    }
+    
+    // KURAL 161.2: Doz hesabı (çok genel) → Herhangi bir doz/planlama/tedavi → %75
+    if ((sutNorm.includes('doz hesab') || sutNorm.includes('doz hesapl')) && 
+        (huvNorm.includes('doz') || huvNorm.includes('planlama') || 
+         huvNorm.includes('tedavi') || huvNorm.includes('tasarim') ||
+         huvNorm.includes('radyo') || huvNorm.includes('terapi'))) {
+      return 0.75;
+    }
+    
+    // KURAL 162: İntrakaviter kemoterapi (işlem adından) → Onkoloji/Kemoterapi/Hematoloji → %95
+    // SUT Kodu: 704370 - "İntrakaviter kemo veya immünoterapi"
+    if ((sutNorm.includes('intrakaviter kemo') || sutNorm.includes('intrakaviter immuno')) && 
+        (huvNorm.includes('onkoloji') || huvNorm.includes('kemoterapi') || 
+         huvNorm.includes('hematoloji') || huvNorm.includes('tibbi onkoloji') ||
+         huvNorm.includes('infuzyon') || huvNorm.includes('tedavi'))) {
+      return 0.95;
+    }
+    
+    // KURAL 162.1: İntrakaviter/Kemoterapi (genel) → Onkoloji/Kemoterapi → %85
+    if ((sutNorm.includes('intrakaviter') || (sutNorm.includes('kemo') && sutNorm.includes('terapi'))) && 
+        (huvNorm.includes('onkoloji') || huvNorm.includes('kemoterapi') || 
+         huvNorm.includes('hematoloji') || huvNorm.includes('tedavi'))) {
+      return 0.85;
+    }
+    
+    // KURAL 162.2: Kemoterapi (çok genel) → Herhangi bir kemo/onkoloji/tedavi → %75
+    if ((sutNorm.includes('kemo') || sutNorm.includes('immuno')) && 
+        (huvNorm.includes('kemo') || huvNorm.includes('onkoloji') || 
+         huvNorm.includes('tedavi') || huvNorm.includes('infuzyon') ||
+         huvNorm.includes('hematoloji') || huvNorm.includes('tibbi'))) {
+      return 0.75;
+    }
+
+    // ============================================
+    // POZİTİF KURALLAR (DEVAMI)
     // ============================================
     
     // KURAL 1: Tam eşleşme → %95
@@ -718,6 +917,600 @@ class GeneralSimilarityStrategy extends MatchingStrategy {
     }
     
     // ============================================
+    // GÖZ HASTALIKLARI KURALLARI (Düzeltilmiş)
+    // ============================================
+    
+    // KURAL 52: İris işlemleri → Göz teminatları → %90
+    if (sutNorm.includes('iris') || sutNorm.includes('iridodiyaliz') || sutNorm.includes('pupillaplasti')) {
+      // HUV'da göz ile ilgili herhangi bir teminat varsa eşleştir
+      return 0.90;
+    }
+    
+    // KURAL 53: Lens işlemleri → Göz teminatları → %90
+    if (sutNorm.includes('lens') || sutNorm.includes('fakoemul') || sutNorm.includes('kataraktta') || 
+        sutNorm.includes('intraokuler') || sutNorm.includes('lensektomi')) {
+      return 0.90;
+    }
+    
+    // KURAL 54: Şaşılık işlemleri → Göz teminatları → %88
+    if (sutNorm.includes('sasilik') || sutNorm.includes('tenotomi') || sutNorm.includes('myotomi') || 
+        sutNorm.includes('adele transpozisyon') || sutNorm.includes('ayarlanabilir sutur')) {
+      return 0.88;
+    }
+    
+    // KURAL 55: Göz cerrahisi genel → Göz teminatları → %85
+    if (sutNorm.includes('aci revizyonu') || sutNorm.includes('dissizyon') || 
+        sutNorm.includes('kapsulektomi') || sutNorm.includes('vitrektomi')) {
+      return 0.85;
+    }
+    
+    // KURAL 56: Pediatrik Oftalmoloji → Göz teminatları → %85
+    if (sutNorm.includes('pediatrik oftalmoloji') || sutNorm.includes('cocuk oftalmoloji')) {
+      return 0.85;
+    }
+    
+    // KURAL 57: Retina → Retina → %88
+    if (sutNorm.includes('retina') && huvNorm.includes('retina')) {
+      return 0.88;
+    }
+    
+    // KURAL 58: Kornea → Kornea → %88
+    if (sutNorm.includes('kornea') && huvNorm.includes('kornea')) {
+      return 0.88;
+    }
+    
+    // KURAL 59: Katarakt → Katarakt → %88
+    if (sutNorm.includes('katarakt') && huvNorm.includes('katarakt')) {
+      return 0.88;
+    }
+    
+    // KURAL 60: Glokom → Glokom → %88
+    if (sutNorm.includes('glokom') && huvNorm.includes('glokom')) {
+      return 0.88;
+    }
+    
+    // KURAL 61: Göz → Göz/Oftalmoloji/Adneksler → %82
+    if (sutNorm.includes('goz') && 
+        (huvNorm.includes('goz') || huvNorm.includes('oftalmoloji') || huvNorm.includes('adneks'))) {
+      return 0.82;
+    }
+    
+    // KURAL 62: Göz ve Adneksleri → Göz/Adneksler → %85
+    if ((sutNorm.includes('goz ve adneks') || sutNorm.includes('goz adneks')) && 
+        (huvNorm.includes('goz') || huvNorm.includes('adneks'))) {
+      return 0.85;
+    }
+    
+    // KURAL 63: Adneksler → Adneksler/Göz → %82
+    if (sutNorm.includes('adneks') && 
+        (huvNorm.includes('adneks') || huvNorm.includes('goz'))) {
+      return 0.82;
+    }
+    
+    // ============================================
+    // KULAK BURUN BOĞAZ (KBB) KURALLARI
+    // ============================================
+    
+    // KURAL 64: Ses ve İşitme → Ses/İşitme/Odyoloji → %88
+    if ((sutNorm.includes('ses ve isitme') || sutNorm.includes('ses isitme')) && 
+        (huvNorm.includes('ses') || huvNorm.includes('isitme') || huvNorm.includes('odyoloji'))) {
+      return 0.88;
+    }
+    
+    // KURAL 65: İşitme → İşitme/Odyoloji → %85
+    if (sutNorm.includes('isitme') && 
+        (huvNorm.includes('isitme') || huvNorm.includes('odyoloji'))) {
+      return 0.85;
+    }
+    
+    // KURAL 66: Odyoloji → Odyoloji/İşitme → %88
+    if (sutNorm.includes('odyoloji') && 
+        (huvNorm.includes('odyoloji') || huvNorm.includes('isitme'))) {
+      return 0.88;
+    }
+    
+    // KURAL 67: Odyometri → Odyometri/İşitme/Odyoloji → %85
+    if (sutNorm.includes('odyometri') && 
+        (huvNorm.includes('odyometri') || huvNorm.includes('isitme') || huvNorm.includes('odyoloji'))) {
+      return 0.85;
+    }
+    
+    // KURAL 68: Kulak → Kulak/KBB → %82
+    if (sutNorm.includes('kulak') && 
+        (huvNorm.includes('kulak') || huvNorm.includes('kbb'))) {
+      return 0.82;
+    }
+    
+    // KURAL 69: İşitme Cihazı → İşitme/Cihaz → %85
+    if (sutNorm.includes('isitme cihaz') && 
+        (huvNorm.includes('isitme') || huvNorm.includes('cihaz'))) {
+      return 0.85;
+    }
+    
+    // KURAL 70: Ses Terapisi → Ses/Terapi → %82
+    if (sutNorm.includes('ses terapi') && 
+        (huvNorm.includes('ses') || huvNorm.includes('terapi'))) {
+      return 0.82;
+    }
+    
+    // KURAL 71: KBB → KBB/Kulak Burun Boğaz → %85
+    if (sutNorm.includes('kbb') && 
+        (huvNorm.includes('kbb') || huvNorm.includes('kulak burun bogaz'))) {
+      return 0.85;
+    }
+    
+    // ============================================
+    // SİNDİRİM SİSTEMİ KURALLARI
+    // ============================================
+    
+    // KURAL 72: Sindirim Sistemi → Sindirim/Gastrointestinal → %88
+    if ((sutNorm.includes('sindirim sistem') || sutNorm.includes('sindirim')) && 
+        (huvNorm.includes('sindirim') || huvNorm.includes('gastrointestinal') || huvNorm.includes('gastroenteroloji'))) {
+      return 0.88;
+    }
+    
+    // KURAL 73: Gastroenteroloji → Gastroenteroloji/Sindirim → %88
+    if (sutNorm.includes('gastroenteroloji') && 
+        (huvNorm.includes('gastroenteroloji') || huvNorm.includes('sindirim'))) {
+      return 0.88;
+    }
+    
+    // KURAL 74: Gastrointestinal → Gastrointestinal/Sindirim → %85
+    if (sutNorm.includes('gastrointestinal') && 
+        (huvNorm.includes('gastrointestinal') || huvNorm.includes('sindirim'))) {
+      return 0.85;
+    }
+    
+    // KURAL 75: Mide → Mide/Gastrik/Sindirim → %82
+    if (sutNorm.includes('mide') && 
+        (huvNorm.includes('mide') || huvNorm.includes('gastrik') || huvNorm.includes('sindirim'))) {
+      return 0.82;
+    }
+    
+    // KURAL 76: Bağırsak → Bağırsak/İntestinal/Sindirim → %82
+    if (sutNorm.includes('bagirsak') && 
+        (huvNorm.includes('bagirsak') || huvNorm.includes('intestinal') || huvNorm.includes('sindirim'))) {
+      return 0.82;
+    }
+    
+    // KURAL 77: Kolon → Kolon/Kolonik/Sindirim → %82
+    if (sutNorm.includes('kolon') && 
+        (huvNorm.includes('kolon') || huvNorm.includes('kolonik') || huvNorm.includes('sindirim'))) {
+      return 0.82;
+    }
+    
+    // KURAL 78: Karaciğer → Karaciğer/Hepatik/Sindirim → %82
+    if (sutNorm.includes('karaciger') && 
+        (huvNorm.includes('karaciger') || huvNorm.includes('hepatik') || huvNorm.includes('sindirim'))) {
+      return 0.82;
+    }
+    
+    // KURAL 79: Safra → Safra/Biliyer/Sindirim → %82
+    if (sutNorm.includes('safra') && 
+        (huvNorm.includes('safra') || huvNorm.includes('biliyer') || huvNorm.includes('sindirim'))) {
+      return 0.82;
+    }
+    
+    // KURAL 80: Pankreas → Pankreas/Pankreatik/Sindirim → %82
+    if (sutNorm.includes('pankreas') && 
+        (huvNorm.includes('pankreas') || huvNorm.includes('pankreatik') || huvNorm.includes('sindirim'))) {
+      return 0.82;
+    }
+    
+    // KURAL 81: Özofagus → Özofagus/Yemek Borusu/Sindirim → %82
+    if ((sutNorm.includes('ozofagus') || sutNorm.includes('yemek borusu')) && 
+        (huvNorm.includes('ozofagus') || huvNorm.includes('yemek borusu') || huvNorm.includes('sindirim'))) {
+      return 0.82;
+    }
+    
+    // ============================================
+    // DERMİS VE EPİDERMİS KURALLARI
+    // ============================================
+    
+    // KURAL 82: Dermis ve Epidermis → Dermis/Epidermis/Deri → %88
+    if ((sutNorm.includes('dermis') || sutNorm.includes('epidermis')) && 
+        (huvNorm.includes('dermis') || huvNorm.includes('epidermis') || huvNorm.includes('deri'))) {
+      return 0.88;
+    }
+    
+    // KURAL 83: Deri → Deri/Dermatoloji/Dermis → %82
+    if (sutNorm.includes('deri') && 
+        (huvNorm.includes('deri') || huvNorm.includes('dermatoloji') || huvNorm.includes('dermis'))) {
+      return 0.82;
+    }
+    
+    // ============================================
+    // ÜRİNER SİSTEM-NEFROLOJİ-DİYALİZ KURALLARI
+    // ============================================
+    
+    // KURAL 84: Üriner Sistem → Üriner/Genitoüriner/Böbrek → %88
+    if (sutNorm.includes('uriner sistem') && 
+        (huvNorm.includes('uriner') || huvNorm.includes('genitoüriner') || huvNorm.includes('bobrek'))) {
+      return 0.88;
+    }
+    
+    // KURAL 85: Nefroloji → Nefroloji/Böbrek/Üriner → %88
+    if (sutNorm.includes('nefroloji') && 
+        (huvNorm.includes('nefroloji') || huvNorm.includes('bobrek') || huvNorm.includes('uriner'))) {
+      return 0.88;
+    }
+    
+    // KURAL 86: Böbrek → Böbrek/Renal/Nefroloji → %85
+    if (sutNorm.includes('bobrek') && 
+        (huvNorm.includes('bobrek') || huvNorm.includes('renal') || huvNorm.includes('nefroloji'))) {
+      return 0.85;
+    }
+    
+    // KURAL 87: Üroloji → Üroloji/Üriner/Genitoüriner → %85
+    if (sutNorm.includes('uroloji') && 
+        (huvNorm.includes('uroloji') || huvNorm.includes('uriner') || huvNorm.includes('genitoüriner'))) {
+      return 0.85;
+    }
+    
+    // ============================================
+    // HEMATOLOJİ-ONKOLOJİ-KEMOTERAPİ KURALLARI
+    // ============================================
+    
+    // KURAL 88: Hematoloji Onkoloji → Hematoloji/Onkoloji/Kan → %90
+    if ((sutNorm.includes('hematoloji onkoloji') || sutNorm.includes('hemato onkoloji')) && 
+        (huvNorm.includes('hematoloji') || huvNorm.includes('onkoloji') || huvNorm.includes('kan'))) {
+      return 0.90;
+    }
+    
+    // KURAL 89: Kan Hastalıkları → Kan/Hematoloji → %85
+    if (sutNorm.includes('kan hastaliklari') && 
+        (huvNorm.includes('kan') || huvNorm.includes('hematoloji'))) {
+      return 0.85;
+    }
+    
+    // ============================================
+    // ZOONOTİK HASTALIKLARA YÖNELİK ANALİZLER KURALLARI
+    // ============================================
+    
+    // KURAL 90: Zoonotik Hastalıklar → Zoonotik/Enfeksiyon/Mikrobiyoloji → %85
+    if (sutNorm.includes('zoonotik') && 
+        (huvNorm.includes('zoonotik') || huvNorm.includes('enfeksiyon') || huvNorm.includes('mikrobiyoloji'))) {
+      return 0.85;
+    }
+    
+    // KURAL 91: Zoonotik Analiz → Zoonotik/Analiz/Laboratuvar → %82
+    if (sutNorm.includes('zoonotik analiz') && 
+        (huvNorm.includes('zoonotik') || huvNorm.includes('analiz') || huvNorm.includes('laboratuvar'))) {
+      return 0.82;
+    }
+    
+    // KURAL 92: Hayvan Kaynaklı → Zoonotik/Enfeksiyon → %80
+    if (sutNorm.includes('hayvan kaynakli') && 
+        (huvNorm.includes('zoonotik') || huvNorm.includes('enfeksiyon'))) {
+      return 0.80;
+    }
+    
+    // ============================================
+    // ÖRNEKLEME VE BİYOPSİ KURALLARI
+    // ============================================
+    
+    // KURAL 93: Kemik Biyopsisi → Biyopsi/Örnekleme/Genel İşlemler → %85
+    if (sutNorm.includes('kemik biyopsi') && 
+        (huvNorm.includes('biyopsi') || huvNorm.includes('ornekleme') || huvNorm.includes('genel islemler'))) {
+      return 0.85;
+    }
+    
+    // KURAL 94: Tükrük Bezi → Salgı Bezi/Tükrük → %85
+    if (sutNorm.includes('tukruk bezi') && 
+        (huvNorm.includes('salgi bezi') || huvNorm.includes('tukruk'))) {
+      return 0.85;
+    }
+    
+    // ============================================
+    // ÖZEL LABORATUVAR KURALLARI
+    // ============================================
+    
+    // KURAL 95: Hematolojik Boyalar → Hematoloji/Boya → %88
+    if (sutNorm.includes('hematolojik boya') && 
+        (huvNorm.includes('hematoloji') || huvNorm.includes('boya'))) {
+      return 0.88;
+    }
+    
+    // KURAL 96: JAK2 Geni → Moleküler Genetik/JAK2 → %90
+    if (sutNorm.includes('jak2 geni') && 
+        (huvNorm.includes('molekuler genetik') || huvNorm.includes('jak2'))) {
+      return 0.90;
+    }
+    
+    // KURAL 97: PCR Analizi → PCR/Moleküler → %85
+    if (sutNorm.includes('pcr') && 
+        (huvNorm.includes('pcr') || huvNorm.includes('molekuler'))) {
+      return 0.85;
+    }
+    
+    // ============================================
+    // RADYOTERAPİ VE DOZ HESAPLARI KURALLARI
+    // ============================================
+    
+    // KURAL 98: Radyasyon Doz Hesabı → Radyoterapi/Doz/Brakiterapi → %88
+    if ((sutNorm.includes('radyasyon doz hesab') || sutNorm.includes('temel radyasyon doz')) && 
+        (huvNorm.includes('radyoterapi') || huvNorm.includes('doz') || huvNorm.includes('brakiterapi'))) {
+      return 0.88;
+    }
+    
+    // KURAL 99: Brakiterapi → Brakiterapi/Radyoterapi → %90
+    if (sutNorm.includes('brakiterapi') && 
+        (huvNorm.includes('brakiterapi') || huvNorm.includes('radyoterapi'))) {
+      return 0.90;
+    }
+    
+    // KURAL 100: Portal Görüntüleme → Portal/Radyoloji → %82
+    if (sutNorm.includes('portal goruntulem') && 
+        (huvNorm.includes('portal') || huvNorm.includes('radyoloji'))) {
+      return 0.82;
+    }
+    
+    // ============================================
+    // ÜROLOJİ VE EMPOTANS KURALLARI
+    // ============================================
+    
+    // KURAL 101: Empotans → Empotans/Üroloji → %85
+    if (sutNorm.includes('empotans') && 
+        (huvNorm.includes('empotans') || huvNorm.includes('uroloji'))) {
+      return 0.85;
+    }
+    
+    // KURAL 102: Penil Arter → Penil/Üroloji → %82
+    if (sutNorm.includes('penil arter') && 
+        (huvNorm.includes('penil') || huvNorm.includes('uroloji'))) {
+      return 0.82;
+    }
+    
+    // KURAL 103: Sistometri → Sistometri/Ürodinamik → %85
+    if (sutNorm.includes('sistometri') && 
+        (huvNorm.includes('sistometri') || huvNorm.includes('urodinamik'))) {
+      return 0.85;
+    }
+    
+    // KURAL 104: Ürodinamik → Ürodinamik/Üroloji → %85
+    if (sutNorm.includes('urodinamik') && 
+        (huvNorm.includes('urodinamik') || huvNorm.includes('uroloji'))) {
+      return 0.85;
+    }
+    
+    // KURAL 105: Prostat Termoterapi → Prostat/Termoterapi → %85
+    if (sutNorm.includes('prostat') && sutNorm.includes('termoterapi') && 
+        (huvNorm.includes('prostat') || huvNorm.includes('termoterapi'))) {
+      return 0.85;
+    }
+    
+    // ============================================
+    // HÜCRE SELEKSİYONU VE KEMOTERAPİ KURALLARI
+    // ============================================
+    
+    // KURAL 106: CD34 Hücre Seleksiyonu → Hücre/Seleksiyon/Hematoloji → %88
+    if (sutNorm.includes('cd34') && sutNorm.includes('seleksiyon') && 
+        (huvNorm.includes('hucre') || huvNorm.includes('seleksiyon') || huvNorm.includes('hematoloji'))) {
+      return 0.88;
+    }
+    
+    // KURAL 107: İnfüzyon Kemoterapisi → İnfüzyon/Kemoterapi → %88
+    if (sutNorm.includes('infuzyon kemoterapi') && 
+        (huvNorm.includes('infuzyon') || huvNorm.includes('kemoterapi'))) {
+      return 0.88;
+    }
+    
+    // KURAL 108: İntrakaviter Kemoterapi → İntrakaviter/Kemoterapi → %88
+    if (sutNorm.includes('intrakaviter kemo') && 
+        (huvNorm.includes('intrakaviter') || huvNorm.includes('kemoterapi'))) {
+      return 0.88;
+    }
+    
+    // ============================================
+    // ENDOSKOPİ VE SİNDİRİM KURALLARI
+    // ============================================
+    
+    // KURAL 109: pH Monitörizasyon → pH/Monitörizasyon/Sindirim → %85
+    if (sutNorm.includes('ph monitoriz') && 
+        (huvNorm.includes('ph') || huvNorm.includes('monitoriz') || huvNorm.includes('sindirim'))) {
+      return 0.85;
+    }
+    
+    // KURAL 110: Enteroskopi → Enteroskopi/Endoskopi → %88
+    if (sutNorm.includes('enteroskopi') && 
+        (huvNorm.includes('enteroskopi') || huvNorm.includes('endoskopi'))) {
+      return 0.88;
+    }
+    
+    // KURAL 111: Beslenme Tüpü → Beslenme/Tüp/Sindirim → %82
+    if (sutNorm.includes('beslenme tupu') && 
+        (huvNorm.includes('beslenme') || huvNorm.includes('tup') || huvNorm.includes('sindirim'))) {
+      return 0.82;
+    }
+    
+    // ============================================
+    // DETAYLI ENDOSKOPİ VE BİLİYER KURALLARI
+    // ============================================
+    
+    // KURAL 112: Biliyer Dilatasyon → Biliyer/Dilatasyon/Endoskopi → %88
+    if (sutNorm.includes('biliyer dilatasy') && 
+        (huvNorm.includes('biliyer') || huvNorm.includes('dilatasy') || huvNorm.includes('endoskopi'))) {
+      return 0.88;
+    }
+    
+    // KURAL 113: Endoprotez → Endoprotez/Stent/Endoskopi → %85
+    if (sutNorm.includes('endoprotez') && 
+        (huvNorm.includes('endoprotez') || huvNorm.includes('stent') || huvNorm.includes('endoskopi'))) {
+      return 0.85;
+    }
+    
+    // KURAL 114: Kisto-duodenostomi → Kisto/Duodenostomi/Endoskopi → %88
+    if (sutNorm.includes('kisto-duodenostomi') && 
+        (huvNorm.includes('kisto') || huvNorm.includes('duodenostomi') || huvNorm.includes('endoskopi'))) {
+      return 0.88;
+    }
+    
+    // KURAL 115: Kisto-gastrostomi → Kisto/Gastrostomi/Endoskopi → %88
+    if (sutNorm.includes('kisto-gastrostomi') && 
+        (huvNorm.includes('kisto') || huvNorm.includes('gastrostomi') || huvNorm.includes('endoskopi'))) {
+      return 0.88;
+    }
+    
+    // KURAL 116: ERCP → ERCP/Kolanjiyopankreatografi/Endoskopi → %90
+    if (sutNorm.includes('kolanjiyopankreatografi') && 
+        (huvNorm.includes('ercp') || huvNorm.includes('kolanjiyopankreatografi') || huvNorm.includes('endoskopi'))) {
+      return 0.90;
+    }
+    
+    // KURAL 117: Sfinkterotomi → Sfinkterotomi/Endoskopi → %88
+    if (sutNorm.includes('sfinkterotomi') && 
+        (huvNorm.includes('sfinkterotomi') || huvNorm.includes('endoskopi'))) {
+      return 0.88;
+    }
+    
+    // KURAL 118: Polipektomi → Polipektomi/Endoskopi → %88
+    if (sutNorm.includes('polipektomi') && 
+        (huvNorm.includes('polipektomi') || huvNorm.includes('endoskopi'))) {
+      return 0.88;
+    }
+    
+    // KURAL 119: Mukoza Rezeksiyonu → Mukoza/Rezeksiyon/Endoskopi → %85
+    if (sutNorm.includes('mukoza rezeksiyon') && 
+        (huvNorm.includes('mukoza') || huvNorm.includes('rezeksiyon') || huvNorm.includes('endoskopi'))) {
+      return 0.85;
+    }
+    
+    // KURAL 120: Litotripsi → Litotripsi/Taş → %85
+    if (sutNorm.includes('litotripsi') && 
+        (huvNorm.includes('litotripsi') || huvNorm.includes('tas'))) {
+      return 0.85;
+    }
+    
+    // KURAL 121: Pankreatik Drenaj → Pankreatik/Drenaj → %85
+    if (sutNorm.includes('pankreatik drenaj') && 
+        (huvNorm.includes('pankreatik') || huvNorm.includes('drenaj'))) {
+      return 0.85;
+    }
+    
+    // KURAL 122: Konfokal Lazer → Konfokal/Lazer/Endoskopi → %85
+    if (sutNorm.includes('konfokal lazer') && 
+        (huvNorm.includes('konfokal') || huvNorm.includes('lazer') || huvNorm.includes('endoskopi'))) {
+      return 0.85;
+    }
+    
+    // ============================================
+    // DETAYLI GÖZ MUAYENELERİ KURALLARI
+    // ============================================
+    
+    // KURAL 123: Az Görenler → Az Görenler/Görme/Göz → %85
+    if (sutNorm.includes('az gorenler') && 
+        (huvNorm.includes('az gorenler') || huvNorm.includes('gorme') || huvNorm.includes('goz'))) {
+      return 0.85;
+    }
+    
+    // KURAL 124: ERG-VER-EOG → ERG/VER/EOG/Elektroretinografi → %90
+    if ((sutNorm.includes('erg') || sutNorm.includes('ver') || sutNorm.includes('eog')) && 
+        (huvNorm.includes('erg') || huvNorm.includes('ver') || huvNorm.includes('eog') || huvNorm.includes('elektroretinografi'))) {
+      return 0.90;
+    }
+    
+    // KURAL 125: Fresnel Prizması → Fresnel/Prizma/Göz → %85
+    if (sutNorm.includes('fresnel prizma') && 
+        (huvNorm.includes('fresnel') || huvNorm.includes('prizma') || huvNorm.includes('goz'))) {
+      return 0.85;
+    }
+    
+    // KURAL 126: Gonyoskopi → Gonyoskopi/Göz → %88
+    if (sutNorm.includes('gonyoskopi') && 
+        (huvNorm.includes('gonyoskopi') || huvNorm.includes('goz'))) {
+      return 0.88;
+    }
+    
+    // KURAL 127: Perimetri → Perimetri/Görme Alanı → %88
+    if (sutNorm.includes('perimetri') && 
+        (huvNorm.includes('perimetri') || huvNorm.includes('gorme alani'))) {
+      return 0.88;
+    }
+    
+    // KURAL 128: Pakimetri → Pakimetri/Göz → %88
+    if (sutNorm.includes('pakimetri') && 
+        (huvNorm.includes('pakimetri') || huvNorm.includes('goz'))) {
+      return 0.88;
+    }
+    
+    // KURAL 129: Sinoptophor → Sinoptophor/Şaşılık/Göz → %85
+    if (sutNorm.includes('sinoptophor') && 
+        (huvNorm.includes('sinoptophor') || huvNorm.includes('sasilik') || huvNorm.includes('goz'))) {
+      return 0.85;
+    }
+    
+    // KURAL 130: Tonografi → Tonografi/Göz İçi Basınç → %88
+    if (sutNorm.includes('tonografi') && 
+        (huvNorm.includes('tonografi') || huvNorm.includes('goz ici basinc'))) {
+      return 0.88;
+    }
+    
+    // ============================================
+    // DETAYLI İŞİTME VE KBB KURALLARI
+    // ============================================
+    
+    // KURAL 131: Bekesy Odyometresi → Bekesy/Odyometri/İşitme → %88
+    if (sutNorm.includes('bekesy odyometri') && 
+        (huvNorm.includes('bekesy') || huvNorm.includes('odyometri') || huvNorm.includes('isitme'))) {
+      return 0.88;
+    }
+    
+    // KURAL 132: Videonistagmografi → Videonistagmografi/VNG/Vestibüler → %88
+    if (sutNorm.includes('videonistagmografi') && 
+        (huvNorm.includes('videonistagmografi') || huvNorm.includes('vng') || huvNorm.includes('vestibuler'))) {
+      return 0.88;
+    }
+    
+    // KURAL 133: ENOG → ENOG/Elektronöronografi → %88
+    if (sutNorm.includes('enog') && 
+        (huvNorm.includes('enog') || huvNorm.includes('elektronoronografi'))) {
+      return 0.88;
+    }
+    
+    // KURAL 134: Vestibüler İnceleme → Vestibüler/İnceleme/Denge → %85
+    if (sutNorm.includes('vestibuler inceleme') && 
+        (huvNorm.includes('vestibuler') || huvNorm.includes('inceleme') || huvNorm.includes('denge'))) {
+      return 0.85;
+    }
+    
+    // KURAL 135: Timpanometri → Timpanometri/İşitme → %85
+    if (sutNorm.includes('timpanometri') && 
+        (huvNorm.includes('timpanometri') || huvNorm.includes('isitme'))) {
+      return 0.85;
+    }
+    
+    // KURAL 136: Posturografi → Posturografi/Denge → %85
+    if (sutNorm.includes('posturografi') && 
+        (huvNorm.includes('posturografi') || huvNorm.includes('denge'))) {
+      return 0.85;
+    }
+    
+    // KURAL 146: Tükrük bezi işlemleri → Baş, Boyun, Tiroid/Salgı Bezleri/Genel İşlemler → %85
+    if (sutNorm.includes('tukruk bezi') && 
+        (huvNorm.includes('bas') || huvNorm.includes('boyun') || huvNorm.includes('tiroid') || 
+         huvNorm.includes('salgi bezi') || huvNorm.includes('genel islemler'))) {
+      return 0.85;
+    }
+    
+    // KURAL 147: Kemik tümörü biyopsisi → Genel İşlemler/Biyopsi → %85
+    if ((sutNorm.includes('kemik tumor') || sutNorm.includes('kemik tumoru')) && sutNorm.includes('biyopsi') && 
+        (huvNorm.includes('genel islemler') || huvNorm.includes('biyopsi'))) {
+      return 0.85;
+    }
+    
+    // KURAL 148: Eksizyon işlemleri → Cerrahi İşlemler/Genel İşlemler → %80
+    if (sutNorm.includes('eksizyon') && 
+        (huvNorm.includes('cerrahi islemler') || huvNorm.includes('genel islemler'))) {
+      return 0.80;
+    }
+    
+    // KURAL 149: Desensitizasyon → Allerji Testleri/Genel İşlemler → %85
+    if (sutNorm.includes('desensitizasyon') && 
+        (huvNorm.includes('allerji testleri') || huvNorm.includes('genel islemler'))) {
+      return 0.85;
+    }
+    
+    // ============================================
     // YOĞUN BAKIM KURALLARI
     // ============================================
     
@@ -750,7 +1543,7 @@ class GeneralSimilarityStrategy extends MatchingStrategy {
    * @param {Array} huvList - Array of HUV teminat objects
    * @returns {Object} Match result
    */
-  match(sutIslem, huvList) {
+  async match(sutIslem, huvList) {
     if (!sutIslem || !sutIslem.islemAdi || !huvList || huvList.length === 0) {
       return { matched: false, ruleType: this.getRuleType() };
     }
@@ -763,7 +1556,7 @@ class GeneralSimilarityStrategy extends MatchingStrategy {
     for (const huv of huvList) {
       // Önce kural tabanlı eşleşme kontrol et
       const ruleScore = this.checkRuleBasedMatch(
-        sutIslem.islemAdi,
+        sutIslem,
         huv.altTeminatAdi
       );
       

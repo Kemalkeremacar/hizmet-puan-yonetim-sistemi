@@ -82,10 +82,8 @@ export const ROUTES = {
   sutYonetimi: '/sut-yonetimi',
   ilKatsayiYonetimi: '/il-katsayi-yonetimi',
   altTeminatlar: '/alt-teminatlar',
-  matchingDashboard: '/matching-dashboard',
   matchingReview: '/matching-review',
   unmatchedRecords: '/matching/unmatched',
-  aiMatching: '/ai-matching',
 };
 
 export const NAVIGATION_ITEMS = [
@@ -149,14 +147,6 @@ export const NAVIGATION_ITEMS = [
     description: 'Alt teminatlar listesi',
   },
   {
-    id: 'ai-matching',
-    title: '🤖 AI Eşleştirme',
-    path: ROUTES.aiMatching,
-    icon: 'PsychologyIcon',
-    description: 'Yapay zeka ile akıllı eşleştirme',
-    adminOnly: true,
-  },
-  {
     id: 'matching-review',
     title: 'Eşleşme Yönetimi',
     path: ROUTES.matchingReview,
@@ -164,14 +154,8 @@ export const NAVIGATION_ITEMS = [
     description: 'Otomatik eşleştirme ve gözden geçirme',
     adminOnly: true,
   },
-  {
-    id: 'unmatched-records',
-    title: 'Eşleşmemiş Kayıtlar',
-    path: ROUTES.unmatchedRecords,
-    icon: 'LinkOffIcon',
-    description: 'Manuel eşleştirme gereken SUT işlemleri',
-    adminOnly: true,
-  },
+  // Not: Eşleşmemiş Kayıtlar sayfası sidebar'da gösterilmiyor
+  // Eşleşme Yönetimi sayfasından erişilebilir
 ];
 
 export const FEATURE_FLAGS = {

@@ -9,8 +9,6 @@ const sql = require('mssql');
 const DirectSutCodeStrategy = require('./DirectSutCodeStrategy');
 const HierarchyMatchingStrategy = require('./HierarchyMatchingStrategy');
 const FirstLetterStrategy = require('./FirstLetterStrategy');
-const SurgicalSimilarityStrategy = require('./SurgicalSimilarityStrategy');
-const RadiologyKeywordStrategy = require('./RadiologyKeywordStrategy');
 const GeneralSimilarityStrategy = require('./GeneralSimilarityStrategy');
 const BatchProcessor = require('../../utils/BatchProcessor');
 
@@ -27,8 +25,6 @@ class MatchingEngine {
       directSutCode: new DirectSutCodeStrategy(dbPool), // EN YÜKSEK ÖNCELİK
       hierarchy: new HierarchyMatchingStrategy(dbPool), // İKİNCİ ÖNCELİK
       firstLetter: new FirstLetterStrategy(),
-      surgical: new SurgicalSimilarityStrategy(),
-      radiology: new RadiologyKeywordStrategy(),
       general: new GeneralSimilarityStrategy()
     };
   }
@@ -38,47 +34,294 @@ class MatchingEngine {
    * @param {number} anaDalKodu - Ana Dal code
    * @returns {MatchingStrategy} Selected strategy
    */
+  /**
+   * Get correct Ana Dal code based on SUT alt teminat
+   * @param {Object} sutIslem - SUT işlem object
+   * @returns {number} Correct Ana Dal code
+   */
+  /**
+   * Get HUV Alt Teminatlar for given Ana Dal
+   * Ortak method - kod tekrarını önler
+   * @param {number|null} anaDalKodu - Ana Dal kodu (null ise tümü)
+   * @returns {Promise<Array>} HUV Alt Teminatlar listesi
+   */
+  async _getHuvAltTeminatlar(anaDalKodu = null) {
+    try {
+      const request = this.dbPool.request();
+      
+      let query = `
+        SELECT 
+          AltTeminatID as altTeminatId,
+          AltTeminatAdi as altTeminatAdi,
+          AnaDalKodu as anaDalKodu
+        FROM HuvAltTeminatlar
+        WHERE AktifMi = 1
+      `;
+      
+      if (anaDalKodu !== null) {
+        query += ` AND AnaDalKodu = @anaDalKodu`;
+        request.input('anaDalKodu', sql.Int, anaDalKodu);
+      }
+      
+      query += ` ORDER BY Sira, AltTeminatAdi`;
+      
+      const result = await request.query(query);
+      return result.recordset;
+      
+    } catch (error) {
+      console.error('Error in _getHuvAltTeminatlar:', error);
+      return [];
+    }
+  }
+
+  _getCorrectAnaDalKodu(sutIslem) {
+    // Manuel SUT kodu bazlı ana dal mapping (eşleşmeyen kayıtlar için)
+    const sutKoduMapping = {
+      // Göz işlemleri → Ana Dal 11
+      '617451': 11, // Ön kamaradan silikon alınması
+      
+      // Laboratuvar işlemleri → Ana Dal 34
+      'G101070': 34, // JAK2 Geni Ekzon 12 Mutasyon Analizi
+      'G101080': 34, // JAK2 Geni V617F Mutasyon Analizi
+      'G101630': 34, // QF PCR ile Anöploidi Analizi
+      '912510': 34, // Anaplasma IFA IgG
+      '912540': 34, // Bartonella henselae IFA
+      '912570': 34, // Coxiella burnetii IFA IgG
+      '912580': 34, // Coxiella burnetii IFA Faz I+II
+      '912590': 34, // Coxiella burnetii IFA IgM
+      '912600': 34, // Erlichia/Anaplasma IFA IgM
+      '912610': 34, // Erlichia IFA IgG
+      
+      // Hematoloji işlemleri → Ana Dal 12
+      '704760': 12, // Lenf bezi aspirasyonu-ponksiyonu
+      
+      // Üroloji işlemleri → Ana Dal 26
+      '704210': 26, // Acil hemodiyaliz
+      '704230': 26, // Hemodiyaliz
+      '704231': 26, // Hemodiyaliz için kateter yerleştirilmesi
+      '704232': 26, // Kalıcı tünelli kateter yerleştirilmesi
+      '704233': 26, // Ev hemodiyalizi
+      '704240': 26, // Hemoperfüzyon
+      '704250': 26, // İzole ultrafiltrasyon
+      '704260': 26, // Periton diyalizi takibi
+      '704280': 26, // Rejyonel heparinizasyon
+      '704330': 26, // Empotansta nörolojik değerlendirmeler
+      '704340': 26, // Empotansta uyku çalışmaları
+      '704370': 12, // İntrakaviter kemo veya immünoterapi → İç Hastalıkları (Onkoloji alt dalı)
+      '704400': 26, // Penil arter basınç ölçümü
+      '704410': 26, // Perkütan sinir incelemesi
+      '704420': 26, // Seminal vezikülografi
+      '704450': 26, // Sistometri ve Üroflowmetri
+      '704460': 26, // Ürodinamik çalışma
+      '704491': 26, // Prostat Mikrodalga Termoterapisi
+      
+      // Dermatoloji işlemleri → Ana Dal 6
+      '700170': 6, // Fotokemoterapi (PUVA) genel
+      '700180': 6, // Fotokemoterapi (PUVA) lokal
+      '700190': 6, // Fototerapi (dbUVB) genel
+      '700201': 6, // İlaç/besin desensitizasyonu
+      '700240': 6, // Kimyasal koterizasyon
+      '700260': 6, // Kimyasal peeling
+      '700270': 6, // Kriyoterapi benign lezyonlar
+      '700280': 6, // Kriyoterapi malign lezyonlar
+      
+      // Sindirim işlemleri → Ana Dal 12
+      '701280': 12, // Duodenum, ince barsak biyopsisi
+      '701430': 12, // GİS darlıklarında stent yerleştirilmesi
+      '701440': 12, // Koledoktan balon veya basketle taş çıkarılması
+      '701470': 12, // Mekanik litotripsi
+      '701500': 12, // Nazo pankreatik drenaj
+      '701540': 12, // Özefagoskopi, gastroskopi, duodenoskopi
+      '701545': 12, // Konfokal lazer endomikroskopik üst GİS endoskopi
+      
+      // Göz muayene işlemleri → Ana Dal 11
+      '703660': 11, // Fresnel Prizması Uygulaması
+      '703670': 11, // Gonyoskopi ve kornea çapı ölçümü
+      '703790': 11, // Nerve Fiber Analyzer (NFA)
+      '703820': 11, // Ön ve arka segment renkli resmi
+      '703860': 11, // Scanning lazer oftalmoskopi
+      '703890': 11, // Tonografi
+      '703910': 11, // Ultrasonografik biyomikroskopi
+      
+      // KBB işlemleri → Ana Dal 16
+      '703970': 16, // Çocuk odyometresi
+      '704020': 16, // Çocuk işitme eğitimi
+      '704060': 16, // Konuşma, protez değiştirilmesi
+      '704140': 16, // Posturografi
+      '704160': 16, // Odyolojik araştırma
+      
+      // Radyoloji işlemleri → Ana Dal 24
+      '800235': 24, // Temel radyasyon doz hesapları
+      '800320': 24, // Digital Portal görüntüleme
+      
+      // Genel Cerrahi işlemleri → Ana Dal 8
+      '614351': 8, // Kemik tümörü açık biyopsisi
+      '614353': 8, // Kapalı kemik biyopsisi
+      '603160': 8, // Minör tükrük bezi dokularının eksizyonu
+      
+      // Dermatoloji işlemleri → Ana Dal 6
+      '700201': 6, // İlaç/besin desensitizasyonu
+    };
+    
+    // Önce SUT kodu kontrolü yap
+    if (sutKoduMapping[sutIslem.sutKodu]) {
+      return sutKoduMapping[sutIslem.sutKodu];
+    }
+    
+    // SUT alt teminat bazlı ana dal mapping (HUV kodlarına göre)
+    const altTeminatMapping = {
+      // Göz Hastalıkları
+      'İRİS VE LENS İLE İLGİLİ İŞLEMLER': 11,
+      'ŞAŞILIK VE PEDİYATRİK OFTALMOLOJİ': 11,
+      'GÖZ VE ADNEKSLERİ': 11,
+      
+      // Üroloji
+      'ÜRİNER SİSTEM-NEFROLOJİ-DİYALİZ': 26,
+      
+      // İç Hastalıkları (Gastroenteroloji alt dalı)
+      'SİNDİRİM SİSTEMİ': 12,
+      
+      // Dermatoloji
+      'DERMİS VE EPİDERMİS': 6,
+      
+      // İç Hastalıkları (Hematoloji-Onkoloji alt dalı)
+      'HEMATOLOJİ-ONKOLOJİ-KEMOTERAPİ': 12, // İç Hastalıkları
+      
+      // KBB
+      'SES VE İŞİTME İLE İLGİLİ ÇALIŞMALAR': 16,
+      
+      // Laboratuvar
+      'MOLEKÜLER GENETİK TETKİKLER': 34,
+      'BİYOKİMYA LABORATUVAR İŞLEMLERİ': 34,
+      'ZOONOTIK HASTALIKLARA YÖNELİK ANALİZLER': 34,
+      
+      // Radyoloji
+      'Brakiterapi doz hesapları': 24,
+      'Portal görüntüleme': 24,
+      
+      // Genel Cerrahi
+      'Örnekleme Yöntemi': 8,
+      'Salgı Bezlerine Yönelik Cerrahi': 8
+    };
+    
+    // SUT alt teminat kontrolü yap
+    if (sutIslem.sutAltTeminat && altTeminatMapping[sutIslem.sutAltTeminat]) {
+      return altTeminatMapping[sutIslem.sutAltTeminat];
+    }
+    
+    // İşlem adı bazlı ana dal yönlendirmesi (eski hardcoded kontroller)
+    const islemAdiLower = sutIslem.islemAdi.toLowerCase();
+    
+    // Ana Başlık 9 (GÖĞÜS CERRAHİSİ) → Laboratuvar testleri Ana Dal 34'te
+    if (sutIslem.anaDalKodu === 9) {
+      return 34; // LABORATUVAR İNCELEMELERİ
+    }
+    
+    // Ana Dal 8 (GENEL CERRAHİ) → Özel işlem türlerine göre yönlendirme
+    if (sutIslem.anaDalKodu === 8) {
+      // Radyoterapi/Brakiterapi → Ana Dal 27
+      const radyoKeywords = ['radyo', 'braki', 'imrt', 'stereotaktik', 'konformal', 'volumetrik', 'tedavi'];
+      const isRadyoterapi = radyoKeywords.some(k => islemAdiLower.includes(k));
+      
+      // Sintigrafi/Nükleer → Ana Dal 19
+      const nukleerKeywords = ['sintigraf', 'perfüzyon', 'ventilasyon', 'miyokard', 'böbrek', 'tümör görüntüleme', 'pet', 'spect'];
+      const isNukleer = nukleerKeywords.some(k => islemAdiLower.includes(k));
+      
+      // Görüntüleme (mammografi, floroskopi, grafi) → Ana Dal 24
+      const goruntuKeywords = ['mammografi', 'floroskopi', 'grafi', 'röntgen', 'survey', 'schuller', 'sella', 'sinüs', 'temporamandibular'];
+      const isGoruntu = goruntuKeywords.some(k => islemAdiLower.includes(k));
+      
+      if (isRadyoterapi) {
+        return 27; // RADYASYON ONKOLOJİSİ
+      } else if (isNukleer) {
+        return 19; // NÜKLEER TIP
+      } else if (isGoruntu) {
+        return 24; // RADYOLOJİ
+      }
+    }
+    
+    // Ana Dal 10 (GÖĞÜS HASTALIKLARI) → Laboratuvar testleri Ana Dal 34'te
+    if (sutIslem.anaDalKodu === 10) {
+      const labKeywords = ['test', 'antikor', 'elisa', 'kültür', 'kultur', 'panel', 'identifikasyon'];
+      const isLabTest = labKeywords.some(k => islemAdiLower.includes(k));
+      
+      if (isLabTest) {
+        return 34; // LABORATUVAR İNCELEMELERİ
+      }
+    }
+    
+    // Eğer hiçbiri uymazsa, varsayılan olarak SUT'taki ana dal kodunu kullan
+    return sutIslem.anaDalKodu;
+  }
+
   _selectStrategy(anaDalKodu) {
     // Ana Dal 9 (GÖĞÜS CERRAHİSİ) → FirstLetterStrategy (Laboratory Tests ONLY)
-    // Improved: Now filters out surgical procedures
     if (anaDalKodu === 9) {
       return this.strategies.firstLetter;
     }
     
+    // Ana Dal 11 (GÖZ HASTALIKLARI) → GeneralSimilarityStrategy (özel göz kuralları ile)
+    if (anaDalKodu === 11) {
+      return this.strategies.general;
+    }
+    
     // Ana Dal 34 (LABORATUVAR İNCELEMELERİ) → FirstLetterStrategy
+    // ANCAK: JAK2, PCR gibi özel işlemler için GeneralSimilarityStrategy de dene
     if (anaDalKodu === 34) {
       return this.strategies.firstLetter;
     }
     
-    // DISABLED: RadiologyKeywordStrategy - too aggressive with fallback
-    // Ana Dal 2 için de GeneralSimilarityStrategy kullan
-    
     // Ana Dal 20 (ORTOPEDİ VE TRAVMATOLOJİ) → GeneralSimilarityStrategy
-    // Fraktür, çıkık, alçı kuralları var
     if (anaDalKodu === 20) {
       return this.strategies.general;
     }
     
     // Ana Dal 21 (PLASTİK, REKONSTRÜKTİF VE ESTETİK CERRAHİ) → GeneralSimilarityStrategy
-    // Deri grefti, flep kuralları var
     if (anaDalKodu === 21) {
       return this.strategies.general;
     }
     
     // Ana Dal 14 (KALP VE DAMAR CERRAHİSİ) → GeneralSimilarityStrategy
-    // Cerrahi, ameliyat kuralları var
     if (anaDalKodu === 14) {
       return this.strategies.general;
     }
     
-    // Cerrahi Uygulamalar → SurgicalSimilarityStrategy
-    // Note: Need to determine Ana Dal code for surgical procedures
-    // For now, using a placeholder check
-    if (anaDalKodu === 1) { // Placeholder - adjust based on actual Ana Dal codes
-      return this.strategies.surgical;
+    // Ana Dal 6 (DERMATOLOJİ) → GeneralSimilarityStrategy
+    if (anaDalKodu === 6) {
+      return this.strategies.general;
     }
     
-    // All others → GeneralSimilarityStrategy (including radiology)
+    // Ana Dal 26 (ÜROLOJİ) → GeneralSimilarityStrategy
+    if (anaDalKodu === 26) {
+      return this.strategies.general;
+    }
+    
+    // Ana Dal 12 (İÇ HASTALIKLARI) → GeneralSimilarityStrategy
+    if (anaDalKodu === 12) {
+      return this.strategies.general;
+    }
+    
+    // Ana Dal 28 (TIBBİ PATOLOJİ) → GeneralSimilarityStrategy
+    if (anaDalKodu === 28) {
+      return this.strategies.general;
+    }
+    
+    // Ana Dal 16 (KULAK-BURUN-BOĞAZ HASTALIKLARI) → GeneralSimilarityStrategy
+    if (anaDalKodu === 16) {
+      return this.strategies.general;
+    }
+    
+    // Ana Dal 24 (RADYOLOJİ) → GeneralSimilarityStrategy
+    if (anaDalKodu === 24) {
+      return this.strategies.general;
+    }
+    
+    // Ana Dal 8 (GENEL CERRAHİ) → GeneralSimilarityStrategy
+    if (anaDalKodu === 8) {
+      return this.strategies.general;
+    }
+    
+    // All others → GeneralSimilarityStrategy
     return this.strategies.general;
   }
   
@@ -89,7 +332,7 @@ class MatchingEngine {
    */
   async matchSingle(sutId) {
     try {
-      // Fetch SUT işlem from database
+      // Fetch SUT işlem from database with hierarchy info
       const sutResult = await this.dbPool.request()
         .input('sutId', sql.Int, sutId)
         .query(`
@@ -97,8 +340,10 @@ class MatchingEngine {
             s.SutID as sutId,
             s.SutKodu as sutKodu,
             s.IslemAdi as islemAdi,
-            s.AnaBaslikNo as anaDalKodu
+            s.AnaBaslikNo as anaDalKodu,
+            sh.Baslik as sutAltTeminat
           FROM SutIslemler s
+          LEFT JOIN SutHiyerarsi sh ON s.HiyerarsiID = sh.HiyerarsiID
           WHERE s.SutID = @sutId AND s.AktifMi = 1
         `);
       
@@ -119,31 +364,22 @@ class MatchingEngine {
         };
       }
       
-      // ÖNCELİK 2: Normal matching stratejileri
-      // Fetch HUV teminatlar for the same Ana Dal
-      const huvResult = await this.dbPool.request()
-        .input('anaDalKodu', sql.Int, sutIslem.anaDalKodu)
-        .query(`
-          SELECT 
-            AltTeminatID as altTeminatId,
-            AltTeminatAdi as altTeminatAdi,
-            AnaDalKodu as anaDalKodu
-          FROM HuvAltTeminatlar
-          WHERE AnaDalKodu = @anaDalKodu AND AktifMi = 1
-        `);
+      // ÖNCELİK 2: Doğru Ana Dal kodunu belirle
+      const correctAnaDalKodu = this._getCorrectAnaDalKodu(sutIslem);
       
-      const huvList = huvResult.recordset;
+      // Fetch HUV teminatlar for the correct Ana Dal
+      const huvList = await this._getHuvAltTeminatlar(correctAnaDalKodu);
       
       if (huvList.length === 0) {
         return {
           matched: false,
           sutId: sutIslem.sutId,
-          error: 'No HUV teminatlar found for Ana Dal'
+          error: `No HUV teminatlar found for Ana Dal ${correctAnaDalKodu}`
         };
       }
       
       // Select and execute appropriate matching strategy
-      const strategy = this._selectStrategy(sutIslem.anaDalKodu);
+      const strategy = this._selectStrategy(correctAnaDalKodu);
       const matchResult = strategy.match(sutIslem, huvList);
       
       return {
@@ -169,13 +405,17 @@ class MatchingEngine {
    * @returns {Promise<Object>} Saved match record
    */
   async saveMatch(sutId, altTeminatId, confidence, ruleType, userId = null) {
+    const transaction = new sql.Transaction(this.dbPool);
+    
     try {
-      // Check if match already exists for SutID
-      const existingResult = await this.dbPool.request()
+      await transaction.begin();
+      
+      // Check if match already exists for SutID (with row lock)
+      const existingResult = await transaction.request()
         .input('sutId', sql.Int, sutId)
         .query(`
           SELECT ID, SutID, AltTeminatID, IsOverridden
-          FROM AltTeminatIslemler
+          FROM AltTeminatIslemler WITH (UPDLOCK, HOLDLOCK)
           WHERE SutID = @sutId
         `);
       
@@ -184,12 +424,12 @@ class MatchingEngine {
         
         // KORUMA: Manuel değiştirilmiş kayıtları (IsOverridden = 1) güncelleme!
         if (existing.IsOverridden === 1 || existing.IsOverridden === true) {
-          console.log(`⚠️  Skipping SutID ${sutId} - manually overridden`);
+          await transaction.commit();
           return existing; // Mevcut kaydı döndür, değiştirme
         }
         
         // Update existing record (only if not manually overridden)
-        const updateResult = await this.dbPool.request()
+        const updateResult = await transaction.request()
           .input('sutId', sql.Int, sutId)
           .input('altTeminatId', sql.Int, altTeminatId)
           .input('confidence', sql.Decimal(5, 2), confidence)
@@ -212,10 +452,11 @@ class MatchingEngine {
             WHERE SutID = @sutId;
           `);
         
+        await transaction.commit();
         return updateResult.recordset[0];
       } else {
         // Insert new record
-        const insertResult = await this.dbPool.request()
+        const insertResult = await transaction.request()
           .input('sutId', sql.Int, sutId)
           .input('altTeminatId', sql.Int, altTeminatId)
           .input('confidence', sql.Decimal(5, 2), confidence)
@@ -238,11 +479,15 @@ class MatchingEngine {
             WHERE SutID = @sutId;
           `);
         
+        await transaction.commit();
         return insertResult.recordset[0];
       }
       
     } catch (error) {
       console.error('Error in saveMatch:', error);
+      if (transaction) {
+        await transaction.rollback();
+      }
       throw error;
     }
   }
@@ -324,6 +569,7 @@ class MatchingEngine {
             AltTeminatID = @newAltTeminatId,
             IsOverridden = 1,
             IsAutomatic = 0,
+            IsApproved = 0,
             OriginalAltTeminatID = @originalAltTeminatId,
             OriginalConfidenceScore = @originalConfidence,
             OriginalRuleType = @originalRuleType,
@@ -374,8 +620,10 @@ class MatchingEngine {
           s.SutKodu as sutKodu,
           s.IslemAdi as islemAdi,
           s.AnaBaslikNo as anaDalKodu,
-          s.HiyerarsiID as hiyerarsiId
+          s.HiyerarsiID as hiyerarsiId,
+          sh.Baslik as sutAltTeminat
         FROM SutIslemler s
+        LEFT JOIN SutHiyerarsi sh ON s.HiyerarsiID = sh.HiyerarsiID
         WHERE s.AktifMi = 1
       `;
       
@@ -400,6 +648,22 @@ class MatchingEngine {
       
       const result = await request.query(query);
       const sutIslemler = result.recordset;
+      
+      // ============================================
+      // PERFORMANS İYİLEŞTİRMESİ: N+1 Query Problemi Çözümü
+      // ============================================
+      // Tüm HUV teminatlarını batch başında bir kez çek
+      // Her SUT işlemi için ayrı sorgu yerine cache kullan
+      const allHuvTeminatlar = await this._getHuvAltTeminatlar(); // Tüm HUV teminatları
+      
+      // Ana Dal bazında grupla (performans için)
+      const huvByAnaDal = {};
+      allHuvTeminatlar.forEach(huv => {
+        if (!huvByAnaDal[huv.anaDalKodu]) {
+          huvByAnaDal[huv.anaDalKodu] = [];
+        }
+        huvByAnaDal[huv.anaDalKodu].push(huv);
+      });
       
       // Track counts
       let matchedCount = 0;
@@ -429,21 +693,9 @@ class MatchingEngine {
           }
           
           // ÖNCELİK 2: Hierarchy Matching Strategy - SUT hiyerarşi başlıklarını kullan
-          // Önce tüm Ana Dallar için HUV teminatları çek (hiyerarşi Ana Dal'a bağlı değil)
-          const allHuvResult = await this.dbPool.request()
-            .query(`
-              SELECT 
-                AltTeminatID as altTeminatId,
-                AltTeminatAdi as altTeminatAdi,
-                AnaDalKodu as anaDalKodu
-              FROM HuvAltTeminatlar
-              WHERE AktifMi = 1
-            `);
-          
-          const allHuvList = allHuvResult.recordset;
-          
-          if (allHuvList.length > 0) {
-            const hierarchyMatch = await this.strategies.hierarchy.match(sutIslem, allHuvList);
+          // Cache'den tüm HUV teminatlarını kullan (N+1 query problemi çözüldü)
+          if (allHuvTeminatlar.length > 0) {
+            const hierarchyMatch = await this.strategies.hierarchy.match(sutIslem, allHuvTeminatlar);
             if (hierarchyMatch.matched) {
               await this.saveMatch(
                 sutIslem.sutId,
@@ -467,69 +719,16 @@ class MatchingEngine {
           
           // ÖNCELİK 3: Normal matching stratejileri
           // ÖZEL DURUM: Ana Dal mapping - bazı işlemler yanlış Ana Dal'da
-          let targetAnaDalKodu = sutIslem.anaDalKodu;
-          let shouldTryOriginalAnaDal = true;
+          // Önce manuel SUT kodu mapping'ini kontrol et
+          let targetAnaDalKodu = this._getCorrectAnaDalKodu(sutIslem);
+          let shouldTryOriginalAnaDal = (targetAnaDalKodu === sutIslem.anaDalKodu);
           
-          // Ana Başlık 9 (GÖĞÜS CERRAHİSİ) → Laboratuvar testleri Ana Dal 34'te
-          // Direkt Ana Dal 34'e bak, Ana Dal 9'a bakma
-          if (sutIslem.anaDalKodu === 9) {
-            targetAnaDalKodu = 34; // LABORATUVAR İNCELEMELERİ
-            shouldTryOriginalAnaDal = false;
-          }
+          // Eğer manuel mapping kullanılmadıysa, eski hardcoded kontrolleri yap
+          // NOT: Bu kontroller artık _getCorrectAnaDalKodu() içinde yapılıyor
+          // Gereksiz kod tekrarını önlemek için kaldırıldı
           
-          // Ana Dal 8 (GENEL CERRAHİ) → Radyoterapi işlemleri Ana Dal 27'de
-          if (sutIslem.anaDalKodu === 8) {
-            const islemAdiLower = sutIslem.islemAdi.toLowerCase();
-            
-            // Radyoterapi/Brakiterapi → Ana Dal 27
-            const radyoKeywords = ['radyo', 'braki', 'imrt', 'stereotaktik', 'konformal', 'volumetrik', 'tedavi'];
-            const isRadyoterapi = radyoKeywords.some(k => islemAdiLower.includes(k));
-            
-            // Sintigrafi/Nükleer → Ana Dal 19
-            const nukleerKeywords = ['sintigraf', 'perfüzyon', 'ventilasyon', 'miyokard', 'böbrek', 'tümör görüntüleme', 'pet', 'spect'];
-            const isNukleer = nukleerKeywords.some(k => islemAdiLower.includes(k));
-            
-            // Görüntüleme (mammografi, floroskopi, grafi) → Ana Dal 24
-            const goruntuKeywords = ['mammografi', 'floroskopi', 'grafi', 'röntgen', 'survey', 'schuller', 'sella', 'sinüs', 'temporamandibular'];
-            const isGoruntu = goruntuKeywords.some(k => islemAdiLower.includes(k));
-            
-            if (isRadyoterapi) {
-              targetAnaDalKodu = 27; // RADYASYON ONKOLOJİSİ
-              shouldTryOriginalAnaDal = false;
-            } else if (isNukleer) {
-              targetAnaDalKodu = 19; // NÜKLEER TIP
-              shouldTryOriginalAnaDal = false;
-            } else if (isGoruntu) {
-              targetAnaDalKodu = 24; // RADYOLOJİ
-              shouldTryOriginalAnaDal = false;
-            }
-          }
-          
-          // Ana Dal 10 (GÖĞÜS HASTALIKLARI) → Laboratuvar testleri Ana Dal 34'te
-          if (sutIslem.anaDalKodu === 10) {
-            const islemAdiLower = sutIslem.islemAdi.toLowerCase();
-            const labKeywords = ['test', 'antikor', 'elisa', 'kültür', 'kultur', 'panel', 'identifikasyon'];
-            const isLabTest = labKeywords.some(k => islemAdiLower.includes(k));
-            
-            if (isLabTest) {
-              targetAnaDalKodu = 34; // LABORATUVAR İNCELEMELERİ
-              shouldTryOriginalAnaDal = false;
-            }
-          }
-          
-          // Fetch HUV teminatlar for the target Ana Dal
-          const huvResult = await this.dbPool.request()
-            .input('anaDalKodu', sql.Int, targetAnaDalKodu)
-            .query(`
-              SELECT 
-                AltTeminatID as altTeminatId,
-                AltTeminatAdi as altTeminatAdi,
-                AnaDalKodu as anaDalKodu
-              FROM HuvAltTeminatlar
-              WHERE AnaDalKodu = @anaDalKodu AND AktifMi = 1
-            `);
-          
-          const huvList = huvResult.recordset;
+          // Fetch HUV teminatlar for the target Ana Dal (cache'den)
+          const huvList = huvByAnaDal[targetAnaDalKodu] || [];
           
           if (huvList.length === 0) {
             unmatchedCount++;
@@ -539,7 +738,32 @@ class MatchingEngine {
           // Select and execute appropriate matching strategy
           // Strategy seçimini TARGET Ana Dal'a göre yap
           const strategy = this._selectStrategy(targetAnaDalKodu);
-          const matchResult = strategy.match(sutIslem, huvList);
+          const matchResult = await strategy.match(sutIslem, huvList);
+          
+          // FALLBACK: Ana Dal 34 için FirstLetterStrategy başarısız olursa GeneralSimilarityStrategy dene
+          // (JAK2, PCR gibi özel işlemler için)
+          if (!matchResult.matched && targetAnaDalKodu === 34) {
+            const generalMatchResult = await this.strategies.general.match(sutIslem, huvList);
+            if (generalMatchResult.matched) {
+              await this.saveMatch(
+                sutIslem.sutId,
+                generalMatchResult.altTeminatId,
+                generalMatchResult.confidence,
+                generalMatchResult.ruleType
+              );
+              
+              matchedCount++;
+              
+              if (generalMatchResult.confidence >= 85) {
+                highConfidenceCount++;
+              } else if (generalMatchResult.confidence >= 70) {
+                mediumConfidenceCount++;
+              } else {
+                lowConfidenceCount++;
+              }
+              return;
+            }
+          }
           
           if (matchResult.matched) {
             // Save match to database
@@ -604,22 +828,12 @@ class MatchingEngine {
           
           // Alternatif Ana Dallarda ara
           for (const altAnaDal of alternativeAnaDallar) {
-            const altHuvResult = await this.dbPool.request()
-              .input('anaDalKodu', sql.Int, altAnaDal)
-              .query(`
-                SELECT 
-                  AltTeminatID as altTeminatId,
-                  AltTeminatAdi as altTeminatAdi,
-                  AnaDalKodu as anaDalKodu
-                FROM HuvAltTeminatlar
-                WHERE AnaDalKodu = @anaDalKodu AND AktifMi = 1
-              `);
-            
-            const altHuvList = altHuvResult.recordset;
+            // Fetch HUV teminatlar for the target Ana Dal (cache'den)
+            const altHuvList = huvByAnaDal[altAnaDal] || [];
             
             if (altHuvList.length > 0) {
               const altStrategy = this._selectStrategy(altAnaDal);
-              const altMatchResult = altStrategy.match(sutIslem, altHuvList);
+              const altMatchResult = await altStrategy.match(sutIslem, altHuvList);
               
               if (altMatchResult.matched) {
                 await this.saveMatch(

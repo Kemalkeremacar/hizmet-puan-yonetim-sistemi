@@ -121,8 +121,8 @@ class HierarchyMatchingStrategy extends MatchingStrategy {
       return { matched: false, ruleType: this.getRuleType() };
     }
     
-    // Calculate confidence score (70-95 based on similarity)
-    const confidence = 70 + (bestScore * 25);
+    // Calculate confidence score - STANDART FORMÜL
+    const confidence = bestScore * 100;
     
     return {
       matched: true,
