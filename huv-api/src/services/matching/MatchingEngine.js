@@ -8,8 +8,6 @@
 const sql = require('mssql');
 const DirectSutCodeStrategy = require('./DirectSutCodeStrategy');
 const HierarchyMatchingStrategy = require('./HierarchyMatchingStrategy');
-const FirstLetterStrategy = require('./FirstLetterStrategy');
-const GeneralSimilarityStrategy = require('./GeneralSimilarityStrategy');
 const BatchProcessor = require('../../utils/BatchProcessor');
 
 /**
@@ -18,16 +16,15 @@ const BatchProcessor = require('../../utils/BatchProcessor');
  */
 class MatchingEngine {
   constructor(dbPool) {
-    this.dbPool = dbPool;
-    
-    // Initialize strategies
-    this.strategies = {
-      directSutCode: new DirectSutCodeStrategy(dbPool), // EN YÜKSEK ÖNCELİK
-      hierarchy: new HierarchyMatchingStrategy(dbPool), // İKİNCİ ÖNCELİK
-      firstLetter: new FirstLetterStrategy(),
-      general: new GeneralSimilarityStrategy()
-    };
-  }
+      this.dbPool = dbPool;
+
+      // Initialize strategies - SADECE 2 STRATEJI KALDI
+      this.strategies = {
+        directSutCode: new DirectSutCodeStrategy(dbPool), // EN YÜKSEK ÖNCELİK - %100 güven
+        hierarchy: new HierarchyMatchingStrategy(dbPool)  // İKİNCİ ÖNCELİK - Hiyerarşik eşleştirme
+      };
+    }
+
   
   /**
    * Select appropriate matching strategy based on Ana Dal code
@@ -255,74 +252,9 @@ class MatchingEngine {
   }
 
   _selectStrategy(anaDalKodu) {
-    // Ana Dal 9 (GÖĞÜS CERRAHİSİ) → FirstLetterStrategy (Laboratory Tests ONLY)
-    if (anaDalKodu === 9) {
-      return this.strategies.firstLetter;
-    }
-    
-    // Ana Dal 11 (GÖZ HASTALIKLARI) → GeneralSimilarityStrategy (özel göz kuralları ile)
-    if (anaDalKodu === 11) {
-      return this.strategies.general;
-    }
-    
-    // Ana Dal 34 (LABORATUVAR İNCELEMELERİ) → FirstLetterStrategy
-    // ANCAK: JAK2, PCR gibi özel işlemler için GeneralSimilarityStrategy de dene
-    if (anaDalKodu === 34) {
-      return this.strategies.firstLetter;
-    }
-    
-    // Ana Dal 20 (ORTOPEDİ VE TRAVMATOLOJİ) → GeneralSimilarityStrategy
-    if (anaDalKodu === 20) {
-      return this.strategies.general;
-    }
-    
-    // Ana Dal 21 (PLASTİK, REKONSTRÜKTİF VE ESTETİK CERRAHİ) → GeneralSimilarityStrategy
-    if (anaDalKodu === 21) {
-      return this.strategies.general;
-    }
-    
-    // Ana Dal 14 (KALP VE DAMAR CERRAHİSİ) → GeneralSimilarityStrategy
-    if (anaDalKodu === 14) {
-      return this.strategies.general;
-    }
-    
-    // Ana Dal 6 (DERMATOLOJİ) → GeneralSimilarityStrategy
-    if (anaDalKodu === 6) {
-      return this.strategies.general;
-    }
-    
-    // Ana Dal 26 (ÜROLOJİ) → GeneralSimilarityStrategy
-    if (anaDalKodu === 26) {
-      return this.strategies.general;
-    }
-    
-    // Ana Dal 12 (İÇ HASTALIKLARI) → GeneralSimilarityStrategy
-    if (anaDalKodu === 12) {
-      return this.strategies.general;
-    }
-    
-    // Ana Dal 28 (TIBBİ PATOLOJİ) → GeneralSimilarityStrategy
-    if (anaDalKodu === 28) {
-      return this.strategies.general;
-    }
-    
-    // Ana Dal 16 (KULAK-BURUN-BOĞAZ HASTALIKLARI) → GeneralSimilarityStrategy
-    if (anaDalKodu === 16) {
-      return this.strategies.general;
-    }
-    
-    // Ana Dal 24 (RADYOLOJİ) → GeneralSimilarityStrategy
-    if (anaDalKodu === 24) {
-      return this.strategies.general;
-    }
-    
-    // Ana Dal 8 (GENEL CERRAHİ) → GeneralSimilarityStrategy
-    if (anaDalKodu === 8) {
-      return this.strategies.general;
-    }
-    
-    // All others → GeneralSimilarityStrategy
-    return this.strategies.general;
+    // TÜM ANA DALLAR İÇİN HIERARCHY MATCHING KULLAN
+    // Direct SUT Code zaten öncelikli olarak kontrol ediliyor
+    return this.strategies.hierarchy;
   }
   
   /**
@@ -414,7 +346,7 @@ class MatchingEngine {
       const existingResult = await transaction.request()
         .input('sutId', sql.Int, sutId)
         .query(`
-          SELECT ID, SutID, AltTeminatID, IsOverridden
+          SELECT ID, SutID, AltTeminatID, IsOverridden, IsApproved
           FROM AltTeminatIslemler WITH (UPDLOCK, HOLDLOCK)
           WHERE SutID = @sutId
         `);
@@ -422,8 +354,9 @@ class MatchingEngine {
       if (existingResult.recordset.length > 0) {
         const existing = existingResult.recordset[0];
         
-        // KORUMA: Manuel değiştirilmiş kayıtları (IsOverridden = 1) güncelleme!
-        if (existing.IsOverridden === 1 || existing.IsOverridden === true) {
+        // KORUMA: Manuel değiştirilmiş (IsOverridden = 1) VE onaylanmış (IsApproved = 1) kayıtları güncelleme!
+        if (existing.IsOverridden === 1 || existing.IsOverridden === true || 
+            existing.IsApproved === 1 || existing.IsApproved === true) {
           await transaction.commit();
           return existing; // Mevcut kaydı döndür, değiştirme
         }
@@ -739,31 +672,6 @@ class MatchingEngine {
           // Strategy seçimini TARGET Ana Dal'a göre yap
           const strategy = this._selectStrategy(targetAnaDalKodu);
           const matchResult = await strategy.match(sutIslem, huvList);
-          
-          // FALLBACK: Ana Dal 34 için FirstLetterStrategy başarısız olursa GeneralSimilarityStrategy dene
-          // (JAK2, PCR gibi özel işlemler için)
-          if (!matchResult.matched && targetAnaDalKodu === 34) {
-            const generalMatchResult = await this.strategies.general.match(sutIslem, huvList);
-            if (generalMatchResult.matched) {
-              await this.saveMatch(
-                sutIslem.sutId,
-                generalMatchResult.altTeminatId,
-                generalMatchResult.confidence,
-                generalMatchResult.ruleType
-              );
-              
-              matchedCount++;
-              
-              if (generalMatchResult.confidence >= 85) {
-                highConfidenceCount++;
-              } else if (generalMatchResult.confidence >= 70) {
-                mediumConfidenceCount++;
-              } else {
-                lowConfidenceCount++;
-              }
-              return;
-            }
-          }
           
           if (matchResult.matched) {
             // Save match to database

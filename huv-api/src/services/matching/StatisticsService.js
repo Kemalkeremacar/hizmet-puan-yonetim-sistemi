@@ -57,25 +57,17 @@ class StatisticsService {
         high: confidenceResult.recordset[0].high || 0
       };
       
-      // Query counts by MatchingRuleType
+      // Query counts by MatchingRuleType - SADECE 2 STRATEJI KALDI
       const ruleTypeResult = await this.dbPool.request().query(`
         SELECT 
           SUM(CASE WHEN MatchingRuleType = 'direct_sut_code' THEN 1 ELSE 0 END) as direct_sut_code,
-          SUM(CASE WHEN MatchingRuleType = 'hierarchy_matching' THEN 1 ELSE 0 END) as hierarchy_matching,
-          SUM(CASE WHEN MatchingRuleType = 'first_letter' THEN 1 ELSE 0 END) as first_letter,
-          SUM(CASE WHEN MatchingRuleType = 'surgical_similarity' THEN 1 ELSE 0 END) as surgical_similarity,
-          SUM(CASE WHEN MatchingRuleType = 'radiology_keyword' THEN 1 ELSE 0 END) as radiology_keyword,
-          SUM(CASE WHEN MatchingRuleType = 'general_similarity' THEN 1 ELSE 0 END) as general_similarity
+          SUM(CASE WHEN MatchingRuleType = 'hierarchy_matching' THEN 1 ELSE 0 END) as hierarchy_matching
         FROM AltTeminatIslemler
         WHERE MatchingRuleType IS NOT NULL
       `);
       const byRuleType = {
         direct_sut_code: ruleTypeResult.recordset[0].direct_sut_code || 0,
-        hierarchy_matching: ruleTypeResult.recordset[0].hierarchy_matching || 0,
-        first_letter: ruleTypeResult.recordset[0].first_letter || 0,
-        surgical_similarity: ruleTypeResult.recordset[0].surgical_similarity || 0,
-        radiology_keyword: ruleTypeResult.recordset[0].radiology_keyword || 0,
-        general_similarity: ruleTypeResult.recordset[0].general_similarity || 0
+        hierarchy_matching: ruleTypeResult.recordset[0].hierarchy_matching || 0
       };
       
       // Query counts where IsApproved = false (needs review)

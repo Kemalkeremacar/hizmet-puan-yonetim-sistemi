@@ -60,23 +60,6 @@ class SimilarityCalculator {
   }
   
   /**
-   * Check if first letters match (Turkish-aware)
-   * @param {string} str1 - First string
-   * @param {string} str2 - Second string
-   * @returns {boolean} True if first letters match
-   */
-  static firstLetterMatch(str1, str2) {
-    if (!str1 || !str2) return false;
-    
-    const s1 = this.normalizeString(str1);
-    const s2 = this.normalizeString(str2);
-    
-    if (s1.length === 0 || s2.length === 0) return false;
-    
-    return s1[0] === s2[0];
-  }
-  
-  /**
    * Calculate Jaro similarity between two strings
    * @param {string} s1 - First string
    * @param {string} s2 - Second string

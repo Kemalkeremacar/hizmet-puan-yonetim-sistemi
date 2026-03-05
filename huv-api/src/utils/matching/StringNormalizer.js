@@ -33,28 +33,6 @@ class StringNormalizer {
   }
   
   /**
-   * Get first letter from text, skipping numbers and special characters
-   * @param {string} text - Text to extract first letter from
-   * @returns {string|null} First letter or null
-   */
-  static getFirstLetter(text) {
-    if (!text) return null;
-    
-    // Türkçe karakterleri İngilizce'ye çevir
-    const normalized = this.normalizeForKeywords(text);
-    
-    // Find first alphabetic character
-    for (let i = 0; i < normalized.length; i++) {
-      const char = normalized[i];
-      if (char >= 'a' && char <= 'z') {
-        return char;
-      }
-    }
-    
-    return null;
-  }
-  
-  /**
    * Normalize string for similarity calculation
    * Same as SimilarityCalculator.normalizeString but centralized
    * @param {string} str - String to normalize

@@ -45,26 +45,28 @@ islemler[0].hiyerarsiSeviyesi: 4
 
 ---
 
-## 2. Eşleştirme Sistemi - Manuel Değişiklik Koruması
+## 2. Eşleştirme Sistemi - Manuel Değişiklik ve Onay Koruması
 
 ### Durum
-Manuel değiştirilen eşleşmeler (`IsOverridden=1`) batch eşleştirmeden korunur.
+Manuel değiştirilen (`IsOverridden=1`) VE onaylanmış (`IsApproved=1`) eşleşmeler batch eşleştirmeden korunur.
 
 ### Neden?
 - Kullanıcının manuel kararlarını korumak
-- Otomatik sistemin manuel değişiklikleri ezmesini önlemek
+- Onaylanmış eşleşmeleri korumak
+- Otomatik sistemin manuel değişiklikleri ve onayları ezmesini önlemek
 
 ### Detay
 ```javascript
 // MatchingEngine.saveMatch() içinde
-if (existing.IsOverridden === 1) {
-  console.log(`⚠️  Skipping SutID ${sutId} - manually overridden`);
+if (existing.IsOverridden === 1 || existing.IsApproved === 1) {
+  console.log(`⚠️  Skipping SutID ${sutId} - manually overridden or approved`);
   return existing; // Değiştirme, koru
 }
 ```
 
 ### Sonuç
 - ✅ Manuel değişiklikler güvende
+- ✅ Onaylanmış kayıtlar güvende
 - ✅ Batch yeniden eşleştirme çalışabilir
 - ⚠️ Orijinal değerler saklanır (geri dönüş için)
 
@@ -113,10 +115,10 @@ Transaction eklenebilir (öncelik: orta)
 
 ---
 
-## 5. IsApproved Sıfırlanmıyor (Küçük Bug)
+## 5. IsApproved Sıfırlanmıyor (Küçük Bug) - ✅ DÜZELTİLDİ
 
 ### Durum
-Onaylanan eşleşme değiştirilince `IsApproved` sıfırlanmıyor.
+~~Onaylanan eşleşme değiştirilince `IsApproved` sıfırlanmıyor.~~ **DÜZELTİLDİ**
 
 ### Beklenen
 ```javascript
@@ -126,14 +128,18 @@ IsApproved = 0  // Yeni eşleşme onaysız olmalı
 
 ### Mevcut
 ```javascript
-// IsApproved değişmiyor, eski değer kalıyor
+// changeMatch() fonksiyonunda IsApproved = 0 eklendi ✅
+UPDATE AltTeminatIslemler
+SET 
+  AltTeminatID = @new,
+  IsOverridden = 1,
+  IsAutomatic = 0,
+  IsApproved = 0,  // ✅ Eklendi
+  ...
 ```
 
 ### Etki
-Düşük (sadece UI'da "Onaylı" görünmeye devam eder)
-
-### Çözüm
-`changeMatch()` fonksiyonuna `IsApproved = 0` eklenebilir
+Düzeltildi - Artık manuel değişiklik yapıldığında onay sıfırlanıyor
 
 ### İlgili Dosyalar
 - `huv-api/src/services/matching/MatchingEngine.js` - changeMatch()
@@ -141,7 +147,11 @@ Düşük (sadece UI'da "Onaylı" görünmeye devam eder)
 ---
 
 ## Güncelleme Tarihi
-2024-02-26
+2025-01-XX
+
+## Son Değişiklikler
+- **2025-01-XX**: IsApproved koruması eklendi (saveMatch fonksiyonuna)
+- **2025-01-XX**: changeMatch fonksiyonunda IsApproved=0 eklendi (bug fix)
 
 ## Notlar
 Bu dosya sistem geliştikçe güncellenmelidir.
