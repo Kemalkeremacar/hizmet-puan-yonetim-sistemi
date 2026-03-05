@@ -1,0 +1,12 @@
+{
+  "admin": {
+    "kullaniciAdi": "admin",
+    "sifre": "admin123",
+    "role": "admin"
+  },
+  "user": {
+    "kullaniciAdi": "user",
+    "sifre": "user123",
+    "role": "user"
+  }
+}
