@@ -11,3 +11,5 @@ export { default as PageHeader } from './PageHeader';
 export { default as ErrorBoundary } from './ErrorBoundary';
 export { default as DateDisplay } from './DateDisplay';
 export { default as ProtectedRoute } from './ProtectedRoute';
+export { default as SafeText } from './SafeText';
+export { useSafeText } from './SafeText';

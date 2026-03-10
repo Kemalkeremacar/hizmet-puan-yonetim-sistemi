@@ -13,6 +13,31 @@ const {
   compareIlKatsayiLists, 
   generateIlKatsayiComparisonReport 
 } = require('../services/ilKatsayiComparisonService');
+
+// ============================================
+// UTILITY FUNCTIONS
+// ============================================
+
+/**
+ * Dosya adını düzgün decode et (Türkçe karakter desteği)
+ * @param {string} originalname - Orijinal dosya adı
+ * @returns {string} Decode edilmiş dosya adı
+ */
+const decodeDosyaAdi = (originalname) => {
+  try {
+    // Önce UTF-8 olarak dene
+    const decoded = decodeURIComponent(originalname);
+    return decoded;
+  } catch (err) {
+    // Başarısız olursa latin1 dene
+    try {
+      return Buffer.from(originalname, 'latin1').toString('utf8');
+    } catch (err2) {
+      // Son çare: olduğu gibi kullan
+      return originalname;
+    }
+  }
+};
 const { createListeVersiyon } = require('../services/versionManager');
 const {
   getMevcutIlKatsayiData,
@@ -40,7 +65,7 @@ const previewIlKatsayiImport = async (req, res, next) => {
     }
     
     uploadedFile = req.file.path;
-    const dosyaAdi = Buffer.from(req.file.originalname, 'latin1').toString('utf8');
+    const dosyaAdi = decodeDosyaAdi(req.file.originalname);
     
     // Parse et
     const parseResult = parseIlKatsayiExcel(uploadedFile);
@@ -122,7 +147,7 @@ const importIlKatsayiList = async (req, res, next) => {
     }
     
     uploadedFile = req.file.path;
-    const dosyaAdi = Buffer.from(req.file.originalname, 'latin1').toString('utf8');
+    const dosyaAdi = decodeDosyaAdi(req.file.originalname);
     
     // Dosya boyutu kontrolü
     if (req.file.size > 10 * 1024 * 1024) {

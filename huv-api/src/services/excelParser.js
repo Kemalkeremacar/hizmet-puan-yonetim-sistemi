@@ -85,24 +85,71 @@ const parseHuvExcel = (filePath) => {
 };
 
 // ============================================
-// Türkçe tarih formatını parse et (DD.MM.YYYY -> Date)
+// Sayı parse fonksiyonu (Türkçe locale desteği ile)
 // ============================================
-const parseTurkishDate = (dateStr) => {
-  if (!dateStr || typeof dateStr !== 'string') return null;
+const parseNumber = (value) => {
+  if (typeof value === 'number') return value;
+  if (!value && value !== 0) return null;
   
-  // DD.MM.YYYY formatı
-  const parts = dateStr.trim().split('.');
-  if (parts.length !== 3) return null;
+  // String ise virgülü noktaya çevir (Türkçe format)
+  const str = value.toString().replace(',', '.');
+  const num = parseFloat(str);
   
-  const day = parseInt(parts[0]);
-  const month = parseInt(parts[1]);
-  const year = parseInt(parts[2]);
+  return isNaN(num) ? null : num;
+};
+
+// ============================================
+// Türkçe tarih formatını parse et (DD.MM.YYYY -> Date)
+// Geliştirilmiş versiyon: Date object, Excel serial date ve string formatlarını destekler
+// ============================================
+const parseTurkishDate = (dateValue) => {
+  if (!dateValue) return null;
   
-  if (isNaN(day) || isNaN(month) || isNaN(year)) return null;
-  if (day < 1 || day > 31 || month < 1 || month > 12) return null;
+  // Date object ise direkt kullan
+  if (dateValue instanceof Date) {
+    return dateValue;
+  }
   
-  // JavaScript Date (month 0-indexed)
-  return new Date(year, month - 1, day);
+  // Excel serial date (number) ise
+  if (typeof dateValue === 'number') {
+    // Excel serial date'i JavaScript Date'e çevir
+    // Excel epoch: 1900-01-01, JavaScript epoch: 1970-01-01
+    // 25569 = days between 1900-01-01 and 1970-01-01
+    return new Date((dateValue - 25569) * 86400 * 1000);
+  }
+  
+  // String ise parse et
+  if (typeof dateValue === 'string') {
+    const trimmed = dateValue.trim();
+    
+    // DD.MM.YYYY formatı
+    const parts = trimmed.split('.');
+    if (parts.length === 3) {
+      const day = parseInt(parts[0]);
+      const month = parseInt(parts[1]);
+      const year = parseInt(parts[2]);
+      
+      if (!isNaN(day) && !isNaN(month) && !isNaN(year)) {
+        if (day >= 1 && day <= 31 && month >= 1 && month <= 12 && year >= 1900) {
+          return new Date(year, month - 1, day);
+        }
+      }
+    }
+    
+    // ISO formatı (YYYY-MM-DD)
+    const isoMatch = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (isoMatch) {
+      return new Date(trimmed + 'T00:00:00'); // Local timezone
+    }
+    
+    // Diğer formatları dene
+    const parsed = new Date(trimmed);
+    if (!isNaN(parsed.getTime())) {
+      return parsed;
+    }
+  }
+  
+  return null;
 };
 
 // ============================================
@@ -164,7 +211,7 @@ const normalizeColumnNames = (data) => {
     'HİYERARŞİ SEVİYESİ': 'HiyerarsiSeviyesi'
   };
   
-  // Esnek kolon eşleştirme fonksiyonu
+  // Esnek kolon eşleştirme fonksiyonu (REGEX-BASED)
   const findColumnMatch = (excelColName) => {
     // Önce tam eşleşme
     if (columnMap[excelColName]) {
@@ -183,23 +230,50 @@ const normalizeColumnNames = (data) => {
       }
     }
     
-    // Kısmi eşleştirme (ör: "Huv" içeren -> "HuvKodu")
-    if (lower.includes('huv') && lower.includes('kod')) return 'HuvKodu';
-    if (lower.includes('işlem') || lower.includes('islem')) return 'IslemAdi';
-    if (lower.includes('birim')) return 'Birim';
-    if (lower.includes('bölüm') || lower.includes('bolum')) return 'BolumAdi';
-    if (lower.includes('sut') && lower.includes('kod')) return 'SutKodu';
-    if (lower.includes('güncelleme') || lower.includes('guncelleme')) {
-      if (lower.includes('tarih')) return 'GuncellemeTarihi';
+    // REGEX-BASED Güçlü Eşleştirme
+    // HUV Kodu varyasyonları: "HUV-Kodu", "Huv_Kodu", "HuvKod", "HUV KODU" vs.
+    if (/huv.*kod/i.test(normalized)) return 'HuvKodu';
+    
+    // İşlem Adı varyasyonları: "İşlem-Adı", "Islem_Adi", "İŞLEM ADI" vs.
+    if (/işlem.*ad/i.test(normalized) || /islem.*ad/i.test(normalized)) return 'IslemAdi';
+    if (/^işlem$/i.test(normalized) || /^islem$/i.test(normalized)) return 'IslemAdi';
+    
+    // Birim varyasyonları: "Birim-Fiyat", "BirimFiyat", "BİRİM" vs.
+    if (/birim/i.test(normalized)) return 'Birim';
+    
+    // Bölüm varyasyonları: "Bölüm-Adı", "Bolum_Adi" vs.
+    if (/bölüm/i.test(normalized) || /bolum/i.test(normalized)) return 'BolumAdi';
+    
+    // SUT Kodu varyasyonları: "SUT-Kodu", "Sut_Kodu" vs.
+    if (/sut.*kod/i.test(normalized)) return 'SutKodu';
+    
+    // Güncelleme Tarihi varyasyonları: "Güncelleme-Tarihi", "Guncelleme_Tarih" vs.
+    if ((/güncelleme/i.test(normalized) || /guncelleme/i.test(normalized)) && /tarih/i.test(normalized)) {
+      return 'GuncellemeTarihi';
     }
-    if (lower.includes('ekleme') && lower.includes('tarih')) return 'EklemeTarihi';
-    if (lower.includes('üst') || lower.includes('ust')) {
-      if (lower.includes('başlık') || lower.includes('baslik')) return 'UstBaslik';
+    
+    // Ekleme Tarihi varyasyonları
+    if (/ekleme/i.test(normalized) && /tarih/i.test(normalized)) return 'EklemeTarihi';
+    
+    // Üst Başlık varyasyonları: "Üst-Başlık", "Ust_Baslik" vs.
+    if ((/üst/i.test(normalized) || /ust/i.test(normalized)) && 
+        (/başlık/i.test(normalized) || /baslik/i.test(normalized))) {
+      return 'UstBaslik';
     }
-    if (lower === 'not' || lower === 'açıklama' || lower === 'aciklama') return 'Not';
-    if (lower.includes('hiyerarşi') || lower.includes('hiyerarsi')) {
-      if (lower.includes('seviye')) return 'HiyerarsiSeviyesi';
+    
+    // Not/Açıklama varyasyonları
+    if (/^not$/i.test(normalized) || /açıklama/i.test(normalized) || /aciklama/i.test(normalized)) {
+      return 'Not';
     }
+    
+    // Hiyerarşi Seviyesi varyasyonları: "Hiyerarşi-Seviyesi", "Hiyerarsi_Seviye" vs.
+    if ((/hiyerarşi/i.test(normalized) || /hiyerarsi/i.test(normalized)) && 
+        /seviye/i.test(normalized)) {
+      return 'HiyerarsiSeviyesi';
+    }
+    
+    // Durum varyasyonları
+    if (/^durum$/i.test(normalized)) return 'Durum';
     
     return null;
   };
@@ -325,15 +399,18 @@ const validateHuvData = (data) => {
           type: 'FORMAT_HATASI'
         });
       }
-      // Duplicate var mı?
-      else if (seenHuvKodlari.has(huvKodu)) {
-        rowErrors.push({
-          field: 'HuvKodu',
-          message: `HuvKodu tekrar ediyor: ${huvKodu}`,
-          type: 'DUPLICATE'
-        });
-      } else {
-        seenHuvKodlari.add(huvKodu);
+      // Duplicate var mı? (CASE-INSENSITIVE)
+      else {
+        const normalizedHuvKodu = huvKodu.toLowerCase();
+        if (seenHuvKodlari.has(normalizedHuvKodu)) {
+          rowErrors.push({
+            field: 'HuvKodu',
+            message: `HuvKodu tekrar ediyor: ${huvKodu}`,
+            type: 'DUPLICATE'
+          });
+        } else {
+          seenHuvKodlari.add(normalizedHuvKodu);
+        }
       }
       
       // Çok uzun mu?
@@ -490,7 +567,7 @@ const normalizeHuvData = async (data) => {
     
     // HUV kodundan Ana Dal kodunu çıkar (tam sayı kısmı)
     // Örnek: 12.34567 -> 12, 0.12345 -> 0, 34.56789 -> 34
-    const huvKodu = parseFloat(row.HuvKodu);
+    const huvKodu = parseNumber(row.HuvKodu) || 0;
     const anaDalKodu = Math.floor(huvKodu);
     
     // Ana Dal kontrolü
@@ -513,9 +590,9 @@ const normalizeHuvData = async (data) => {
     };
     
     return {
-      HuvKodu: huvKodu,
+      HuvKodu: parseNumber(row.HuvKodu) || 0,
       IslemAdi: cleanString(row.IslemAdi) || '',
-      Birim: row.Birim !== undefined && row.Birim !== null && row.Birim !== '' ? parseFloat(row.Birim) : null,
+      Birim: parseNumber(row.Birim),
       SutKodu: cleanString(row.SutKodu),
       AnaDalKodu: anaDalKodu, // HUV kodunun tam sayı kısmı
       BolumAdi: cleanString(row.BolumAdi), // Sadece bilgi amaçlı
@@ -534,5 +611,6 @@ module.exports = {
   normalizeHuvData,
   extractDateFromFilename, // Yeni fonksiyon
   fixTurkishEncoding, // Export from utils
-  parseTurkishDate // Export et
+  parseTurkishDate, // Export et
+  parseNumber // Yeni fonksiyon
 };

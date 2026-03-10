@@ -5,6 +5,26 @@
 // SQL Server'dan gelen bozuk karakterleri düzelt
 // ============================================
 
+const he = require('he');
+
+/**
+ * HTML entity'leri decode et
+ * @param {string} str - Decode edilecek string
+ * @returns {string} Decode edilmiş string
+ */
+const decodeHtmlEntities = (str) => {
+  if (!str || typeof str !== 'string') return str;
+  
+  try {
+    // he kütüphanesi ile decode et
+    return he.decode(str);
+  } catch (err) {
+    // Hata durumunda orijinal string'i döndür
+    console.warn('HTML entity decode hatası:', err.message);
+    return str;
+  }
+};
+
 /**
  * Bozuk karakter kontrolü - Performans için önce kontrol et
  * @param {string} str - Kontrol edilecek string
@@ -24,11 +44,14 @@ const needsTurkishCharFix = (str) => {
 const fixTurkishEncoding = (str) => {
   if (!str || typeof str !== 'string') return str;
   
-  // Performans: Önce kontrol et
-  if (!needsTurkishCharFix(str)) return str;
+  // Önce HTML entity'leri decode et
+  let fixed = decodeHtmlEntities(str);
   
-  return str
-    // Windows-1254 -> UTF-8 dönüşümü
+  // Performans: Bozuk karakter kontrolü
+  if (!needsTurkishCharFix(fixed)) return fixed.trim();
+  
+  // Windows-1254 -> UTF-8 dönüşümü
+  fixed = fixed
     .replace(/Ä°/g, 'İ')
     .replace(/Ä±/g, 'ı')
     .replace(/Åž/g, 'Ş')
@@ -46,8 +69,9 @@ const fixTurkishEncoding = (str) => {
     .replace(/â€"/g, '–')
     .replace(/â€™/g, "'")
     .replace(/â€œ/g, '"')
-    .replace(/â€/g, '"')
-    .trim();
+    .replace(/â€/g, '"');
+  
+  return fixed.trim();
 };
 
 /**
@@ -163,9 +187,27 @@ const checkDatabaseCollation = async (pool) => {
   }
 };
 
+/**
+ * Sayı parse fonksiyonu (Türkçe locale desteği ile)
+ * @param {*} value - Parse edilecek değer
+ * @returns {number|null} Parse edilmiş sayı veya null
+ */
+const parseNumber = (value) => {
+  if (typeof value === 'number') return value;
+  if (!value && value !== 0) return null;
+  
+  // String ise virgülü noktaya çevir (Türkçe format)
+  const str = value.toString().replace(',', '.');
+  const num = parseFloat(str);
+  
+  return isNaN(num) ? null : num;
+};
+
 module.exports = {
   needsTurkishCharFix,
   fixTurkishEncoding,
   fixTurkishCharsInObject,
-  checkDatabaseCollation
+  checkDatabaseCollation,
+  decodeHtmlEntities,
+  parseNumber
 };

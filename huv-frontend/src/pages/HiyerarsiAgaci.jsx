@@ -178,13 +178,18 @@ function HiyerarsiAgaci() {
     // Gereksiz root item'ları filtrele (child'ı olmayan ve Birim'i olmayan)
     rootItems = rootItems.filter(item => {
       // Birim varsa kesinlikle göster (gerçek işlem)
-      if (item.Birim) return true;
+      if (item.Birim !== null && item.Birim !== undefined) return true;
       
       // Bu item'ın adı başka item'ların UstBaslik'inde geçiyor mu?
       const itemName = item.IslemAdi?.trim();
       if (!itemName) return false;
       
       const itemNameNormalized = normalizeString(itemName);
+      
+      // Bu item'ın tam path'ini oluştur
+      const itemPath = item.UstBaslik ? 
+        `${normalizeString(item.UstBaslik)}→${itemNameNormalized}` : 
+        itemNameNormalized;
       
       const hasChildren = data.some(child => {
         if (child.IslemID === item.IslemID) return false;
@@ -194,15 +199,8 @@ function HiyerarsiAgaci() {
         
         const childUstBaslikNormalized = normalizeString(childUstBaslik);
         
-        // UstBaslik'te → varsa, son kısmı al ve karşılaştır
-        if (childUstBaslikNormalized.includes('→')) {
-          const parts = childUstBaslikNormalized.split('→');
-          const lastPart = parts[parts.length - 1].trim();
-          return lastPart === itemNameNormalized;
-        }
-        
-        // → yoksa direkt karşılaştır
-        return childUstBaslikNormalized === itemNameNormalized;
+        // Child'ın UstBaslik'i bu item'ın tam path'i ile eşleşiyor mu?
+        return childUstBaslikNormalized === itemPath;
       });
       
       return hasChildren;
@@ -318,6 +316,11 @@ function HiyerarsiAgaci() {
     
     const itemNameNormalized = normalizeString(itemName);
     
+    // Bu item'ın tam path'ini oluştur
+    const itemPath = item.UstBaslik ? 
+      `${normalizeString(item.UstBaslik)}→${itemNameNormalized}` : 
+      itemNameNormalized;
+    
     const children = allData.filter(child => {
       // Kendisi olmasın
       if (child.IslemID === item.IslemID) return false;
@@ -331,14 +334,8 @@ function HiyerarsiAgaci() {
       
       const childUstBaslikNormalized = normalizeString(childUstBaslik);
       
-      // UstBaslik'te → varsa son kısmı al
-      if (childUstBaslikNormalized.includes('→')) {
-        const parts = childUstBaslikNormalized.split('→');
-        const lastPart = parts[parts.length - 1].trim();
-        return lastPart === itemNameNormalized;
-      }
-      
-      return childUstBaslikNormalized === itemNameNormalized;
+      // Child'ın UstBaslik'i bu item'ın tam path'i ile eşleşiyor mu?
+      return childUstBaslikNormalized === itemPath;
     });
 
     // HiyerarsiSeviyesi'ne göre children'ı sırala

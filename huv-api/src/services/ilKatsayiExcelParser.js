@@ -5,7 +5,7 @@
 // ============================================
 
 const XLSX = require('xlsx');
-const { fixTurkishEncoding } = require('../utils/turkishCharFix');
+const { fixTurkishEncoding, parseNumber } = require('../utils/turkishCharFix');
 
 // ============================================
 // İl adından plaka kodunu bul
@@ -120,15 +120,7 @@ const parseIlKatsayiExcel = (filePath) => {
       // Katsayı değerini parse et
       let katsayi = null;
       if (katsayiValue !== null && katsayiValue !== undefined && katsayiValue !== '') {
-        if (typeof katsayiValue === 'number') {
-          katsayi = katsayiValue;
-        } else {
-          const katsayiStr = katsayiValue.toString().trim().replace(/[^\d.,]/g, '');
-          katsayi = parseFloat(katsayiStr.replace(',', '.'));
-          if (isNaN(katsayi)) {
-            katsayi = null;
-          }
-        }
+        katsayi = parseNumber(katsayiValue);
       }
       
       if (katsayi === null) {
@@ -287,7 +279,7 @@ const normalizeIlKatsayiData = (data) => {
     return {
       IlAdi: ilAdi,
       PlakaKodu: plakaKodu,
-      Katsayi: parseFloat(row.Katsayi.toFixed(2)),
+      Katsayi: parseNumber(row.Katsayi.toFixed(2)),
       DonemBaslangic: row.DonemBaslangic,
       DonemBitis: row.DonemBitis
     };

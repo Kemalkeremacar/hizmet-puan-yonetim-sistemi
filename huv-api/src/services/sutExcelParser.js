@@ -6,7 +6,7 @@
 // ============================================
 
 const XLSX = require('xlsx');
-const { fixTurkishEncoding } = require('../utils/turkishCharFix');
+const { fixTurkishEncoding, parseNumber } = require('../utils/turkishCharFix');
 const { getPool, sql } = require('../config/database');
 
 // ============================================
@@ -207,7 +207,7 @@ const normalizeColumnNames = (data) => {
     'HiyerarsiID': 'HiyerarsiID'
   };
   
-  // Esnek kolon eşleştirme fonksiyonu
+  // Esnek kolon eşleştirme fonksiyonu (REGEX-BASED)
   const findColumnMatch = (excelColName) => {
     // Önce tam eşleşme
     if (columnMap[excelColName]) {
@@ -226,17 +226,33 @@ const normalizeColumnNames = (data) => {
       }
     }
     
-    // Kısmi eşleştirme
-    if (lower.includes('sut') && lower.includes('kod')) return 'SutKodu';
-    if (lower.includes('işlem') || lower.includes('islem')) return 'IslemAdi';
-    if (lower.includes('puan')) return 'Puan';
-    if (lower.includes('açıklama') || lower.includes('aciklama')) return 'Aciklama';
-    if (lower.includes('ana') && (lower.includes('başlık') || lower.includes('baslik'))) {
-      if (lower.includes('no') || lower.includes('numara')) return 'AnaBaslikNo';
+    // REGEX-BASED Güçlü Eşleştirme
+    // SUT/İşlem Kodu varyasyonları: "SUT-Kodu", "İşlem_Kodu", "IŞLEM KODU" vs.
+    if (/sut.*kod/i.test(normalized) || /işlem.*kod/i.test(normalized) || /islem.*kod/i.test(normalized)) {
+      return 'SutKodu';
+    }
+    
+    // İşlem Adı varyasyonları: "İşlem-Adı", "Islem_Adi", "İŞLEM ADI" vs.
+    if (/işlem.*ad/i.test(normalized) || /islem.*ad/i.test(normalized)) return 'IslemAdi';
+    if (/^işlem$/i.test(normalized) || /^islem$/i.test(normalized)) return 'IslemAdi';
+    
+    // Puan varyasyonları: "İşlem-Puanı", "Islem_Puan", "PUAN" vs.
+    if (/puan/i.test(normalized)) return 'Puan';
+    
+    // Açıklama varyasyonları: "Açıklama", "Aciklama", "AÇIKLAMA" vs.
+    if (/açıklama/i.test(normalized) || /aciklama/i.test(normalized)) return 'Aciklama';
+    
+    // Ana Başlık varyasyonları: "Ana-Başlık", "Ana_Baslik", "ANA BAŞLIK" vs.
+    if (/ana.*başlık/i.test(normalized) || /ana.*baslik/i.test(normalized)) {
+      if (/no/i.test(normalized) || /numara/i.test(normalized)) return 'AnaBaslikNo';
       return 'AnaBaslikAdi';
     }
-    if (lower.includes('kategori')) return 'KategoriAdi';
-    if (lower.includes('hiyerarşi') || lower.includes('hiyerarsi')) return 'HiyerarsiID';
+    
+    // Kategori varyasyonları: "Kategori-Adı", "Kategori_Adi" vs.
+    if (/kategori/i.test(normalized)) return 'KategoriAdi';
+    
+    // Hiyerarşi varyasyonları: "Hiyerarşi-ID", "Hiyerarsi_No" vs.
+    if (/hiyerarşi/i.test(normalized) || /hiyerarsi/i.test(normalized)) return 'HiyerarsiID';
     
     return null;
   };
@@ -418,14 +434,17 @@ const validateSutData = (data) => {
           message: 'SUT Kodu boş olamaz',
           type: 'BOS_ALAN'
         });
-      } else if (seenSutKodlari.has(sutKodu)) {
-        rowErrors.push({
-          field: 'SutKodu',
-          message: `SUT Kodu tekrar ediyor: ${sutKodu}`,
-          type: 'DUPLICATE'
-        });
       } else {
-        seenSutKodlari.add(sutKodu);
+        const normalizedSutKodu = sutKodu.toLowerCase();
+        if (seenSutKodlari.has(normalizedSutKodu)) {
+          rowErrors.push({
+            field: 'SutKodu',
+            message: `SUT Kodu tekrar ediyor: ${sutKodu}`,
+            type: 'DUPLICATE'
+          });
+        } else {
+          seenSutKodlari.add(normalizedSutKodu);
+        }
       }
       
       if (sutKodu.length > 50) {
@@ -1205,5 +1224,6 @@ module.exports = {
   parseSutExcel,
   validateSutData,
   normalizeSutData,
-  extractDateFromFilename
+  extractDateFromFilename,
+  parseNumber
 };
