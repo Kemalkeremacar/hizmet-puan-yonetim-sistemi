@@ -22,7 +22,7 @@ import {
   PlayArrow as PlayArrowIcon,
 } from '@mui/icons-material';
 import { matchingService } from '../../services/matchingService';
-import { toast } from 'react-toastify';
+import ToastManager from '../../utils/toastManager';
 
 // ============================================
 // BatchMatchingPanel Component
@@ -55,7 +55,7 @@ function BatchMatchingPanel({ onBatchComplete, stats }) {
   const handleStartBatch = async () => {
     // Validasyon
     if (batchSize < 1 || batchSize > 10000) {
-      toast.error('Batch boyutu 1-10000 arasında olmalıdır');
+      ToastManager.error('Batch boyutu 1-10000 arasında olmalıdır');
       return;
     }
 
@@ -76,7 +76,7 @@ function BatchMatchingPanel({ onBatchComplete, stats }) {
       });
 
       setSummary(response.data.data);
-      toast.success('Toplu eşleştirme tamamlandı');
+      ToastManager.success('Toplu eşleştirme tamamlandı');
       
       if (onBatchComplete) {
         onBatchComplete();
@@ -84,7 +84,7 @@ function BatchMatchingPanel({ onBatchComplete, stats }) {
     } catch (err) {
       console.error('Toplu eşleştirme hatası:', err);
       setError(err.response?.data?.message || 'Toplu eşleştirme sırasında hata oluştu');
-      toast.error('Toplu eşleştirme başarısız oldu');
+      ToastManager.error('Toplu eşleştirme başarısız oldu');
     } finally {
       setRunning(false);
       setProgress(0);

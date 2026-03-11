@@ -1,80 +1,22 @@
 // ============================================
-// TOAST NOTIFICATION UTILITY
+// TOAST UTILITY - DEPRECATED
 // ============================================
-// Başarı, hata, bilgi mesajları için toast sistemi
+// Bu dosya backward compatibility için korunuyor
+// Yeni projeler ToastManager kullanmalı
 // ============================================
 
-import { toast } from 'react-toastify';
+import ToastManager from './toastManager';
 
 // ============================================
-// Başarı mesajı
+// Deprecated: Yeni kod ToastManager kullanmalı
 // ============================================
-export const showSuccess = (message) => {
-  toast.success(message, {
-    position: 'top-right',
-    autoClose: 3000,
-    hideProgressBar: false,
-    closeOnClick: true,
-    pauseOnHover: true,
-    draggable: true,
-  });
-};
+export const showSuccess = ToastManager.success;
+export const showError = ToastManager.error;
+export const showInfo = ToastManager.info;
+export const showWarning = ToastManager.warning;
+export const showPromise = ToastManager.promise;
 
 // ============================================
-// Hata mesajı
+// Yeni API'yi export et
 // ============================================
-export const showError = (message) => {
-  toast.error(message, {
-    position: 'top-right',
-    autoClose: 5000,
-    hideProgressBar: false,
-    closeOnClick: true,
-    pauseOnHover: true,
-    draggable: true,
-  });
-};
-
-// ============================================
-// Bilgi mesajı
-// ============================================
-export const showInfo = (message) => {
-  toast.info(message, {
-    position: 'top-right',
-    autoClose: 3000,
-    hideProgressBar: false,
-    closeOnClick: true,
-    pauseOnHover: true,
-    draggable: true,
-  });
-};
-
-// ============================================
-// Uyarı mesajı
-// ============================================
-export const showWarning = (message) => {
-  toast.warning(message, {
-    position: 'top-right',
-    autoClose: 4000,
-    hideProgressBar: false,
-    closeOnClick: true,
-    pauseOnHover: true,
-    draggable: true,
-  });
-};
-
-// ============================================
-// Promise toast (loading -> success/error)
-// ============================================
-export const showPromise = (promise, messages) => {
-  return toast.promise(
-    promise,
-    {
-      pending: messages.pending || 'İşlem yapılıyor...',
-      success: messages.success || 'İşlem başarılı!',
-      error: messages.error || 'İşlem başarısız!',
-    },
-    {
-      position: 'top-right',
-    }
-  );
-};
+export { default as ToastManager } from './toastManager';

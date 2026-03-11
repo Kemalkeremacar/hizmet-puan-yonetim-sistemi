@@ -6,7 +6,7 @@
 // ============================================
 
 import axios from 'axios';
-import { showError } from '../utils/toast';
+import ToastManager from '../utils/toastManager';
 
 /**
  * Bozuk karakter kontrolü - Performans için önce kontrol et
@@ -241,11 +241,8 @@ api.interceptors.response.use(
       timestamp: new Date().toISOString()
     });
     
-    const message = error.response?.data?.message || 
-                   error.message || 
-                   'Bir hata oluştu';
-    
-    showError(message);
+    // INTERCEPTOR'DA TOAST GÖSTERME - Component'te handle edilecek
+    // Sadece console'a log at, toast component'te gösterilsin
     
     return Promise.reject(error);
   }
@@ -276,11 +273,8 @@ importApi.interceptors.response.use(
       timestamp: new Date().toISOString()
     });
     
-    const message = error.response?.data?.message || 
-                   error.message || 
-                   'Import işlemi başarısız';
-    
-    showError(message);
+    // INTERCEPTOR'DA TOAST GÖSTERME - Component'te handle edilecek
+    // Import işlemleri için özel handling gerekebilir
     
     return Promise.reject(error);
   }

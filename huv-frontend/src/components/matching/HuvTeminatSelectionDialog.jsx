@@ -29,7 +29,7 @@ import {
   CheckCircle as CheckCircleIcon,
 } from '@mui/icons-material';
 import { matchingService } from '../../services/matchingService';
-import { toast } from 'react-toastify';
+import ToastManager from '../../utils/toastManager';
 import { useAuth } from '../../app/context/AuthContext';
 
 // ============================================
@@ -119,7 +119,7 @@ function HuvTeminatSelectionDialog({ open, onClose, match, onMatchChanged, showS
       }
     } catch (err) {
       console.error('HUV seçenekleri yüklenemedi:', err);
-      toast.error('HUV seçenekleri yüklenirken hata oluştu');
+      ToastManager.error('HUV seçenekleri yüklenirken hata oluştu');
       setOptions([]);
       setFilteredOptions([]);
     } finally {
@@ -254,7 +254,7 @@ function HuvTeminatSelectionDialog({ open, onClose, match, onMatchChanged, showS
   // ============================================
   const handleSave = async () => {
     if (!selectedOption) {
-      toast.warning('Lütfen bir HUV teminat seçin');
+      ToastManager.warning('Lütfen bir HUV teminat seçin');
       return;
     }
 
@@ -265,11 +265,11 @@ function HuvTeminatSelectionDialog({ open, onClose, match, onMatchChanged, showS
         selectedOption.altTeminatId,
         user.id
       );
-      toast.success('Eşleşme başarıyla değiştirildi');
+      ToastManager.success('Eşleşme başarıyla değiştirildi');
       onMatchChanged();
     } catch (err) {
       console.error('Eşleşme değiştirme hatası:', err);
-      toast.error('Eşleşme değiştirilirken hata oluştu');
+      ToastManager.error('Eşleşme değiştirilirken hata oluştu');
     } finally {
       setSaving(false);
     }

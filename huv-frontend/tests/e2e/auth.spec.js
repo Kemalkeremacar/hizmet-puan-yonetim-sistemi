@@ -88,6 +88,9 @@ test.describe('Authentication Flow', () => {
     // Login sayfasına yönlendirildiğini kontrol et
     await expect(page).toHaveURL('/login', { timeout: 5000 });
     
+    // Kısa bir bekleme - logout işlemi tamamlansın
+    await page.waitForTimeout(1000);
+    
     // Token'ın localStorage'dan silindiğini kontrol et
     const tokenAfter = await page.evaluate(() => localStorage.getItem('token'));
     expect(tokenAfter).toBeNull();

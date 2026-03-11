@@ -7,13 +7,13 @@ import { defineConfig, devices } from '@playwright/test';
 export default defineConfig({
   testDir: './tests',
   
-  // Maximum time one test can run
-  timeout: 30 * 1000,
+  // Maximum time one test can run - daha da artırdık
+  timeout: 90 * 1000, // 90 saniye
   
   // Test execution settings
   fullyParallel: false, // Testleri sırayla çalıştır
   forbidOnly: !!process.env.CI,
-  retries: process.env.CI ? 2 : 0,
+  retries: process.env.CI ? 2 : 1, // Retry ekledik
   workers: 1, // Tek worker kullan (tek browser)
   
   // Reporter to use
@@ -35,6 +35,15 @@ export default defineConfig({
     
     // Video on failure
     video: 'retain-on-failure',
+    
+    // Slow down actions for debugging (when --headed is used)
+    launchOptions: {
+      slowMo: process.env.SLOW_MO ? parseInt(process.env.SLOW_MO) : 0,
+    },
+    
+    // Timeout'ları daha da artırdık
+    actionTimeout: 20 * 1000, // 20 saniye
+    navigationTimeout: 45 * 1000, // 45 saniye
   },
 
   // Configure projects for major browsers

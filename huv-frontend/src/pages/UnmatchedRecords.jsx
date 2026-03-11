@@ -30,7 +30,7 @@ import {
   Refresh as RefreshIcon,
 } from '@mui/icons-material';
 import { PageHeader } from '../components/common';
-import { toast } from 'react-toastify';
+import ToastManager from '../utils/toastManager';
 import { useAuth } from '../app/context/AuthContext';
 import HuvTeminatSelectionDialog from '../components/matching/HuvTeminatSelectionDialog';
 import axios from '../api/axios';

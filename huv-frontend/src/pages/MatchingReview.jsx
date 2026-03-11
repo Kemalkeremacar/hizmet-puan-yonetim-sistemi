@@ -35,7 +35,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { PageHeader } from '../components/common';
 import { matchingService } from '../services/matchingService';
-import { toast } from 'react-toastify';
+import ToastManager from '../utils/toastManager';
 import { useAuth } from '../app/context/AuthContext';
 import HuvTeminatSelectionDialog from '../components/matching/HuvTeminatSelectionDialog';
 import BatchMatchingPanel from '../components/matching/BatchMatchingPanel';
@@ -92,7 +92,7 @@ function MatchingReview() {
       console.error('Eşleşmeler yüklenemedi:', err);
       setError(err);
       setResults([]); // Hata durumunda boş array
-      toast.error('Eşleşmeler yüklenirken hata oluştu');
+      ToastManager.error('Eşleşmeler yüklenirken hata oluştu');
     } finally {
       setLoading(false);
     }
@@ -121,12 +121,12 @@ function MatchingReview() {
   const handleApprove = async (sutId) => {
     try {
       await matchingService.approveMatch(sutId, user.id);
-      toast.success('Eşleşme onaylandı');
+      ToastManager.success('Eşleşme onaylandı');
       fetchResults();
       fetchStats();
     } catch (err) {
       console.error('Onaylama hatası:', err);
-      toast.error('Eşleşme onaylanırken hata oluştu');
+      ToastManager.error('Eşleşme onaylanırken hata oluştu');
     }
   };
 

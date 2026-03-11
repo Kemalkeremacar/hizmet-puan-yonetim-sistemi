@@ -38,7 +38,7 @@ import {
   Info as InfoIcon
 } from '@mui/icons-material';
 import { tarihselService } from '../services/tarihselService';
-import { showSuccess, showError, showInfo } from '../utils/toast';
+import ToastManager from '../utils/toastManager';
 import { exportToExcel } from '../utils/export';
 import { LoadingSpinner, ErrorAlert, EmptyState, PageHeader, DateDisplay } from '../components/common';
 import { 
@@ -93,13 +93,13 @@ function Tarihsel() {
   // ============================================
   const handleFiyatSorgula = async () => {
     if (!fiyatForm.huvKodu || !fiyatForm.tarih) {
-      showError('HUV kodu ve tarih zorunludur');
+      ToastManager.error('HUV kodu ve tarih zorunludur');
       return;
     }
 
     // Gelecek tarih kontrolü
     if (isFutureDate(fiyatForm.tarih)) {
-      showError('Gelecek tarih için sorgu yapılamaz');
+      ToastManager.error('Gelecek tarih için sorgu yapılamaz');
       return;
     }
 
@@ -115,15 +115,15 @@ function Tarihsel() {
       const result = response.data?.data || response.data;
       if (result) {
         setFiyatResult(result);
-        showSuccess('Fiyat bilgisi başarıyla getirildi');
+        ToastManager.success('Fiyat bilgisi başarıyla getirildi');
       } else {
         setFiyatResult(null);
         // Backend'den gelen detaylı hata mesajını göster
         const errorDetail = response.data?.detay || response.data?.message;
         if (errorDetail) {
-          showError(errorDetail);
+          ToastManager.error(errorDetail);
         } else {
-          showError('Bu tarihte fiyat bulunamadı');
+          ToastManager.error('Bu tarihte fiyat bulunamadı');
         }
       }
     } catch (err) {
@@ -139,22 +139,19 @@ function Tarihsel() {
                           err.message || 
                           'Fiyat sorgulanamadı';
       
-      // Başlangıç tarihi hatası için özel mesaj
+      // Tek bir toast mesajı göster - duplicate önlemek için
       if (errorData?.errors?.tip === 'TARIH_BASLANGIC_ONDEN') {
         const cozum = errorData.errors.cozum || '';
         const baslangicTarihi = errorData.errors.baslangicTarihi || '2025-10-07';
-        showError(`${errorMessage}\n${cozum}\nBaşlangıç tarihi: ${baslangicTarihi}`);
+        ToastManager.error(`${errorMessage}\n${cozum}\nBaşlangıç tarihi: ${baslangicTarihi}`);
       } else if (errorData?.errors?.tip === 'GECERSIZ_TARIH_FORMATI') {
-        showError(`${errorMessage}\n${errorData.errors.cozum || ''}`);
+        ToastManager.error(`${errorMessage}\n${errorData.errors.cozum || ''}`);
       } else if (errorData?.errors?.tip === 'GELECEK_TARIH') {
-        showError(`${errorMessage}\n${errorData.errors.cozum || ''}`);
+        ToastManager.error(`${errorMessage}\n${errorData.errors.cozum || ''}`);
+      } else if (errorData?.enEskiTarih) {
+        ToastManager.error(`${errorMessage} (En eski kayıt: ${errorData.enEskiTarih})`);
       } else {
-        // En eski tarih bilgisi varsa göster
-        if (errorData?.enEskiTarih) {
-          showError(`${errorMessage} (En eski kayıt: ${errorData.enEskiTarih})`);
-        } else {
-          showError(errorMessage);
-        }
+        ToastManager.error(errorMessage);
       }
     } finally {
       setLoading(false);

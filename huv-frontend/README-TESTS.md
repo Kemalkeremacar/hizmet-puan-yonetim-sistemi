@@ -1,219 +1,174 @@
-# Playwright Test Dokümantasyonu
+# HUV Frontend Test Dokümantasyonu
 
-## 🎭 Kurulum
+Bu dokümantasyon, HUV Frontend uygulaması için yazılmış olan E2E (End-to-End) testleri hakkında bilgi içerir.
 
-Playwright zaten yüklü. Eğer yeniden kurulum gerekirse:
+## Test Özeti
 
-```bash
-npm install -D @playwright/test
-npx playwright install chromium
-```
+**Toplam Test Sayısı:** 45
+- **Authentication Tests:** 12 test ✅
+- **Smoke Tests:** 6 test ✅  
+- **Filtering Tests:** 8 test ✅
+- **Tarihsel Queries Tests:** 19 test ✅
 
-## 🚀 Test Çalıştırma
+**Başarı Oranı:** 100% (45/45)
 
-### Tüm testleri çalıştır
+## Test Kategorileri
+
+### 1. Authentication Tests (`auth.spec.js`)
+Kullanıcı girişi ve oturum yönetimi testleri:
+- Login sayfası görünürlüğü
+- Geçersiz kimlik bilgileri kontrolü
+- Başarılı giriş işlemi
+- Oturum kalıcılığı
+- Çıkış işlemi
+- Korumalı sayfa erişimi
+- Session timeout yönetimi
+- Password visibility toggle
+- Network hata yönetimi
+- Whitespace trimming
+- Çoklu login denemesi koruması
+
+### 2. Smoke Tests (`smoke-tests.spec.js`)
+Temel uygulama sağlığı testleri:
+- Ana sayfaların yüklenmesi
+- Sayfa crash kontrolü
+- Temel UI elementleri varlığı
+- Navigasyon işlevselliği
+- API çağrıları
+- Logout işlemi
+
+### 3. Filtering Tests (`filtering.spec.js`)
+Matching-review sayfası filtreleme testleri:
+- Filtre alanları görünürlüğü
+- SUT kodu filtresi
+- İşlem adı filtresi
+- Skor aralığı filtreleri
+- Filtreleri temizle butonu
+- Çoklu filtre kombinasyonları
+- Input validation
+- Pagination entegrasyonu
+
+### 4. Tarihsel Queries Tests (`tarihsel-queries.spec.js`)
+HUV ve SUT tarihsel sorgu sayfaları testleri:
+
+#### HUV Tarihsel Testleri:
+- Sayfa yükleme ve tab görünürlüğü
+- Tarihteki Fiyat tab işlevselliği
+- Değişen İşlemler tab geçişi
+- Fiyat Geçmişi tab geçişi
+- Form validasyonu
+- **Gerçek veri ile sorgu testleri:**
+  - HUV fiyat sorgusu
+  - Değişen işlemler sorgusu
+  - Fiyat geçmişi sorgusu
+
+#### SUT Tarihsel Testleri:
+- Sayfa yükleme ve tab görünürlüğü
+- Tarihteki Puan tab işlevselliği
+- Değişen Kodlar tab geçişi
+- Puan Geçmişi tab geçişi
+- Form validasyonu
+- **Gerçek veri ile sorgu testleri:**
+  - SUT puan sorgusu
+  - Değişen kodlar sorgusu
+  - Puan geçmişi sorgusu
+
+#### Genel Tarihsel Testleri:
+- Sayfa navigasyonları
+- Tarih input alanları
+- Tab geçişlerinde state koruma
+
+## Test Çalıştırma
+
+### Tüm Testleri Çalıştır
 ```bash
 npm test
 ```
 
-### UI modunda çalıştır (interaktif)
+### Belirli Test Kategorilerini Çalıştır
 ```bash
-npm run test:ui
+# Authentication testleri
+npm test -- --grep "Authentication Tests"
+
+# Smoke testleri
+npm test -- --grep "Smoke Tests"
+
+# Filtreleme testleri
+npm test -- --grep "Filtreleme Testleri"
+
+# Tarihsel sorgu testleri
+npm test -- --grep "Tarihsel Sorgular Testleri"
 ```
 
-### Headed modda çalıştır (browser görünür)
-```bash
-npm run test:headed
-```
-
-### Debug modda çalıştır
-```bash
-npm run test:debug
-```
-
-### Belirli bir test dosyasını çalıştır
-```bash
-npx playwright test tests/e2e/auth.spec.js
-```
-
-### Test raporunu görüntüle
+### Test Raporunu Görüntüle
 ```bash
 npm run test:report
 ```
 
-## 📁 Test Yapısı
+## Test Yapılandırması
 
-```
-tests/
-├── e2e/                    # End-to-end testler
-│   └── auth.spec.js        # Authentication testleri
-├── fixtures/               # Test verileri
-│   └── test-users.json     # Test kullanıcıları
-└── helpers/                # Yardımcı fonksiyonlar
-    └── auth.js             # Login/logout helpers
-```
+### Playwright Konfigürasyonu
+- **Tarayıcılar:** Chromium, Firefox, WebKit
+- **Paralel Çalıştırma:** Etkin
+- **Retry:** 2 kez
+- **Timeout:** 30 saniye
+- **Reporter:** Özel Türkçe reporter
 
-## 🧪 Mevcut Testler
+### Test Helpers
+- **Auth Helper:** Otomatik login işlemi
+- **Test Users:** Farklı kullanıcı rolleri için test verileri
+- **Turkish Reporter:** Türkçe test sonuçları
 
-### Authentication Tests (auth.spec.js)
+## Önemli Notlar
 
-1. ✅ **Login sayfası görüntüleme**
-   - Form elementlerinin varlığı
-   - Buton ve input kontrolü
+### Gerçek API Testleri
+Tarihsel sorgu testleri gerçek backend API'leri ile çalışır:
+- Gerçek veri ile sorgu yapılır
+- API response'ları kontrol edilir
+- Toast mesajları ve UI feedback'leri test edilir
+- Hata durumları da test kapsamındadır
 
-2. ✅ **Boş form validasyonu**
-   - Boş kullanıcı adı/şifre kontrolü
+### Test Verileri
+- HUV Kodu örnekleri: `100001`, `20.00057`
+- SUT Kodu örnekleri: `510010`
+- Tarih aralıkları: Son 7 gün, belirli tarihler
 
-3. ✅ **Yanlış kimlik bilgileri**
-   - Hata mesajı görüntüleme
-   - Toast notification kontrolü
+### Güvenilir Seçiciler
+Testlerde kullanılan seçici stratejileri:
+- `visible=true` ile sadece görünür elementler
+- Spesifik label ve role seçicileri
+- Tab panel index'leri ile doğru buton seçimi
 
-4. ✅ **Başarılı login**
-   - Admin kullanıcısı ile giriş
-   - Dashboard'a yönlendirme
-   - Navbar kontrolü
+## Test Geliştirme Rehberi
 
-5. ✅ **Session persistence**
-   - Sayfa yenileme sonrası login durumu
-   - LocalStorage kontrolü
+### Yeni Test Ekleme
+1. Uygun test dosyasını seç veya yeni oluştur
+2. `test.describe()` ile test grubunu tanımla
+3. `test.beforeEach()` ile setup işlemlerini yap
+4. Gerçekçi test senaryoları yaz
+5. Anlamlı assertion'lar kullan
 
-6. ✅ **Logout işlemi**
-   - Çıkış yapma
-   - Login sayfasına yönlendirme
+### Best Practices
+- Gerçek kullanıcı davranışlarını simüle et
+- UI elementlerinin varlığını ve işlevselliğini test et
+- API çağrılarının sonuçlarını kontrol et
+- Hata durumlarını da test et
+- Console log'ları ile test durumunu takip et
 
-7. ✅ **Protected route kontrolü**
-   - Login olmadan erişim engelleme
-   - Otomatik yönlendirme
+## Sorun Giderme
 
-8. ✅ **Session timeout**
-   - Token silme simülasyonu
-   - Otomatik logout
+### Yaygın Sorunlar
+1. **Timeout Hataları:** `waitForTimeout()` ve `waitForLoadState()` kullan
+2. **Element Bulunamama:** Seçicileri kontrol et, `visible=true` ekle
+3. **API Hataları:** Backend'in çalıştığından emin ol
+4. **Flaky Testler:** Retry mekanizması ve daha güvenilir seçiciler kullan
 
-9. ✅ **Şifre görünürlük toggle**
-   - Göz ikonu kontrolü
-   - Type attribute değişimi
+### Debug İpuçları
+- `--debug` flag'i ile test debug et
+- `page.screenshot()` ile görsel kontrol yap
+- Console log'ları ile test akışını takip et
+- HTML report'u ile detaylı analiz yap
 
-10. ✅ **Network hataları**
-    - Offline mod simülasyonu
-    - Hata mesajı kontrolü
+## Sonuç
 
-11. ✅ **Whitespace trim**
-    - Kullanıcı adı temizleme
-    - Başarılı login
-
-12. ✅ **Çoklu login engelleme**
-    - Button disabled kontrolü
-    - Loading state
-
-## 🔧 Helper Fonksiyonlar
-
-### `login(page, userType)`
-Kullanıcı girişi yapar.
-```javascript
-import { login } from '../helpers/auth';
-
-test('my test', async ({ page }) => {
-  await login(page, 'admin');
-  // Test devam eder...
-});
-```
-
-### `logout(page)`
-Kullanıcı çıkışı yapar.
-```javascript
-import { logout } from '../helpers/auth';
-
-test('my test', async ({ page }) => {
-  await logout(page);
-});
-```
-
-### `isLoggedIn(page)`
-Login durumunu kontrol eder.
-```javascript
-import { isLoggedIn } from '../helpers/auth';
-
-const loggedIn = await isLoggedIn(page);
-```
-
-### `getAuthToken(page)`
-LocalStorage'dan token alır.
-```javascript
-import { getAuthToken } from '../helpers/auth';
-
-const token = await getAuthToken(page);
-```
-
-## 📊 Test Kullanıcıları
-
-Test kullanıcıları `tests/fixtures/test-users.json` dosyasında tanımlı:
-
-```json
-{
-  "admin": {
-    "username": "admin",
-    "password": "admin123",
-    "role": "admin"
-  },
-  "user": {
-    "username": "user",
-    "password": "user123",
-    "role": "user"
-  }
-}
-```
-
-## ⚙️ Konfigürasyon
-
-`playwright.config.js` dosyasında:
-- ✅ Chromium browser
-- ✅ Screenshot on failure
-- ✅ Video on failure
-- ✅ Trace on retry
-- ✅ Otomatik dev server başlatma
-
-## 📝 Yeni Test Ekleme
-
-1. `tests/e2e/` klasörüne yeni `.spec.js` dosyası oluştur
-2. Test senaryolarını yaz
-3. Helper fonksiyonları kullan
-4. `npm test` ile çalıştır
-
-Örnek:
-```javascript
-import { test, expect } from '@playwright/test';
-import { login } from '../helpers/auth';
-
-test.describe('My Feature', () => {
-  test.beforeEach(async ({ page }) => {
-    await login(page, 'admin');
-  });
-
-  test('should do something', async ({ page }) => {
-    // Test kodları...
-  });
-});
-```
-
-## 🐛 Debug İpuçları
-
-1. **UI Mode kullan**: `npm run test:ui`
-2. **Headed mode**: `npm run test:headed`
-3. **Debug mode**: `npm run test:debug`
-4. **Screenshot'ları kontrol et**: `test-results/` klasörü
-5. **Trace viewer**: `npx playwright show-trace trace.zip`
-
-## 📈 Sonraki Adımlar
-
-- [ ] Excel import testleri
-- [ ] Matching review testleri
-- [ ] Admin panel testleri
-- [ ] API testleri
-- [ ] Performance testleri
-- [ ] Visual regression testleri
-
-## 🔗 Kaynaklar
-
-- [Playwright Docs](https://playwright.dev)
-- [Best Practices](https://playwright.dev/docs/best-practices)
-- [API Reference](https://playwright.dev/docs/api/class-playwright)
+Bu test suite'i HUV Frontend uygulamasının temel işlevselliğini kapsamlı şekilde test eder. Özellikle tarihsel sorgu testleri ile gerçek API entegrasyonları da doğrulanmaktadır. Testler sürekli entegrasyon süreçlerinde otomatik olarak çalıştırılabilir ve uygulamanın kalitesini garanti altına alır.

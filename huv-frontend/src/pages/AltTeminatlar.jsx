@@ -37,7 +37,7 @@ import {
   getAltTeminatlar, 
   getAltTeminatIslemler,
 } from '../services/altTeminatService';
-import { toast } from 'react-toastify';
+import ToastManager from '../utils/toastManager';
 
 // ============================================
 // AltTeminatlar Component
@@ -90,7 +90,7 @@ function AltTeminatlar() {
       setTeminatIslemler(islemler);
     } catch (err) {
       console.error('İşlemler yüklenemedi:', err);
-      toast.error('İşlemler yüklenirken hata oluştu');
+      ToastManager.error('İşlemler yüklenirken hata oluştu');
     } finally {
       setIslemlerLoading(false);
     }
