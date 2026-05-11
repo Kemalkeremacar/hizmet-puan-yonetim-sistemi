@@ -35,10 +35,12 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { PageHeader } from '../components/common';
 import { matchingService } from '../services/matchingService';
-import ToastManager from '../utils/toastManager';
+import { showError, showSuccess } from '../utils/toastManager';
 import { useAuth } from '../app/context/AuthContext';
 import HuvTeminatSelectionDialog from '../components/matching/HuvTeminatSelectionDialog';
 import BatchMatchingPanel from '../components/matching/BatchMatchingPanel';
+import { useDebounce } from '../hooks/useDebounce';
+import { ROUTES } from '../app/config/constants';
 
 // ============================================
 // MatchingReview Component
@@ -67,6 +69,7 @@ function MatchingReview() {
     confidenceMin: '',
     confidenceMax: '',
   });
+  const debouncedFilters = useDebounce(filters, 300);
   
   // Dialog
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -78,7 +81,7 @@ function MatchingReview() {
   useEffect(() => {
     fetchResults();
     fetchStats();
-  }, [page, filters]);
+  }, [page, debouncedFilters]);
 
   const fetchResults = async () => {
     try {
@@ -92,7 +95,7 @@ function MatchingReview() {
       console.error('Eşleşmeler yüklenemedi:', err);
       setError(err);
       setResults([]); // Hata durumunda boş array
-      ToastManager.error('Eşleşmeler yüklenirken hata oluştu');
+      showError('Eşleşmeler yüklenirken hata oluştu');
     } finally {
       setLoading(false);
     }
@@ -121,12 +124,12 @@ function MatchingReview() {
   const handleApprove = async (sutId) => {
     try {
       await matchingService.approveMatch(sutId, user.id);
-      ToastManager.success('Eşleşme onaylandı');
+      showSuccess('Eşleşme onaylandı');
       fetchResults();
       fetchStats();
     } catch (err) {
       console.error('Onaylama hatası:', err);
-      ToastManager.error('Eşleşme onaylanırken hata oluştu');
+      showError('Eşleşme onaylanırken hata oluştu');
     }
   };
 
@@ -221,7 +224,7 @@ function MatchingReview() {
           size="large"
           fullWidth
           startIcon={<LinkOffIcon />}
-          onClick={() => navigate('/matching/unmatched')}
+          onClick={() => navigate(ROUTES.unmatchedRecords)}
           sx={{
             py: 2,
             fontSize: '1.1rem',
@@ -472,7 +475,7 @@ function MatchingReview() {
                     </TableCell>
                     <TableCell align="center">
                       <Chip
-                        label={`${match.confidenceScore.toFixed(0)}%`}
+                        label={`${(match.confidenceScore ?? 0).toFixed(0)}%`}
                         size="small"
                         color={getConfidenceColor(match.confidenceScore)}
                         sx={{ fontSize: '0.7rem', height: 20 }}
@@ -497,7 +500,7 @@ function MatchingReview() {
                             size="small"
                             color="success"
                             onClick={() => handleApprove(match.sutId)}
-                            title="Onayla"
+                            aria-label="Eşleşmeyi onayla"
                             sx={{ p: 0.5 }}
                           >
                             <CheckCircleIcon fontSize="small" />
@@ -507,7 +510,7 @@ function MatchingReview() {
                           size="small"
                           color="primary"
                           onClick={() => handleChangeClick(match)}
-                          title="Değiştir"
+                          aria-label="Eşleşmeyi değiştir"
                           sx={{ p: 0.5 }}
                         >
                           <EditIcon fontSize="small" />

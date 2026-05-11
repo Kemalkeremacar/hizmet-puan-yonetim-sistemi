@@ -33,29 +33,8 @@ export const tarihselService = {
   },
 
   // ============================================
-  // GET /api/tarihsel/versiyonlar/:islemId
-  // İşlemin versiyonları
-  // ============================================
-  getVersionlar: (islemId) => {
-    return api.get(`/tarihsel/versiyonlar/${islemId}`);
-  },
-
-  // GET /api/tarihsel/yasam-dongusu/:identifier
-  // HUV işleminin yaşam döngüsü (eklenme, güncellenme, silinme olayları)
-  // ============================================
-  getYasamDongusu: (identifier) => {
-    return api.get(`/tarihsel/yasam-dongusu/${identifier}`);
-  },
-
-  // ============================================
   // SUT TARİHSEL SORGULAR
   // ============================================
-
-  // GET /api/tarihsel/sut/stats
-  // SUT tarihsel istatistikler
-  getSutStats: () => {
-    return api.get('/tarihsel/sut/stats');
-  },
 
   // GET /api/tarihsel/sut/puan
   // Belirli tarihteki SUT puan
@@ -73,23 +52,5 @@ export const tarihselService = {
   // SUT kodunun puan geçmişi
   getSutPuanGecmisi: (identifier) => {
     return api.get(`/tarihsel/sut/gecmis/${identifier}`);
-  },
-
-  // GET /api/tarihsel/sut/versiyonlar/:sutId
-  // SUT kodunun versiyonları
-  getSutVersionlar: (sutId) => {
-    return api.get(`/tarihsel/sut/versiyonlar/${sutId}`);
-  },
-
-  // GET /api/tarihsel/sut/karsilastir
-  // İki SUT versiyonunu karşılaştır
-  karsilastirSutVersiyonlar: (params) => {
-    return api.get('/tarihsel/sut/karsilastir', { params });
-  },
-
-  // GET /api/tarihsel/sut/yasam-dongusu/:identifier
-  // SUT kodunun yaşam döngüsü (eklenme, güncellenme, silinme olayları)
-  getSutYasamDongusu: (identifier) => {
-    return api.get(`/tarihsel/sut/yasam-dongusu/${identifier}`);
   }
 };

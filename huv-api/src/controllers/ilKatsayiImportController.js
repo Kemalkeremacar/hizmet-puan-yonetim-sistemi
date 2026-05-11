@@ -14,30 +14,7 @@ const {
   generateIlKatsayiComparisonReport 
 } = require('../services/ilKatsayiComparisonService');
 
-// ============================================
-// UTILITY FUNCTIONS
-// ============================================
-
-/**
- * Dosya adını düzgün decode et (Türkçe karakter desteği)
- * @param {string} originalname - Orijinal dosya adı
- * @returns {string} Decode edilmiş dosya adı
- */
-const decodeDosyaAdi = (originalname) => {
-  try {
-    // Önce UTF-8 olarak dene
-    const decoded = decodeURIComponent(originalname);
-    return decoded;
-  } catch (err) {
-    // Başarısız olursa latin1 dene
-    try {
-      return Buffer.from(originalname, 'latin1').toString('utf8');
-    } catch (err2) {
-      // Son çare: olduğu gibi kullan
-      return originalname;
-    }
-  }
-};
+const { decodeDosyaAdi } = require('../utils/fileCleanup');
 const { createListeVersiyon } = require('../services/versionManager');
 const {
   getMevcutIlKatsayiData,
@@ -48,6 +25,7 @@ const {
 } = require('../services/ilKatsayiVersionManager');
 const { success, error } = require('../utils/response');
 const { getPool, sql } = require('../config/database');
+const { clearStartDateCache } = require('../utils/dateUtils');
 const fs = require('fs');
 
 // ============================================
@@ -203,18 +181,13 @@ const importIlKatsayiList = async (req, res, next) => {
                         req.headers['x-user-name'] || 
                         'admin';
     
-    // Yükleme tarihini belirle
-    let yuklemeTarihi = req.body.yuklemeTarihi;
-    
-    if (!yuklemeTarihi) {
-      // Dönem başlangıç tarihini kullan (Excel'den çıkarılan)
-      if (parseResult.donemBaslangic) {
-        yuklemeTarihi = new Date(parseResult.donemBaslangic + 'T00:00:00');
-      } else {
-        yuklemeTarihi = new Date();
-      }
+    // Yükleme tarihi: Frontend'den gönderilirse kullan, yoksa server-side import anı.
+    // Excel'deki dönem başlangıcından tarih çıkarma KALDIRILDI - import anı esas alınır.
+    let yuklemeTarihi;
+    if (req.body.yuklemeTarihi) {
+      yuklemeTarihi = new Date(req.body.yuklemeTarihi);
     } else {
-      yuklemeTarihi = new Date(yuklemeTarihi);
+      yuklemeTarihi = new Date();
     }
     
     const versionID = await createListeVersiyon(
@@ -316,6 +289,8 @@ const importIlKatsayiList = async (req, res, next) => {
     
     const endTime = Date.now();
     const duration = ((endTime - startTime) / 1000).toFixed(2);
+    
+    clearStartDateCache();
     
     // 11. Sonuç döndür
     return success(res, {

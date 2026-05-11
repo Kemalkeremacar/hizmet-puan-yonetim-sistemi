@@ -9,19 +9,17 @@ const { getPool, sql } = require('../config/database');
 // ============================================
 // Yeni liste versiyonu oluştur
 // ============================================
-const createListeVersiyon = async (dosyaAdi, kayitSayisi, aciklama, kullaniciAdi = null, yuklemeTarihi = null, listeTipi = 'HUV') => {
+const createListeVersiyon = async (dosyaAdi, kayitSayisi, aciklama, kullaniciAdi = null, yuklemeTarihi = null, listeTipi = 'HUV', externalTransaction = null) => {
   try {
-    const pool = await getPool();
+    const requestor = externalTransaction || await getPool();
     
-    // Kullanıcı adını belirle
     const yukleyenKullanici = kullaniciAdi || 
                               process.env.DEFAULT_USER || 
                               'system';
     
-    // Yükleme tarihini belirle (parametre verilmemişse şimdi)
     const tarih = yuklemeTarihi ? new Date(yuklemeTarihi) : new Date();
     
-    const result = await pool.request()
+    const result = await requestor.request()
       .input('ListeTipi', sql.NVarChar, listeTipi)
       .input('YuklemeTarihi', sql.DateTime, tarih)
       .input('DosyaAdi', sql.NVarChar, dosyaAdi)
@@ -79,20 +77,22 @@ const getMevcutHuvData = async () => {
 // ============================================
 // İşlem güncelle (SCD Type 2 ile)
 // ============================================
-const updateIslemWithVersion = async (islemID, yeniData, versionID, yuklemeTarihi) => {
+const updateIslemWithVersion = async (islemID, yeniData, versionID, yuklemeTarihi, externalTransaction = null) => {
   try {
     const pool = await getPool();
     const baslangicTarihi = yuklemeTarihi ? new Date(yuklemeTarihi) : new Date();
     
-    // Transaction başlat (DEADLOCK PROTECTION)
-    const transaction = pool.transaction();
-    await transaction.begin(sql.ISOLATION_LEVEL.READ_COMMITTED);
+    const useExternalTx = !!externalTransaction;
+    const transaction = useExternalTx ? externalTransaction : pool.transaction();
+    
+    if (!useExternalTx) {
+      await transaction.begin(sql.ISOLATION_LEVEL.READ_COMMITTED);
+    }
     
     try {
-      // 1. Eski aktif versiyonu kapat (IslemVersionlar)
       await transaction.request()
         .input('IslemID', sql.Int, islemID)
-        .input('BitisTarihi', sql.Date, new Date(baslangicTarihi.getTime() - 86400000)) // 1 gün öncesi
+        .input('BitisTarihi', sql.Date, new Date(baslangicTarihi.getTime() - 86400000))
         .query(`
           UPDATE IslemVersionlar
           SET 
@@ -101,7 +101,6 @@ const updateIslemWithVersion = async (islemID, yeniData, versionID, yuklemeTarih
           WHERE IslemID = @IslemID AND AktifMi = 1
         `);
       
-      // 2. Yeni versiyon ekle (IslemVersionlar)
       await transaction.request()
         .input('IslemID', sql.Int, islemID)
         .input('HuvKodu', sql.Float, yeniData.HuvKodu)
@@ -123,7 +122,6 @@ const updateIslemWithVersion = async (islemID, yeniData, versionID, yuklemeTarih
           )
         `);
       
-      // 3. Ana tablodaki kaydı güncelle (Islemler)
       await transaction.request()
         .input('IslemID', sql.Int, islemID)
         .input('IslemAdi', sql.NVarChar, yeniData.IslemAdi)
@@ -143,11 +141,14 @@ const updateIslemWithVersion = async (islemID, yeniData, versionID, yuklemeTarih
           WHERE IslemID = @IslemID
         `);
       
-      
-      await transaction.commit();
+      if (!useExternalTx) {
+        await transaction.commit();
+      }
       return true;
     } catch (error) {
-      await transaction.rollback();
+      if (!useExternalTx) {
+        await transaction.rollback();
+      }
       throw error;
     }
   } catch (error) {
@@ -159,14 +160,16 @@ const updateIslemWithVersion = async (islemID, yeniData, versionID, yuklemeTarih
 // Yeni işlem ekle
 // Eğer HUV kodu daha önce kullanılmışsa (silinmiş), eski IslemID'yi kullan
 // ============================================
-const addNewIslem = async (yeniData, versionID, yuklemeTarihi) => {
+const addNewIslem = async (yeniData, versionID, yuklemeTarihi, externalTransaction = null) => {
   const pool = await getPool();
-  const transaction = pool.transaction();
+  const useExternalTx = !!externalTransaction;
+  const transaction = useExternalTx ? externalTransaction : pool.transaction();
   
   try {
-    await transaction.begin(sql.ISOLATION_LEVEL.READ_COMMITTED);
+    if (!useExternalTx) {
+      await transaction.begin(sql.ISOLATION_LEVEL.READ_COMMITTED);
+    }
     
-    // HUV kodu daha önce kullanılmış mı kontrol et (aktif veya pasif)
     const mevcutIslemResult = await transaction.request()
       .input('HuvKodu', sql.Float, yeniData.HuvKodu)
       .query(`
@@ -181,7 +184,6 @@ const addNewIslem = async (yeniData, versionID, yuklemeTarihi) => {
     let reaktive = false;
     
     if (mevcutIslemResult.recordset.length > 0) {
-      // Daha önce kullanılmış
       nextId = mevcutIslemResult.recordset[0].IslemID;
       const aktifMi = mevcutIslemResult.recordset[0].AktifMi;
       
@@ -206,8 +208,6 @@ const addNewIslem = async (yeniData, versionID, yuklemeTarihi) => {
                 GuncellemeTarihiDate = GETDATE()
             WHERE IslemID = @IslemID
           `);
-      } else {
-        // Mevcut aktif kayıt kullanılıyor
       }
     } else {
       const maxIdResult = await transaction.request().query('SELECT ISNULL(MAX(IslemID), 0) + 1 as NextID FROM HuvIslemler WITH (TABLOCKX)');
@@ -215,12 +215,10 @@ const addNewIslem = async (yeniData, versionID, yuklemeTarihi) => {
       yeniKayit = true;
     }
     
-    // Tarihleri hazırla
     const eklemeTarihi = yeniData.EklemeTarihi ? new Date(yeniData.EklemeTarihi) : new Date();
     const guncellemeTarihi = yeniData.GuncellemeTarihi ? new Date(yeniData.GuncellemeTarihi) : new Date();
     const baslangicTarihi = yuklemeTarihi ? new Date(yuklemeTarihi) : new Date();
     
-    // 1. Islemler tablosuna ekle (sadece yeni kayıt ise)
     if (yeniKayit) {
       await transaction.request()
         .input('IslemID', sql.Int, nextId)
@@ -250,7 +248,6 @@ const addNewIslem = async (yeniData, versionID, yuklemeTarihi) => {
         `);
     }
     
-    // 2. IslemVersionlar tablosuna yeni versiyon kaydı ekle
     await transaction.request()
       .input('IslemID', sql.Int, nextId)
       .input('HuvKodu', sql.Float, yeniData.HuvKodu)
@@ -272,7 +269,6 @@ const addNewIslem = async (yeniData, versionID, yuklemeTarihi) => {
         )
       `);
     
-    // 3. Audit kaydı ekle
     await transaction.request()
       .input('IslemID', sql.Int, nextId)
       .input('IslemTipi', sql.NVarChar, 'INSERT')
@@ -289,11 +285,14 @@ const addNewIslem = async (yeniData, versionID, yuklemeTarihi) => {
         VALUES (@IslemID, @IslemTipi, @EskiBirim, @YeniBirim, GETDATE(), @DegistirenKullanici, @Aciklama)
       `);
     
-    
-    await transaction.commit();
+    if (!useExternalTx) {
+      await transaction.commit();
+    }
     return nextId;
   } catch (error) {
-    await transaction.rollback();
+    if (!useExternalTx) {
+      await transaction.rollback();
+    }
     throw new Error(`Yeni işlem eklenemedi: ${error.message}`);
   }
 };
@@ -302,17 +301,20 @@ const addNewIslem = async (yeniData, versionID, yuklemeTarihi) => {
 // İşlemi pasif yap (Excel'den silinenleri işaretlemek için)
 // Fiziksel silme yerine AktifMi = 0 yapıyoruz
 // ============================================
-const deactivateIslem = async (islemID, versionID, yuklemeTarihi) => {
+const deactivateIslem = async (islemID, versionID, yuklemeTarihi, externalTransaction = null) => {
   try {
     const pool = await getPool();
-    const transaction = pool.transaction();
-    await transaction.begin();
+    const useExternalTx = !!externalTransaction;
+    const transaction = useExternalTx ? externalTransaction : pool.transaction();
+
+    if (!useExternalTx) {
+      await transaction.begin();
+    }
 
     const silinmeTarihi = yuklemeTarihi ? new Date(yuklemeTarihi) : new Date();
-    const bitisTarihi = new Date(silinmeTarihi.getTime() - 86400000); // 1 gün öncesi
+    const bitisTarihi = new Date(silinmeTarihi.getTime() - 86400000);
 
     try {
-      // Önce işlem bilgisini al (audit için)
       const islemResult = await transaction.request()
         .input('IslemID', sql.Int, islemID)
         .query('SELECT HuvKodu, IslemAdi, Birim, SutKodu, [Not] FROM HuvIslemler WHERE IslemID = @IslemID');
@@ -320,7 +322,6 @@ const deactivateIslem = async (islemID, versionID, yuklemeTarihi) => {
       if (islemResult.recordset.length > 0) {
         const islem = islemResult.recordset[0];
 
-        // 1. IslemVersionlar'daki aktif versiyonu kapat
         await transaction.request()
           .input('IslemID', sql.Int, islemID)
           .input('BitisTarihi', sql.Date, bitisTarihi)
@@ -330,7 +331,6 @@ const deactivateIslem = async (islemID, versionID, yuklemeTarihi) => {
             WHERE IslemID = @IslemID AND AktifMi = 1
           `);
 
-        // 2. Silinen işlem için IslemVersionlar'a kayıt ekle
         await transaction.request()
           .input('IslemID', sql.Int, islemID)
           .input('ListeVersiyonID', sql.Int, versionID)
@@ -354,12 +354,10 @@ const deactivateIslem = async (islemID, versionID, yuklemeTarihi) => {
             )
           `);
 
-        // 3. Islemler'de AktifMi = 0 yap
         await transaction.request()
           .input('IslemID', sql.Int, islemID)
           .query(`UPDATE HuvIslemler SET AktifMi = 0 WHERE IslemID = @IslemID`);
 
-        // 4. Audit kaydı ekle
         await transaction.request()
           .input('IslemID', sql.Int, islemID)
           .input('IslemTipi', sql.NVarChar, 'DELETE')
@@ -373,10 +371,14 @@ const deactivateIslem = async (islemID, versionID, yuklemeTarihi) => {
           `);
       }
 
-      await transaction.commit();
+      if (!useExternalTx) {
+        await transaction.commit();
+      }
       return true;
     } catch (error) {
-      await transaction.rollback();
+      if (!useExternalTx) {
+        await transaction.rollback();
+      }
       throw error;
     }
   } catch (error) {
@@ -387,19 +389,22 @@ const deactivateIslem = async (islemID, versionID, yuklemeTarihi) => {
 // ============================================
 // Değişmeyen işlem için versiyon kaydı oluştur
 // ============================================
-const copyUnchangedIslemToVersion = async (islemID, mevcutData, versionID, yuklemeTarihi) => {
+const copyUnchangedIslemToVersion = async (islemID, mevcutData, versionID, yuklemeTarihi, externalTransaction = null) => {
   try {
     const pool = await getPool();
     const baslangicTarihi = yuklemeTarihi ? new Date(yuklemeTarihi) : new Date();
     
-    const transaction = pool.transaction();
-    await transaction.begin();
+    const useExternalTx = !!externalTransaction;
+    const transaction = useExternalTx ? externalTransaction : pool.transaction();
+    
+    if (!useExternalTx) {
+      await transaction.begin();
+    }
     
     try {
-      // 1. Eski aktif versiyonu kapat (IslemVersionlar)
       await transaction.request()
         .input('IslemID', sql.Int, islemID)
-        .input('BitisTarihi', sql.Date, new Date(baslangicTarihi.getTime() - 86400000)) // 1 gün öncesi
+        .input('BitisTarihi', sql.Date, new Date(baslangicTarihi.getTime() - 86400000))
         .query(`
           UPDATE IslemVersionlar
           SET 
@@ -408,7 +413,6 @@ const copyUnchangedIslemToVersion = async (islemID, mevcutData, versionID, yukle
           WHERE IslemID = @IslemID AND AktifMi = 1
         `);
       
-      // 2. Aynı veriyle yeni versiyon ekle (IslemVersionlar)
       await transaction.request()
         .input('IslemID', sql.Int, islemID)
         .input('HuvKodu', sql.Float, mevcutData.HuvKodu)
@@ -430,7 +434,6 @@ const copyUnchangedIslemToVersion = async (islemID, mevcutData, versionID, yukle
           )
         `);
       
-      // 3. Ana tabloda sadece ListeVersiyonID güncelle
       await transaction.request()
         .input('IslemID', sql.Int, islemID)
         .input('ListeVersiyonID', sql.Int, versionID)
@@ -440,10 +443,14 @@ const copyUnchangedIslemToVersion = async (islemID, mevcutData, versionID, yukle
           WHERE IslemID = @IslemID
         `);
       
-      await transaction.commit();
+      if (!useExternalTx) {
+        await transaction.commit();
+      }
       return true;
     } catch (error) {
-      await transaction.rollback();
+      if (!useExternalTx) {
+        await transaction.rollback();
+      }
       throw error;
     }
   } catch (error) {

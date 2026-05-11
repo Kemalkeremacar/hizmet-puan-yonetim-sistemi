@@ -4,7 +4,7 @@
 // Excel'den HUV listesi yükleme
 // ============================================
 
-const { parseHuvExcel, validateHuvData, normalizeHuvData, extractDateFromFilename } = require('../services/excelParser');
+const { parseHuvExcel, validateHuvData, normalizeHuvData } = require('../services/excelParser');
 const { compareHuvLists, generateComparisonReport } = require('../services/comparisonService');
 const {
   createListeVersiyon,
@@ -16,32 +16,9 @@ const {
 } = require('../services/versionManager');
 const { success, error } = require('../utils/response');
 const { getPool, sql } = require('../config/database');
+const { clearStartDateCache } = require('../utils/dateUtils');
+const { decodeDosyaAdi } = require('../utils/fileCleanup');
 const fs = require('fs');
-
-// ============================================
-// UTILITY FUNCTIONS
-// ============================================
-
-/**
- * Dosya adını düzgün decode et (Türkçe karakter desteği)
- * @param {string} originalname - Orijinal dosya adı
- * @returns {string} Decode edilmiş dosya adı
- */
-const decodeDosyaAdi = (originalname) => {
-  try {
-    // Önce UTF-8 olarak dene
-    const decoded = decodeURIComponent(originalname);
-    return decoded;
-  } catch (err) {
-    // Başarısız olursa latin1 dene
-    try {
-      return Buffer.from(originalname, 'latin1').toString('utf8');
-    } catch (err2) {
-      // Son çare: olduğu gibi kullan
-      return originalname;
-    }
-  }
-};
 
 // ============================================
 // POST /api/admin/import/preview
@@ -153,6 +130,7 @@ const importHuvList = async (req, res, next) => {
     
     // Dosya boyutu kontrolü
     if (req.file.size > 10 * 1024 * 1024) {
+      const fileSizeMB = (req.file.size / (1024 * 1024)).toFixed(2);
       return error(res, `Dosya boyutu çok büyük (${fileSizeMB} MB)`, 400, {
         tip: 'DOSYA_BOYUTU',
         cozum: 'Dosya boyutu 10 MB\'dan küçük olmalıdır'
@@ -207,31 +185,25 @@ const importHuvList = async (req, res, next) => {
                         req.headers['x-user-name'] || 
                         'admin';
     
-    // Yükleme tarihini al
-    // 1. Önce body'den al (frontend'den gönderilirse)
-    // 2. Dosya adından çıkarmayı dene (07.10.2025.xls → 2025-10-07)
-    // 3. Yoksa bugünün tarihini kullan
-    let yuklemeTarihi = req.body.yuklemeTarihi;
-    
-    if (!yuklemeTarihi) {
-      const extractedDate = extractDateFromFilename(dosyaAdi);
-      yuklemeTarihi = extractedDate ? new Date(extractedDate) : new Date();
+    // Yükleme tarihi: Frontend'den gönderilirse kullan, yoksa server-side import anı.
+    // Dosya adından tarih çıkarma KALDIRILDI - import anı esas alınır.
+    let yuklemeTarihi;
+    if (req.body.yuklemeTarihi) {
+      yuklemeTarihi = new Date(req.body.yuklemeTarihi);
     } else {
-      // String ise Date objesine çevir
-      yuklemeTarihi = new Date(yuklemeTarihi);
+      yuklemeTarihi = new Date();
     }
     
-    // 8. Değişiklikleri uygula
-    // NOT: Her fonksiyon kendi transaction'ını kullanıyor (nested transaction sorunu yok)
-    // Hata durumunda ListeVersiyon'u silmek için try-catch kullanıyoruz
-    
+    // 8. Değişiklikleri atomik olarak uygula (tek transaction)
     const yuklemeTarihiDate = new Date(yuklemeTarihi);
     let eklenenSayisi = 0;
     let guncellenenSayisi = 0;
     let pasifYapilanSayisi = 0;
     let kopyalananSayisi = 0;
-    const hatalar = [];
     let versionID = null;
+    
+    const transaction = pool.transaction();
+    await transaction.begin(sql.ISOLATION_LEVEL.READ_COMMITTED);
     
     try {
       versionID = await createListeVersiyon(
@@ -239,82 +211,42 @@ const importHuvList = async (req, res, next) => {
         normalizedData.length,
         `${comparison.summary.added} eklendi, ${comparison.summary.updated} güncellendi`,
         kullaniciAdi,
-        yuklemeTarihi
+        yuklemeTarihi,
+        'HUV',
+        transaction
       );
       
       // Yeni eklenenleri ekle
       for (const item of comparison.added) {
-        try {
-          const yeniData = normalizedData.find(d => d.HuvKodu === item.HuvKodu);
-          await addNewIslem(yeniData, versionID, yuklemeTarihiDate);
-          eklenenSayisi++;
-        } catch (err) {
-          console.error(`❌ Ekleme hatası [${item.HuvKodu}]:`, err.message);
-          hatalar.push({
-            HuvKodu: item.HuvKodu,
-            hata: err.message,
-            tip: 'EKLEME_HATASI'
-          });
-          // Hata durumunda tüm işlemi durdur
-          throw new Error(`Ekleme hatası: ${item.HuvKodu} - ${err.message}`);
-        }
+        const yeniData = normalizedData.find(d => d.HuvKodu === item.HuvKodu);
+        await addNewIslem(yeniData, versionID, yuklemeTarihiDate, transaction);
+        eklenenSayisi++;
       }
       
       // Güncellenenleri güncelle (SCD Type 2)
       for (const item of comparison.updated) {
-        try {
-          const eskiIslem = mevcutData.find(d => d.HuvKodu === item.HuvKodu);
-          const yeniData = normalizedData.find(d => d.HuvKodu === item.HuvKodu);
-          
-          await updateIslemWithVersion(eskiIslem.IslemID, yeniData, versionID, yuklemeTarihi);
-          guncellenenSayisi++;
-        } catch (err) {
-          console.error(`❌ Güncelleme hatası [${item.HuvKodu}]:`, err.message);
-          hatalar.push({
-            HuvKodu: item.HuvKodu,
-            hata: err.message,
-            tip: 'GUNCELLEME_HATASI'
-          });
-          throw new Error(`Güncelleme hatası: ${item.HuvKodu} - ${err.message}`);
-        }
+        const eskiIslem = mevcutData.find(d => d.HuvKodu === item.HuvKodu);
+        const yeniData = normalizedData.find(d => d.HuvKodu === item.HuvKodu);
+        await updateIslemWithVersion(eskiIslem.IslemID, yeniData, versionID, yuklemeTarihi, transaction);
+        guncellenenSayisi++;
       }
       
       // Silinenleri pasif yap
       for (const item of comparison.deleted) {
-        try {
-          const eskiIslem = mevcutData.find(d => d.HuvKodu === item.HuvKodu);
-          await deactivateIslem(eskiIslem.IslemID, versionID, yuklemeTarihi);
-          pasifYapilanSayisi++;
-        } catch (err) {
-          console.error(`❌ Pasif yapma hatası [${item.HuvKodu}]:`, err.message);
-          hatalar.push({
-            HuvKodu: item.HuvKodu,
-            hata: err.message,
-            tip: 'PASIF_YAPMA_HATASI'
-          });
-          throw new Error(`Pasif yapma hatası: ${item.HuvKodu} - ${err.message}`);
-        }
+        const eskiIslem = mevcutData.find(d => d.HuvKodu === item.HuvKodu);
+        await deactivateIslem(eskiIslem.IslemID, versionID, yuklemeTarihi, transaction);
+        pasifYapilanSayisi++;
       }
       
-      // Değişmeyenleri yeni versiyona kopyala (IslemVersionlar'a da kaydet!)
+      // Değişmeyenleri yeni versiyona kopyala
       for (const item of comparison.unchanged) {
-        try {
-          const eskiIslem = mevcutData.find(d => d.HuvKodu === item.HuvKodu);
-          await copyUnchangedIslemToVersion(eskiIslem.IslemID, eskiIslem, versionID, yuklemeTarihi);
-          kopyalananSayisi++;
-        } catch (err) {
-          console.error(`❌ Kopyalama hatası [${item.HuvKodu}]:`, err.message);
-          hatalar.push({
-            HuvKodu: item.HuvKodu,
-            hata: err.message,
-            tip: 'KOPYALAMA_HATASI'
-          });
-          throw new Error(`Kopyalama hatası: ${item.HuvKodu} - ${err.message}`);
-        }
+        const eskiIslem = mevcutData.find(d => d.HuvKodu === item.HuvKodu);
+        await copyUnchangedIslemToVersion(eskiIslem.IslemID, eskiIslem, versionID, yuklemeTarihi, transaction);
+        kopyalananSayisi++;
       }
       
       // ListeVersiyon tablosundaki özet sayıları güncelle
-      await pool.request()
+      await transaction.request()
         .input('versionId', sql.Int, versionID)
         .input('eklenenSayisi', sql.Int, eklenenSayisi)
         .input('guncellenenSayisi', sql.Int, guncellenenSayisi)
@@ -327,6 +259,9 @@ const importHuvList = async (req, res, next) => {
             SilinenSayisi = @silinenSayisi
           WHERE VersionID = @versionId
         `);
+      
+      await transaction.commit();
+      clearStartDateCache();
       
       // 9. Rapor oluştur
       const report = generateComparisonReport(comparison);
@@ -353,19 +288,12 @@ const importHuvList = async (req, res, next) => {
       }, 'HUV listesi başarıyla yüklendi', 201);
       
     } catch (err) {
-      // Hata durumunda ListeVersiyon'u sil (eğer oluşturulduysa)
-      if (versionID) {
-        try {
-          await pool.request()
-            .input('versionId', sql.Int, versionID)
-            .query('DELETE FROM ListeVersiyon WHERE VersionID = @versionId');
-          console.log(`⚠️ Hata nedeniyle ListeVersiyon (${versionID}) silindi`);
-        } catch (deleteErr) {
-          console.error(`❌ ListeVersiyon silme hatası:`, deleteErr.message);
-        }
+      // Transaction rollback - tüm değişiklikler geri alınır
+      try {
+        await transaction.rollback();
+      } catch (rollbackErr) {
+        console.error('Transaction rollback hatası:', rollbackErr.message);
       }
-      
-      // Hata mesajını yeniden fırlat
       throw err;
     }
     
@@ -418,7 +346,6 @@ const getImportHistory = async (req, res, next) => {
     const { page = 1, limit = 20 } = req.query;
     const offset = (page - 1) * limit;
     
-    const { getPool, sql } = require('../config/database');
     const pool = await getPool();
     
     // Toplam kayıt

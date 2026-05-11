@@ -36,8 +36,9 @@ import {
   ExpandMore as ExpandMoreIcon,
   ExpandLess as ExpandLessIcon,
 } from '@mui/icons-material';
-import { PageHeader } from '../components/common';
-import axios from '../api/axios';
+import { PageHeader, ErrorAlert } from '../components/common';
+import { sutService } from '../services/sutService';
+import { useDebounce } from '../hooks/useDebounce';
 
 // ============================================
 // SutListe Component
@@ -48,6 +49,7 @@ function SutListe() {
   const [hiyerarsi, setHiyerarsi] = useState([]);
   const [selectedSut, setSelectedSut] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const debouncedSearch = useDebounce(searchTerm, 300);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [expandedNodes, setExpandedNodes] = useState({}); // Genişletilmiş node'lar
@@ -62,17 +64,11 @@ function SutListe() {
   const fetchAnaBasliklar = async () => {
     try {
       setLoading(true);
-      const response = await axios.get('/sut/ana-basliklar');
-      
-      // API response: {success: true, message: "...", data: [...]}
+      const response = await sutService.getAnaBasliklar();
       const apiData = response.data?.data || response.data || response;
       setAnaBasliklar(apiData);
     } catch (err) {
-      console.error('Ana başlıklar yüklenemedi:', {
-        message: err.message,
-        response: err.response?.data,
-        timestamp: new Date().toISOString()
-      });
+      console.error('Ana başlıklar yüklenemedi:', err.message);
       setError(err);
     } finally {
       setLoading(false);
@@ -90,12 +86,7 @@ function SutListe() {
     try {
       setLoading(true);
       
-      // Hiyerarşi ağacını çek
-      const response = await axios.get('/sut/hiyerarsi', {
-        params: { anaBaslikNo: anaBaslik.AnaBaslikNo }
-      });
-      
-      // API response: {success: true, message: "...", data: [...]}
+      const response = await sutService.getHiyerarsi(anaBaslik.AnaBaslikNo);
       const apiData = response.data?.data || response.data || response;
       
       // Ağaç yapısına çevir
@@ -367,7 +358,7 @@ function SutListe() {
             icon: <DescriptionIcon color={isSelected ? "success" : "action"} fontSize="small" />,
             fontWeight: 400,
             fontSize: '0.8125rem',
-            bgcolor: isSelected ? 'success.lighter' : 'transparent'
+            bgcolor: isSelected ? 'rgba(76, 175, 80, 0.08)' : 'transparent'
           };
         default:
           return { 
@@ -479,8 +470,8 @@ function SutListe() {
   // Arama
   // ============================================
   const filteredAnaBasliklar = anaBasliklar.filter(ab =>
-    ab.AnaBaslikAdi?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    ab.AnaBaslikNo?.toString().includes(searchTerm)
+    ab.AnaBaslikAdi?.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+    ab.AnaBaslikNo?.toString().includes(debouncedSearch)
   );
 
   // ============================================
@@ -498,7 +489,7 @@ function SutListe() {
       {/* Ana İçerik */}
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
         {/* Üst Panel - Ana Başlıklar ve Hiyerarşi */}
-        <Box sx={{ display: 'flex', gap: 2, height: 'calc(100vh - 350px)' }}>
+        <Box sx={{ display: 'flex', gap: 2, minHeight: 400, height: 'calc(100vh - 320px)' }}>
           {/* Sol Panel - Ana Başlıklar */}
           <Paper sx={{ width: '30%', p: 2, overflow: 'auto' }}>
             <TextField
@@ -531,7 +522,7 @@ function SutListe() {
                 <CircularProgress size={40} />
               </Box>
             ) : error ? (
-              <Alert severity="error">Yükleme hatası</Alert>
+              <ErrorAlert error={error} />
             ) : (
               <List dense>
                 {filteredAnaBasliklar.map((anaBaslik) => (
@@ -774,7 +765,7 @@ function SutListe() {
                     {/* SUT Üst Teminat */}
                     <Box sx={{ 
                       p: 2, 
-                      bgcolor: 'info.lighter', 
+                      bgcolor: 'rgba(33, 150, 243, 0.08)', 
                       borderRadius: 1,
                       border: '1px solid',
                       borderColor: 'info.light'
@@ -790,7 +781,7 @@ function SutListe() {
                     {/* SUT Alt Teminat */}
                     <Box sx={{ 
                       p: 2, 
-                      bgcolor: 'info.lighter', 
+                      bgcolor: 'rgba(33, 150, 243, 0.08)', 
                       borderRadius: 1,
                       border: '1px solid',
                       borderColor: 'info.light'
@@ -806,7 +797,7 @@ function SutListe() {
                     {/* HUV Üst Teminat */}
                     <Box sx={{ 
                       p: 2, 
-                      bgcolor: 'success.lighter', 
+                      bgcolor: 'rgba(76, 175, 80, 0.08)', 
                       borderRadius: 1,
                       border: '1px solid',
                       borderColor: 'success.light'
@@ -822,7 +813,7 @@ function SutListe() {
                     {/* HUV Alt Teminat */}
                     <Box sx={{ 
                       p: 2, 
-                      bgcolor: 'success.lighter', 
+                      bgcolor: 'rgba(76, 175, 80, 0.08)', 
                       borderRadius: 1,
                       border: '1px solid',
                       borderColor: 'success.light'

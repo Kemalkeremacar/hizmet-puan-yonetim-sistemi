@@ -6,7 +6,7 @@
 
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import axios from '../../api/axios';
-import { showError, showSuccess } from '../../utils/toast';
+import { showError, showSuccess } from '../../utils/toastManager';
 
 const AuthContext = createContext();
 

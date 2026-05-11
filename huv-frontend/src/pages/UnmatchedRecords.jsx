@@ -30,16 +30,14 @@ import {
   Refresh as RefreshIcon,
 } from '@mui/icons-material';
 import { PageHeader } from '../components/common';
-import ToastManager from '../utils/toastManager';
-import { useAuth } from '../app/context/AuthContext';
+import { showError, showSuccess } from '../utils/toastManager';
 import HuvTeminatSelectionDialog from '../components/matching/HuvTeminatSelectionDialog';
-import axios from '../api/axios';
+import { sutService } from '../services/sutService';
 
 // ============================================
 // UnmatchedRecords Component
 // ============================================
 function UnmatchedRecords() {
-  const { user } = useAuth();
   const [records, setRecords] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -63,18 +61,14 @@ function UnmatchedRecords() {
   const fetchUnmatchedRecords = async () => {
     try {
       setLoading(true);
-      const response = await axios.get('/sut/unmatched', {
-        params: { page, limit }
-      });
-      
-      // Axios interceptor response.data döndürüyor
+      const response = await sutService.getUnmatched(page, limit);
       setRecords(response.data || []);
       setTotalPages(response.pagination?.totalPages || 1);
     } catch (err) {
       console.error('Eşleşmemiş kayıtlar yüklenemedi:', err);
       setError(err);
       setRecords([]);
-      toast.error('Eşleşmemiş kayıtlar yüklenirken hata oluştu');
+      showError('Eşleşmemiş kayıtlar yüklenirken hata oluştu');
     } finally {
       setLoading(false);
     }
@@ -103,7 +97,7 @@ function UnmatchedRecords() {
     setDialogOpen(false);
     setSelectedRecord(null);
     fetchUnmatchedRecords();
-    toast.success('Eşleşme oluşturuldu');
+    showSuccess('Eşleşme oluşturuldu');
   };
 
   // ============================================

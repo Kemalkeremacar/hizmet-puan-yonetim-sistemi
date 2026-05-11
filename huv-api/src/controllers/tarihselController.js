@@ -10,10 +10,9 @@ const { success, error } = require('../utils/response');
 const { 
   isValidDate, 
   isFutureDate, 
-  validateDateRange,
   validateStartDate,
   validateDateRangeWithStart,
-  HUV_START_DATE
+  getStartDate
 } = require('../utils/dateUtils');
 
 // ============================================
@@ -47,12 +46,13 @@ const getFiyatByTarih = async (req, res, next) => {
     }
 
     // Başlangıç tarihi kontrolü (HUV için 07.10.2025)
-    const startDateValidation = validateStartDate(tarih, 'HUV');
+    const huvStartDate = await getStartDate('HUV');
+    const startDateValidation = await validateStartDate(tarih, 'HUV');
     if (!startDateValidation.valid) {
       return error(res, startDateValidation.error, 400, {
         tip: startDateValidation.tip || 'TARIH_BASLANGIC_ONDEN',
-        cozum: startDateValidation.cozum || `HUV listesi için sorgu yapılabilecek en eski tarih ${HUV_START_DATE} tarihidir.`,
-        baslangicTarihi: HUV_START_DATE,
+        cozum: startDateValidation.cozum || `HUV listesi için sorgu yapılabilecek en eski tarih ${huvStartDate} tarihidir.`,
+        baslangicTarihi: huvStartDate,
         girilenTarih: tarih
       });
     }
@@ -91,12 +91,13 @@ const getDegişenler = async (req, res, next) => {
     const { baslangic, bitis, anaDalKodu } = req.query;
 
     // Tarih aralığı validasyonu (başlangıç tarihi kontrolü dahil)
-    const validation = validateDateRangeWithStart(baslangic, bitis, 'HUV');
+    const huvStartDate = await getStartDate('HUV');
+    const validation = await validateDateRangeWithStart(baslangic, bitis, 'HUV');
     if (!validation.valid) {
       return error(res, validation.error, 400, {
         tip: validation.tip || 'GECERSIZ_TARIH_ARALIGI',
-        cozum: validation.cozum || `HUV listesi için sorgu yapılabilecek en eski tarih ${HUV_START_DATE} tarihidir.`,
-        baslangicTarihi: HUV_START_DATE,
+        cozum: validation.cozum || `HUV listesi için sorgu yapılabilecek en eski tarih ${huvStartDate} tarihidir.`,
+        baslangicTarihi: huvStartDate,
         girilenBaslangic: baslangic,
         girilenBitis: bitis
       });
@@ -127,15 +128,30 @@ const getFiyatGecmisi = async (req, res, next) => {
     const { identifier } = req.params;
     const pool = await getPool();
 
-    // Identifier sayı mı yoksa HUV kodu mu kontrol et
+    // Identifier: önce IslemID olarak dene, bulamazsa HUV kodu olarak ara
     const isNumericId = /^\d+$/.test(identifier);
     let islemId;
 
-    if (isNumericId && parseInt(identifier) < 100000) {
-      // Küçük sayı = İşlem ID
-      islemId = parseInt(identifier);
+    if (isNumericId) {
+      const numericVal = parseInt(identifier);
+      const idCheck = await pool.request()
+        .input('IslemID', sql.Int, numericVal)
+        .query('SELECT IslemID FROM HuvIslemler WHERE IslemID = @IslemID');
+      
+      if (idCheck.recordset.length > 0) {
+        islemId = numericVal;
+      } else {
+        const huvKodu = parseFloat(identifier);
+        const codeCheck = await pool.request()
+          .input('HuvKodu', sql.Float, huvKodu)
+          .query('SELECT IslemID FROM HuvIslemler WHERE HuvKodu = @HuvKodu');
+        if (codeCheck.recordset.length > 0) {
+          islemId = codeCheck.recordset[0].IslemID;
+        } else {
+          return error(res, 'Bu HUV koduna veya ID\'ye sahip işlem bulunamadı', 404);
+        }
+      }
     } else {
-      // HUV Kodu - önce işlem ID'yi bul
       const huvKodu = parseFloat(identifier);
       const islemResult = await pool.request()
         .input('HuvKodu', sql.Float, huvKodu)
@@ -187,15 +203,16 @@ const getFiyatGecmisi = async (req, res, next) => {
       ? new Date(enEskiVersiyon.GecerlilikBaslangic).toISOString().split('T')[0]
       : null;
 
+    const huvStartDate = await getStartDate('HUV');
     return success(res, {
       islem: islemInfo,
       versiyonlar: versiyonlar,
       auditGecmisi: auditGecmisi,
       mevcutMu: mevcutMu,
-      baslangicTarihi: HUV_START_DATE,
+      baslangicTarihi: huvStartDate,
       enEskiVersiyonTarihi: enEskiTarih,
-      uyari: enEskiTarih && new Date(enEskiTarih) < new Date(HUV_START_DATE)
-        ? `Not: Bu işlemin bazı versiyonları başlangıç tarihinden (${HUV_START_DATE}) önce olabilir. Sistemde sorgu yapılabilecek en eski tarih ${HUV_START_DATE} tarihidir.`
+      uyari: enEskiTarih && new Date(enEskiTarih) < new Date(huvStartDate)
+        ? `Not: Bu işlemin bazı versiyonları başlangıç tarihinden (${huvStartDate}) önce olabilir. Sistemde sorgu yapılabilecek en eski tarih ${huvStartDate} tarihidir.`
         : null
     }, 'Fiyat geçmişi');
   } catch (err) {
@@ -242,15 +259,33 @@ const getYasamDongusu = async (req, res, next) => {
     const { identifier } = req.params;
     const pool = await getPool();
 
-    // Identifier sayı mı yoksa HUV kodu mu kontrol et
+    // Identifier: önce IslemID olarak dene, bulamazsa HUV kodu olarak ara
     const isNumericId = /^\d+$/.test(identifier);
     let islemId;
 
-    if (isNumericId && parseInt(identifier) < 100000) {
-      // Küçük sayı = İşlem ID
-      islemId = parseInt(identifier);
+    if (isNumericId) {
+      const numericVal = parseInt(identifier);
+      const idCheck = await pool.request()
+        .input('IslemID', sql.Int, numericVal)
+        .query('SELECT IslemID FROM HuvIslemler WHERE IslemID = @IslemID');
+      
+      if (idCheck.recordset.length > 0) {
+        islemId = numericVal;
+      } else {
+        const huvKodu = parseFloat(identifier);
+        const codeCheck = await pool.request()
+          .input('HuvKodu', sql.Float, huvKodu)
+          .query('SELECT IslemID FROM HuvIslemler WHERE HuvKodu = @HuvKodu');
+        if (codeCheck.recordset.length > 0) {
+          islemId = codeCheck.recordset[0].IslemID;
+        } else {
+          return error(res, 'Bu HUV koduna veya ID\'ye sahip işlem bulunamadı', 404, {
+            tip: 'HUV_BULUNAMADI',
+            huvKodu: identifier
+          });
+        }
+      }
     } else {
-      // HUV Kodu - önce işlem ID'yi bul
       const huvKodu = parseFloat(identifier);
       const islemResult = await pool.request()
         .input('HuvKodu', sql.Float, huvKodu)

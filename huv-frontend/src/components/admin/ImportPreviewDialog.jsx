@@ -37,14 +37,7 @@ import {
   Add as AddIcon,
   Remove as RemoveIcon
 } from '@mui/icons-material';
-
-function TabPanel({ children, value, index }) {
-  return (
-    <div hidden={value !== index}>
-      {value === index && <Box sx={{ pt: 2 }}>{children}</Box>}
-    </div>
-  );
-}
+import { TabPanel } from '../common';
 
 export default function ImportPreviewDialog({ open, onClose, previewData, onConfirm, loading }) {
   const [activeTab, setActiveTab] = useState(0);

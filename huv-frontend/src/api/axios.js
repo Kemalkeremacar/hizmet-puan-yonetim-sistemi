@@ -6,7 +6,6 @@
 // ============================================
 
 import axios from 'axios';
-import ToastManager from '../utils/toastManager';
 
 /**
  * Bozuk karakter kontrolü - Performans için önce kontrol et
@@ -248,7 +247,7 @@ api.interceptors.response.use(
   }
 );
 
-// Import API'ye de aynı interceptor'ları ekle
+// Import API'ye de aynı interceptor'ları ekle (api ile tutarlı: response.data döndürür)
 importApi.interceptors.response.use(
   (response) => {
     const isDevelopment = import.meta.env.VITE_ENV === 'development';
@@ -257,12 +256,8 @@ importApi.interceptors.response.use(
       console.log('📥 Import API Response:', response.config.url, response.status);
     }
     
-    // Türkçe karakterleri düzelt (optimize edilmiş)
     const fixedData = fixTurkishChars(response.data);
-    
-    // Import API için response nesnesini döndür (status, headers vs. gerekli)
-    response.data = fixedData;
-    return response;
+    return fixedData;
   },
   (error) => {
     console.error('Import Error:', {
@@ -272,9 +267,6 @@ importApi.interceptors.response.use(
       url: error.config?.url,
       timestamp: new Date().toISOString()
     });
-    
-    // INTERCEPTOR'DA TOAST GÖSTERME - Component'te handle edilecek
-    // Import işlemleri için özel handling gerekebilir
     
     return Promise.reject(error);
   }

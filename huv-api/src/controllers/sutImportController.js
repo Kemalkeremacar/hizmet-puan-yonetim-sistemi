@@ -4,38 +4,15 @@
 // Excel'den SUT listesi yükleme
 // ============================================
 
-const { parseSutExcel, validateSutData, normalizeSutData, extractDateFromFilename } = require('../services/sutExcelParser');
+const { parseSutExcel, validateSutData, normalizeSutData } = require('../services/sutExcelParser');
 const { compareSutLists, generateComparisonReport } = require('../services/sutComparisonService');
 const { getMevcutSutData, addNewSutIslem, updateSutIslemWithVersion, deactivateSutIslem } = require('../services/sutVersionManager');
 const { createListeVersiyon } = require('../services/versionManager');
 const { success, error } = require('../utils/response');
 const { getPool, sql } = require('../config/database');
+const { clearStartDateCache } = require('../utils/dateUtils');
+const { decodeDosyaAdi } = require('../utils/fileCleanup');
 const fs = require('fs');
-
-// ============================================
-// UTILITY FUNCTIONS
-// ============================================
-
-/**
- * Dosya adını düzgün decode et (Türkçe karakter desteği)
- * @param {string} originalname - Orijinal dosya adı
- * @returns {string} Decode edilmiş dosya adı
- */
-const decodeDosyaAdi = (originalname) => {
-  try {
-    // Önce UTF-8 olarak dene
-    const decoded = decodeURIComponent(originalname);
-    return decoded;
-  } catch (err) {
-    // Başarısız olursa latin1 dene
-    try {
-      return Buffer.from(originalname, 'latin1').toString('utf8');
-    } catch (err2) {
-      // Son çare: olduğu gibi kullan
-      return originalname;
-    }
-  }
-};
 
 // ============================================
 // Ana Başlıkları Eşleştir (EXCEL-FIRST Yaklaşımı)
@@ -424,30 +401,7 @@ const importSutList = async (req, res, next) => {
         }
       }
       
-      // ÖZEL KURAL 1: Ana Başlık 1 ve 2 için
-      // Eğer işlem direkt ana başlığa bağlıysa, ana başlık adıyla aynı isimdeki alt başlığa bağla
-      if (assignedHiyerarsiID && islem.AnaBaslikNo && (islem.AnaBaslikNo === 1 || islem.AnaBaslikNo === 2)) {
-        const anaBaslikHiyerarsiID = anaBaslikMap[islem.AnaBaslikNo];
-        if (assignedHiyerarsiID === anaBaslikHiyerarsiID) {
-          // Ana başlığa direkt bağlı, alt başlığı bul
-          // Ana başlık adıyla aynı isimdeki alt başlığı bul
-          const anaBaslikRow = hierarchyRows.find(h => h.SeviyeNo === 1 && h.AnaBaslikNo === islem.AnaBaslikNo);
-          if (anaBaslikRow) {
-            // Ana başlık adıyla aynı isimdeki alt başlığı rowIndexMap'te ara
-            const altBaslikRow = hierarchyRows.find(h => 
-              h.AnaBaslikNo === islem.AnaBaslikNo && 
-              h.SeviyeNo === 2 && 
-              h.Baslik === anaBaslikRow.Baslik &&
-              h.ParentRowIndex === anaBaslikRow.rowIndex
-            );
-            if (altBaslikRow && rowIndexMap[altBaslikRow.rowIndex]) {
-              assignedHiyerarsiID = rowIndexMap[altBaslikRow.rowIndex];
-            }
-          }
-        }
-      }
-      
-      // ÖZEL KURAL 2: Ana Başlık 4 (AMELİYATHANE) için
+      // ÖZEL KURAL: Ana Başlık 4 (AMELİYATHANE) için
       // İşlem adından anlaşılacak şekilde doğru üst dalına bağla
       if (islem.AnaBaslikNo === 4) {
         const islemAdi = (islem.IslemAdi || '').trim();
@@ -458,10 +412,9 @@ const importSutList = async (req, res, next) => {
         const yenidoganMatch = islemAdi.match(/yenidoğan\s+ek\s+puanı\s+([A-Z]\d?)\s+grubu/i);
         if (yenidoganMatch) {
           const grupAdi = `${yenidoganMatch[1]} grubu`;
-          // Bu grup adına sahip Seviye 3 başlığını bul
           const grupBaslik = hierarchyRows.find(h => 
             h.AnaBaslikNo === 4 && 
-            h.SeviyeNo === 3 && 
+            h.SeviyeNo === 2 && 
             h.Baslik && 
             h.Baslik.toLowerCase().includes(grupAdi.toLowerCase())
           );
@@ -522,58 +475,23 @@ const importSutList = async (req, res, next) => {
                         req.headers['x-user-name'] || 
                         'admin';
     
-    // Yükleme tarihini belirle
-    // ÖNEMLİ: İlk import'ta (DB boşsa) geçmiş tarihli sorguların çalışması için
-    // tarih belirleme mantığı kritik öneme sahiptir
-    let yuklemeTarihi = req.body.yuklemeTarihi;
-    
-    // DB'de mevcut kayıt var mı kontrol et
-    const mevcutKayitSayisi = mevcutData.length;
-    const isIlkImport = mevcutKayitSayisi === 0;
-    
-    if (!yuklemeTarihi) {
-      const extractedDate = extractDateFromFilename(dosyaAdi);
-      
-      if (extractedDate) {
-        // Dosya adından tarih çıkarıldı
-        // DÜZELTME: Zaman dilimi sorununu önlemek için sadece tarih kısmını kullan
-        yuklemeTarihi = new Date(extractedDate + 'T00:00:00');
-      } else if (isIlkImport) {
-        // İLK IMPORT: DB boş ve dosya adından tarih çıkarılamadı
-        // Geçmiş tarihli sorguların çalışması için eski bir tarih kullan
-        // Varsayılan: 1 Ocak 2020 (veya kullanıcıdan alınabilir)
-        const defaultIlkImportTarihi = req.body.ilkImportTarihi || '2020-01-01';
-        // DÜZELTME: Zaman dilimi sorununu önlemek için sadece tarih kısmını kullan
-        yuklemeTarihi = new Date(defaultIlkImportTarihi + 'T00:00:00');
-        console.log(`⚠️  İLK IMPORT: Tarih belirlenemedi, varsayılan tarih kullanılıyor: ${defaultIlkImportTarihi}`);
-      } else {
-        // Normal import: Bugünün tarihini kullan (sadece tarih kısmı)
-        const bugun = new Date();
-        yuklemeTarihi = new Date(bugun.getFullYear(), bugun.getMonth(), bugun.getDate());
-      }
+    // Yükleme tarihi: Frontend'den gönderilirse kullan, yoksa server-side import anı.
+    // Dosya adından / Excel'den tarih çıkarma KALDIRILDI - import anı esas alınır.
+    let yuklemeTarihi;
+    if (req.body.yuklemeTarihi) {
+      const yt = req.body.yuklemeTarihi.toString();
+      yuklemeTarihi = /^\d{4}-\d{2}-\d{2}$/.test(yt)
+        ? new Date(yt + 'T00:00:00')
+        : new Date(yt);
     } else {
-      // String ise Date objesine çevir
-      // DÜZELTME: Zaman dilimi sorununu önlemek için sadece tarih kısmını kullan
-      if (typeof yuklemeTarihi === 'string') {
-        // YYYY-MM-DD formatı ise
-        if (/^\d{4}-\d{2}-\d{2}$/.test(yuklemeTarihi)) {
-          yuklemeTarihi = new Date(yuklemeTarihi + 'T00:00:00');
-        } else {
-          yuklemeTarihi = new Date(yuklemeTarihi);
-        }
-      } else {
-        yuklemeTarihi = new Date(yuklemeTarihi);
-      }
+      const bugun = new Date();
+      yuklemeTarihi = new Date(bugun.getFullYear(), bugun.getMonth(), bugun.getDate());
     }
     
-    // İlk import uyarısı
-    if (isIlkImport) {
-      console.log(`ℹ️  İLK IMPORT TESPİT EDİLDİ: ${mevcutKayitSayisi} mevcut kayıt`);
-      console.log(`📅 Yükleme tarihi: ${yuklemeTarihi.toISOString().split('T')[0]}`);
-    }
-    
-    // 8. Değişiklikleri uygula
+    // 8. Değişiklikleri atomik olarak uygula (tek transaction)
     let versionID = null;
+    const transaction = pool.transaction();
+    await transaction.begin(sql.ISOLATION_LEVEL.READ_COMMITTED);
     
     try {
       versionID = await createListeVersiyon(
@@ -582,112 +500,76 @@ const importSutList = async (req, res, next) => {
         `${comparison.summary.added} eklendi, ${comparison.summary.updated} güncellendi, ${comparison.summary.deleted} silindi, ${comparison.summary.unchanged} değişmedi`,
         kullaniciAdi,
         yuklemeTarihi,
-        'SUT'
+        'SUT',
+        transaction
       );
       
-      const transaction = pool.transaction();
-      await transaction.begin(sql.ISOLATION_LEVEL.READ_COMMITTED);
-      
-      try {
-        // Ekleme
-        for (const item of comparison.added) {
-          try {
-            await addNewSutIslem(item, versionID, yuklemeTarihi);
-          } catch (err) {
-            console.error(`❌ SUT ekleme hatası [${item.SutKodu}]:`, err.message);
-            throw new Error(`Ekleme hatası: ${item.SutKodu} - ${err.message}`);
-          }
-        }
-        
-        // Güncelleme
-        for (const item of comparison.updated) {
-          try {
-            await updateSutIslemWithVersion(item.SutID, item, versionID, yuklemeTarihi);
-          } catch (err) {
-            console.error(`❌ SUT güncelleme hatası [${item.SutKodu}]:`, err.message);
-            throw new Error(`Güncelleme hatası: ${item.SutKodu} - ${err.message}`);
-          }
-        }
-        
-        // Silme (pasif yapma)
-        for (const item of comparison.deleted) {
-          try {
-            await deactivateSutIslem(item.SutID, versionID, yuklemeTarihi);
-          } catch (err) {
-            console.error(`❌ SUT pasif yapma hatası [${item.SutKodu}]:`, err.message);
-            throw new Error(`Pasif yapma hatası: ${item.SutKodu} - ${err.message}`);
-          }
-        }
-        
-        await transaction.commit();
-        
-        // ListeVersiyon tablosundaki özet sayıları güncelle
-        await pool.request()
-          .input('versionId', sql.Int, versionID)
-          .input('eklenenSayisi', sql.Int, comparison.summary.added)
-          .input('guncellenenSayisi', sql.Int, comparison.summary.updated)
-          .input('silinenSayisi', sql.Int, comparison.summary.deleted)
-          .query(`
-            UPDATE ListeVersiyon
-            SET 
-              EklenenSayisi = @eklenenSayisi,
-              GuncellenenSayisi = @guncellenenSayisi,
-              SilinenSayisi = @silinenSayisi
-            WHERE VersionID = @versionId
-          `);
-        
-        const endTime = Date.now();
-        const duration = ((endTime - startTime) / 1000).toFixed(2);
-        
-        // ============================================
-        // OTOMATIK BATCH EŞLEŞTİRME
-        // ============================================
-        // Yeni eklenen veya güncellenen kayıtlar için otomatik eşleştirme başlat
-        let matchingSummary = null;
-        if (comparison.summary.added > 0 || comparison.summary.updated > 0) {
-          try {
-            console.log('🔄 Otomatik batch eşleştirme başlatılıyor...');
-            const MatchingEngine = require('../services/matching/MatchingEngine');
-            const matchingEngine = new MatchingEngine(pool);
-            
-            // Sadece eşleşmemiş kayıtları eşleştir (forceRematch = false)
-            matchingSummary = await matchingEngine.runBatch({
-              batchSize: 10000, // Tüm yeni kayıtlar
-              anaDalKodu: null,
-              forceRematch: false
-            });
-            
-            console.log('✅ Otomatik eşleştirme tamamlandı:', matchingSummary);
-          } catch (matchErr) {
-            console.error('⚠️ Otomatik eşleştirme hatası (import devam etti):', matchErr.message);
-            // Eşleştirme hatası import'u durdurmaz
-          }
-        }
-        
-        return success(res, {
-          versionID: versionID,
-          summary: comparison.summary,
-          matchingSummary: matchingSummary,
-          listeTipi: 'SUT',
-          duration: `${duration} saniye`
-        }, 'SUT listesi başarıyla import edildi ve otomatik eşleştirme tamamlandı');
-        
-      } catch (err) {
-        await transaction.rollback();
-        throw err;
+      // Ekleme
+      for (const item of comparison.added) {
+        await addNewSutIslem(item, versionID, yuklemeTarihi, transaction);
       }
       
-    } catch (err) {
-      // Hata durumunda ListeVersiyon'u sil (eğer oluşturulduysa)
-      if (versionID) {
+      // Güncelleme
+      for (const item of comparison.updated) {
+        await updateSutIslemWithVersion(item.SutID, item, versionID, yuklemeTarihi, transaction);
+      }
+      
+      // Silme (pasif yapma)
+      for (const item of comparison.deleted) {
+        await deactivateSutIslem(item.SutID, versionID, yuklemeTarihi, transaction);
+      }
+      
+      // ListeVersiyon tablosundaki özet sayıları güncelle
+      await transaction.request()
+        .input('versionId', sql.Int, versionID)
+        .input('eklenenSayisi', sql.Int, comparison.summary.added)
+        .input('guncellenenSayisi', sql.Int, comparison.summary.updated)
+        .input('silinenSayisi', sql.Int, comparison.summary.deleted)
+        .query(`
+          UPDATE ListeVersiyon
+          SET 
+            EklenenSayisi = @eklenenSayisi,
+            GuncellenenSayisi = @guncellenenSayisi,
+            SilinenSayisi = @silinenSayisi
+          WHERE VersionID = @versionId
+        `);
+      
+      await transaction.commit();
+      
+      const endTime = Date.now();
+      const duration = ((endTime - startTime) / 1000).toFixed(2);
+      
+      // Otomatik eşleştirme (transaction dışında - import'u etkilememeli)
+      let matchingSummary = null;
+      if (comparison.summary.added > 0 || comparison.summary.updated > 0) {
         try {
-          await pool.request()
-            .input('versionId', sql.Int, versionID)
-            .query('DELETE FROM ListeVersiyon WHERE VersionID = @versionId');
-          console.log(`⚠️ Hata nedeniyle ListeVersiyon (${versionID}) silindi`);
-        } catch (deleteErr) {
-          console.error(`❌ ListeVersiyon silme hatası:`, deleteErr.message);
+          const MatchingEngine = require('../services/matching/MatchingEngine');
+          const matchingEngine = new MatchingEngine(pool);
+          matchingSummary = await matchingEngine.runBatch({
+            batchSize: 10000,
+            anaDalKodu: null,
+            forceRematch: false
+          });
+        } catch (matchErr) {
+          console.error('Otomatik eşleştirme hatası (import başarılı):', matchErr.message);
         }
+      }
+      
+      clearStartDateCache();
+      
+      return success(res, {
+        versionID: versionID,
+        summary: comparison.summary,
+        matchingSummary: matchingSummary,
+        listeTipi: 'SUT',
+        duration: `${duration} saniye`
+      }, 'SUT listesi başarıyla import edildi');
+      
+    } catch (err) {
+      try {
+        await transaction.rollback();
+      } catch (rollbackErr) {
+        console.error('Transaction rollback hatası:', rollbackErr.message);
       }
       
       // Hata mesajını yeniden fırlat

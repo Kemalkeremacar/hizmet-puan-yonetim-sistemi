@@ -25,7 +25,7 @@ const importLock = (req, res, next) => {
   isImporting = true;
   currentImportJob = {
     startTime: new Date(),
-    user: req.user?.username || req.headers['x-user-name'] || 'admin',
+    user: req.user?.kullaniciAdi || req.headers['x-user-name'] || 'admin',
     file: req.file?.originalname
   };
   

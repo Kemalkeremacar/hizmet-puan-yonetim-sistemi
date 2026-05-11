@@ -29,7 +29,7 @@ import {
   CheckCircle as CheckCircleIcon,
 } from '@mui/icons-material';
 import { matchingService } from '../../services/matchingService';
-import ToastManager from '../../utils/toastManager';
+import { showError, showSuccess, showWarning } from '../../utils/toastManager';
 import { useAuth } from '../../app/context/AuthContext';
 
 // ============================================
@@ -119,7 +119,7 @@ function HuvTeminatSelectionDialog({ open, onClose, match, onMatchChanged, showS
       }
     } catch (err) {
       console.error('HUV seçenekleri yüklenemedi:', err);
-      ToastManager.error('HUV seçenekleri yüklenirken hata oluştu');
+      showError('HUV seçenekleri yüklenirken hata oluştu');
       setOptions([]);
       setFilteredOptions([]);
     } finally {
@@ -254,7 +254,7 @@ function HuvTeminatSelectionDialog({ open, onClose, match, onMatchChanged, showS
   // ============================================
   const handleSave = async () => {
     if (!selectedOption) {
-      ToastManager.warning('Lütfen bir HUV teminat seçin');
+      showWarning('Lütfen bir HUV teminat seçin');
       return;
     }
 
@@ -265,11 +265,11 @@ function HuvTeminatSelectionDialog({ open, onClose, match, onMatchChanged, showS
         selectedOption.altTeminatId,
         user.id
       );
-      ToastManager.success('Eşleşme başarıyla değiştirildi');
+      showSuccess('Eşleşme başarıyla değiştirildi');
       onMatchChanged();
     } catch (err) {
       console.error('Eşleşme değiştirme hatası:', err);
-      ToastManager.error('Eşleşme değiştirilirken hata oluştu');
+      showError('Eşleşme değiştirilirken hata oluştu');
     } finally {
       setSaving(false);
     }

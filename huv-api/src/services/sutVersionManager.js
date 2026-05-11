@@ -36,16 +36,19 @@ const getMevcutSutData = async () => {
 // ============================================
 // SUT işlemi güncelle (SCD Type 2 ile)
 // ============================================
-const updateSutIslemWithVersion = async (sutID, yeniData, versionID, yuklemeTarihi) => {
+const updateSutIslemWithVersion = async (sutID, yeniData, versionID, yuklemeTarihi, externalTransaction = null) => {
   try {
     const pool = await getPool();
     const baslangicTarihi = yuklemeTarihi ? new Date(yuklemeTarihi) : new Date();
     const bitisTarihi = new Date(baslangicTarihi);
     bitisTarihi.setDate(bitisTarihi.getDate() - 1);
     
-    // Transaction başlat (DEADLOCK PROTECTION)
-    const transaction = pool.transaction();
-    await transaction.begin(sql.ISOLATION_LEVEL.READ_COMMITTED);
+    const useExternalTx = !!externalTransaction;
+    const transaction = useExternalTx ? externalTransaction : pool.transaction();
+    
+    if (!useExternalTx) {
+      await transaction.begin(sql.ISOLATION_LEVEL.READ_COMMITTED);
+    }
     
     try {
       // 1. Eski versiyonları kapat (GecerlilikBitis set et)
@@ -149,10 +152,14 @@ const updateSutIslemWithVersion = async (sutID, yeniData, versionID, yuklemeTari
           WHERE SutID = @SutID
         `);
       
-      await transaction.commit();
+      if (!useExternalTx) {
+        await transaction.commit();
+      }
       return true;
     } catch (error) {
-      await transaction.rollback();
+      if (!useExternalTx) {
+        await transaction.rollback();
+      }
       throw error;
     }
   } catch (error) {
@@ -163,13 +170,16 @@ const updateSutIslemWithVersion = async (sutID, yeniData, versionID, yuklemeTari
 // ============================================
 // Yeni SUT işlem ekle
 // ============================================
-const addNewSutIslem = async (yeniData, versionID, yuklemeTarihi) => {
+const addNewSutIslem = async (yeniData, versionID, yuklemeTarihi, externalTransaction = null) => {
   const pool = await getPool();
-  const transaction = pool.transaction();
+  const useExternalTx = !!externalTransaction;
+  const transaction = useExternalTx ? externalTransaction : pool.transaction();
   const baslangicTarihi = yuklemeTarihi ? new Date(yuklemeTarihi) : new Date();
   
   try {
-    await transaction.begin();
+    if (!useExternalTx) {
+      await transaction.begin(sql.ISOLATION_LEVEL.READ_COMMITTED);
+    }
     
     // SUT kodu daha önce kullanılmış mı kontrol et
     const mevcutIslemResult = await transaction.request()
@@ -244,7 +254,7 @@ const addNewSutIslem = async (yeniData, versionID, yuklemeTarihi) => {
           `);
       } else {
         // Mevcut aktif kayıt var - güncelle
-        await updateSutIslemWithVersion(sutID, yeniData, versionID, yuklemeTarihi);
+        await updateSutIslemWithVersion(sutID, yeniData, versionID, yuklemeTarihi, transaction);
       }
     } else {
       // Yeni kayıt
@@ -302,10 +312,14 @@ const addNewSutIslem = async (yeniData, versionID, yuklemeTarihi) => {
         `);
     }
     
-    await transaction.commit();
+    if (!useExternalTx) {
+      await transaction.commit();
+    }
     return sutID;
   } catch (error) {
-    await transaction.rollback();
+    if (!useExternalTx) {
+      await transaction.rollback();
+    }
     throw new Error(`Yeni SUT işlem eklenemedi: ${error.message}`);
   }
 };
@@ -313,14 +327,18 @@ const addNewSutIslem = async (yeniData, versionID, yuklemeTarihi) => {
 // ============================================
 // SUT işlemi pasif yap (SCD Type 2 ile)
 // ============================================
-const deactivateSutIslem = async (sutID, versionID, yuklemeTarihi) => {
+const deactivateSutIslem = async (sutID, versionID, yuklemeTarihi, externalTransaction = null) => {
   try {
     const pool = await getPool();
-    const transaction = pool.transaction();
-    const bitisTarihi = yuklemeTarihi ? new Date(yuklemeTarihi) : new Date();
-    bitisTarihi.setDate(bitisTarihi.getDate() - 1);
-    
-    await transaction.begin();
+    const useExternalTx = !!externalTransaction;
+    const transaction = useExternalTx ? externalTransaction : pool.transaction();
+
+    const silinmeTarihi = yuklemeTarihi ? new Date(yuklemeTarihi) : new Date();
+    const bitisTarihi = new Date(silinmeTarihi.getTime() - 86400000);
+
+    if (!useExternalTx) {
+      await transaction.begin(sql.ISOLATION_LEVEL.READ_COMMITTED);
+    }
 
     try {
       // 1. Eski versiyonu kapat
@@ -337,7 +355,29 @@ const deactivateSutIslem = async (sutID, versionID, yuklemeTarihi) => {
             AND GecerlilikBitis IS NULL
         `);
       
-      // 2. Ana tabloda işlemi pasif yap
+      // 2. Silindi kaydı ekle (SCD Type 2 symmetry)
+      await transaction.request()
+        .input('SutID', sql.Int, sutID)
+        .input('SilinmeTarihi', sql.Date, silinmeTarihi)
+        .input('ListeVersiyonID', sql.Int, versionID)
+        .query(`
+          INSERT INTO SutIslemVersionlar (
+            SutID, SutKodu, IslemAdi, Puan, Aciklama,
+            AnaBaslikNo, HiyerarsiID,
+            GecerlilikBaslangic, GecerlilikBitis,
+            AktifMi, ListeVersiyonID, DegisiklikSebebi,
+            OlusturanKullanici, OlusturmaTarihi
+          )
+          SELECT SutID, SutKodu, IslemAdi, Puan, Aciklama,
+            AnaBaslikNo, HiyerarsiID,
+            @SilinmeTarihi, @SilinmeTarihi,
+            0, @ListeVersiyonID, 'Silindi',
+            'system', GETDATE()
+          FROM SutIslemler
+          WHERE SutID = @SutID
+        `);
+
+      // 3. Ana tabloda işlemi pasif yap
       await transaction.request()
         .input('SutID', sql.Int, sutID)
         .query(`
@@ -346,10 +386,14 @@ const deactivateSutIslem = async (sutID, versionID, yuklemeTarihi) => {
           WHERE SutID = @SutID
         `);
 
-      await transaction.commit();
+      if (!useExternalTx) {
+        await transaction.commit();
+      }
       return true;
     } catch (error) {
-      await transaction.rollback();
+      if (!useExternalTx) {
+        await transaction.rollback();
+      }
       throw error;
     }
   } catch (error) {

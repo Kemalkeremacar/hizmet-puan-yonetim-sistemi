@@ -189,7 +189,7 @@ function Login() {
                 </Alert>
               )}
 
-              <Box component="form" onSubmit={handleSubmit}>
+              <Box component="form" onSubmit={handleSubmit} aria-busy={loading}>
                 <TextField
                   fullWidth
                   label="Kullanıcı Adı"
@@ -269,67 +269,71 @@ function Login() {
                 </Button>
               </Box>
 
-              <Divider sx={{ my: 3 }}>
-                <Chip label="Test Kullanıcıları" size="small" />
-              </Divider>
+              {import.meta.env.DEV && (
+                <>
+                  <Divider sx={{ my: 3 }}>
+                    <Chip label="Test Kullanıcıları" size="small" />
+                  </Divider>
 
-              <Stack spacing={2}>
-                <Button
-                  variant="outlined"
-                  fullWidth
-                  startIcon={<AdminIcon />}
-                  onClick={() => handleQuickLogin('admin', 'admin123')}
-                  disabled={loading}
-                  sx={{
-                    py: 1.5,
-                    borderRadius: 2,
-                    textTransform: 'none',
-                    borderColor: 'primary.main',
-                    '&:hover': {
-                      borderColor: 'primary.dark',
-                      bgcolor: 'primary.light',
-                      color: 'white',
-                    },
-                  }}
-                >
-                  <Box sx={{ flex: 1, textAlign: 'left' }}>
-                    <Typography variant="body2" fontWeight="600">
-                      Admin
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary">
-                      admin / admin123
-                    </Typography>
-                  </Box>
-                </Button>
+                  <Stack spacing={2}>
+                    <Button
+                      variant="outlined"
+                      fullWidth
+                      startIcon={<AdminIcon />}
+                      onClick={() => handleQuickLogin('admin', 'admin123')}
+                      disabled={loading}
+                      sx={{
+                        py: 1.5,
+                        borderRadius: 2,
+                        textTransform: 'none',
+                        borderColor: 'primary.main',
+                        '&:hover': {
+                          borderColor: 'primary.dark',
+                          bgcolor: 'primary.light',
+                          color: 'white',
+                        },
+                      }}
+                    >
+                      <Box sx={{ flex: 1, textAlign: 'left' }}>
+                        <Typography variant="body2" fontWeight="600">
+                          Admin
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          admin / admin123
+                        </Typography>
+                      </Box>
+                    </Button>
 
-                <Button
-                  variant="outlined"
-                  fullWidth
-                  startIcon={<UserIcon />}
-                  onClick={() => handleQuickLogin('user', 'user123')}
-                  disabled={loading}
-                  sx={{
-                    py: 1.5,
-                    borderRadius: 2,
-                    textTransform: 'none',
-                    borderColor: 'primary.main',
-                    '&:hover': {
-                      borderColor: 'primary.dark',
-                      bgcolor: 'primary.light',
-                      color: 'white',
-                    },
-                  }}
-                >
-                  <Box sx={{ flex: 1, textAlign: 'left' }}>
-                    <Typography variant="body2" fontWeight="600">
-                      User
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary">
-                      user / user123
-                    </Typography>
-                  </Box>
-                </Button>
-              </Stack>
+                    <Button
+                      variant="outlined"
+                      fullWidth
+                      startIcon={<UserIcon />}
+                      onClick={() => handleQuickLogin('user', 'user123')}
+                      disabled={loading}
+                      sx={{
+                        py: 1.5,
+                        borderRadius: 2,
+                        textTransform: 'none',
+                        borderColor: 'primary.main',
+                        '&:hover': {
+                          borderColor: 'primary.dark',
+                          bgcolor: 'primary.light',
+                          color: 'white',
+                        },
+                      }}
+                    >
+                      <Box sx={{ flex: 1, textAlign: 'left' }}>
+                        <Typography variant="body2" fontWeight="600">
+                          User
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          user / user123
+                        </Typography>
+                      </Box>
+                    </Button>
+                  </Stack>
+                </>
+              )}
             </CardContent>
           </Card>
         </Fade>

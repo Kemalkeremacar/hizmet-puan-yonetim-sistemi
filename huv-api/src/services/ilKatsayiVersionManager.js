@@ -288,7 +288,22 @@ const copyUnchangedIlKatsayiToVersion = async (ilKatsayiID, mevcutData, versionI
   try {
     const pool = await getPool();
     const baslangicTarihi = yuklemeTarihi ? new Date(yuklemeTarihi) : new Date();
-    
+    const bitisTarihi = new Date(baslangicTarihi);
+    bitisTarihi.setDate(bitisTarihi.getDate() - 1);
+
+    // 1. Önceki aktif versiyonu kapat (overlapping versions önleme)
+    await pool.request()
+      .input('IlKatsayiID', sql.Int, ilKatsayiID)
+      .input('BitisTarihi', sql.Date, bitisTarihi)
+      .query(`
+        UPDATE IlKatsayiVersionlar
+        SET GecerlilikBitis = @BitisTarihi, AktifMi = 0
+        WHERE IlKatsayiID = @IlKatsayiID
+          AND AktifMi = 1
+          AND GecerlilikBitis IS NULL
+      `);
+
+    // 2. Yeni versiyon kaydı oluştur
     await pool.request()
       .input('IlKatsayiID', sql.Int, ilKatsayiID)
       .input('IlAdi', sql.NVarChar, mevcutData.IlAdi)

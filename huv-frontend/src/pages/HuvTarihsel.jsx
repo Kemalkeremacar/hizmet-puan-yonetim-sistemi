@@ -38,9 +38,10 @@ import {
   Info as InfoIcon
 } from '@mui/icons-material';
 import { tarihselService } from '../services/tarihselService';
-import ToastManager from '../utils/toastManager';
+import { showError, showSuccess, showInfo } from '../utils/toastManager';
 import { exportToExcel } from '../utils/export';
-import { LoadingSpinner, ErrorAlert, EmptyState, PageHeader, DateDisplay } from '../components/common';
+import * as XLSX from 'xlsx';
+import { LoadingSpinner, ErrorAlert, EmptyState, PageHeader } from '../components/common';
 import { 
   getTodayString, 
   getDaysAgo, 
@@ -49,14 +50,7 @@ import {
   formatDateShort,
   formatDateTime
 } from '../utils/dateUtils';
-
-function TabPanel({ children, value, index }) {
-  return (
-    <div hidden={value !== index}>
-      {value === index && <Box sx={{ pt: 3 }}>{children}</Box>}
-    </div>
-  );
-}
+import { TabPanel } from '../components/common';
 
 function Tarihsel() {
   const [tabValue, setTabValue] = useState(0);
@@ -71,11 +65,11 @@ function Tarihsel() {
   const [fiyatResult, setFiyatResult] = useState(null);
 
   // Tab 2: Değişenler
-  const [degişenlerForm, setDegişenlerForm] = useState({
+  const [degisiklikForm, setDegisiklikForm] = useState({
     baslangic: getDaysAgo(30),
     bitis: getTodayString()
   });
-  const [degişenlerResult, setDegişenlerResult] = useState([]);
+  const [degisiklikResult, setDegisiklikResult] = useState([]);
 
   // Tab 3: Fiyat Geçmişi
   const [gecmisForm, setGecmisForm] = useState({
@@ -93,13 +87,13 @@ function Tarihsel() {
   // ============================================
   const handleFiyatSorgula = async () => {
     if (!fiyatForm.huvKodu || !fiyatForm.tarih) {
-      ToastManager.error('HUV kodu ve tarih zorunludur');
+      showError('HUV kodu ve tarih zorunludur');
       return;
     }
 
     // Gelecek tarih kontrolü
     if (isFutureDate(fiyatForm.tarih)) {
-      ToastManager.error('Gelecek tarih için sorgu yapılamaz');
+      showError('Gelecek tarih için sorgu yapılamaz');
       return;
     }
 
@@ -115,15 +109,15 @@ function Tarihsel() {
       const result = response.data?.data || response.data;
       if (result) {
         setFiyatResult(result);
-        ToastManager.success('Fiyat bilgisi başarıyla getirildi');
+        showSuccess('Fiyat bilgisi başarıyla getirildi');
       } else {
         setFiyatResult(null);
         // Backend'den gelen detaylı hata mesajını göster
         const errorDetail = response.data?.detay || response.data?.message;
         if (errorDetail) {
-          ToastManager.error(errorDetail);
+          showError(errorDetail);
         } else {
-          ToastManager.error('Bu tarihte fiyat bulunamadı');
+          showError('Bu tarihte fiyat bulunamadı');
         }
       }
     } catch (err) {
@@ -143,15 +137,15 @@ function Tarihsel() {
       if (errorData?.errors?.tip === 'TARIH_BASLANGIC_ONDEN') {
         const cozum = errorData.errors.cozum || '';
         const baslangicTarihi = errorData.errors.baslangicTarihi || '2025-10-07';
-        ToastManager.error(`${errorMessage}\n${cozum}\nBaşlangıç tarihi: ${baslangicTarihi}`);
+        showError(`${errorMessage}\n${cozum}\nBaşlangıç tarihi: ${baslangicTarihi}`);
       } else if (errorData?.errors?.tip === 'GECERSIZ_TARIH_FORMATI') {
-        ToastManager.error(`${errorMessage}\n${errorData.errors.cozum || ''}`);
+        showError(`${errorMessage}\n${errorData.errors.cozum || ''}`);
       } else if (errorData?.errors?.tip === 'GELECEK_TARIH') {
-        ToastManager.error(`${errorMessage}\n${errorData.errors.cozum || ''}`);
+        showError(`${errorMessage}\n${errorData.errors.cozum || ''}`);
       } else if (errorData?.enEskiTarih) {
-        ToastManager.error(`${errorMessage} (En eski kayıt: ${errorData.enEskiTarih})`);
+        showError(`${errorMessage} (En eski kayıt: ${errorData.enEskiTarih})`);
       } else {
-        ToastManager.error(errorMessage);
+        showError(errorMessage);
       }
     } finally {
       setLoading(false);
@@ -188,9 +182,8 @@ function Tarihsel() {
   // ============================================
   // TAB 2: Değişenleri Sorgula
   // ============================================
-  const handleDegişenlerSorgula = async () => {
-    // Tarih aralığı validasyonu
-    const validation = validateDateRange(degişenlerForm.baslangic, degişenlerForm.bitis);
+  const handleDegisiklikSorgula = async () => {
+    const validation = validateDateRange(degisiklikForm.baslangic, degisiklikForm.bitis);
     if (!validation.valid) {
       showError(validation.error);
       return;
@@ -200,16 +193,14 @@ function Tarihsel() {
       setLoading(true);
       setError(null);
       const response = await tarihselService.getDegişenler({
-        baslangic: degişenlerForm.baslangic,
-        bitis: degişenlerForm.bitis
+        baslangic: degisiklikForm.baslangic,
+        bitis: degisiklikForm.bitis
       });
 
-      // API response formatı: { success: true, data: [...], message: "..." }
       const data = response.data?.data || response.data || [];
-      setDegişenlerResult(data);
+      setDegisiklikResult(data);
       
       if (data.length === 0) {
-        // Backend'den gelen uyarı mesajını göster
         const uyari = response.data?.uyari || 'Bu tarih aralığında değişiklik bulunamadı';
         showInfo(uyari);
       } else {
@@ -218,8 +209,7 @@ function Tarihsel() {
     } catch (err) {
       console.error('Değişenler sorgu hatası:', err);
       setError(err);
-      setDegişenlerResult([]);
-      // Backend'den gelen detaylı hata mesajı
+      setDegisiklikResult([]);
       const errorData = err.response?.data;
       const errorMessage = errorData?.message || 
                           errorData?.errors?.cozum || 
@@ -227,7 +217,6 @@ function Tarihsel() {
                           err.message || 
                           'Değişiklikler sorgulanamadı';
       
-      // Başlangıç tarihi hatası için özel mesaj
       if (errorData?.errors?.tip === 'TARIH_BASLANGIC_ONDEN' || errorData?.errors?.tip === 'GECERSIZ_TARIH_ARALIGI') {
         const cozum = errorData.errors.cozum || '';
         const baslangicTarihi = errorData.errors.baslangicTarihi || '2025-10-07';
@@ -240,14 +229,14 @@ function Tarihsel() {
     }
   };
 
-  const handleDegişenlerExport = () => {
-    if (!degişenlerResult || degişenlerResult.length === 0) {
+  const handleDegisiklikExport = () => {
+    if (!degisiklikResult || degisiklikResult.length === 0) {
       showError('Export edilecek veri yok');
       return;
     }
 
     try {
-      const data = degişenlerResult.map(item => ({
+      const data = degisiklikResult.map(item => ({
         'HUV Kodu': item.HuvKodu || '-',
         'İşlem Adı': item.IslemAdi || '-',
         'Eski Birim (TL)': item.EskiBirim || item.IlkBirim ? (item.EskiBirim || item.IlkBirim).toFixed(2) : '-',
@@ -385,22 +374,10 @@ function Tarihsel() {
       'Açıklama': gecmisResult.mevcutMu ? 'Aktif' : 'Silinmiş'
     });
 
-      // İki sheet'li Excel oluştur
-      const workbook = {
-        SheetNames: ['Versiyon Geçmişi', 'Yaşam Döngüsü'],
-        Sheets: {
-          'Versiyon Geçmişi': window.XLSX?.utils.json_to_sheet(versiyonData),
-          'Yaşam Döngüsü': window.XLSX?.utils.json_to_sheet(yasamData)
-        }
-      };
-
-      // XLSX kütüphanesi varsa kullan, yoksa basit export
-      if (window.XLSX) {
-        window.XLSX.writeFile(workbook, `fiyat_gecmisi_${gecmisResult.islem?.HuvKodu || 'bilinmeyen'}.xlsx`);
-      } else {
-        // Fallback: sadece versiyon geçmişi
-        exportToExcel(versiyonData, `fiyat_gecmisi_${gecmisResult.islem?.HuvKodu || 'bilinmeyen'}`);
-      }
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(versiyonData), 'Versiyon Geçmişi');
+      XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(yasamData), 'Yaşam Döngüsü');
+      XLSX.writeFile(workbook, `fiyat_gecmisi_${gecmisResult.islem?.HuvKodu || 'bilinmeyen'}.xlsx`);
       
       showSuccess('Excel dosyası başarıyla indirildi');
     } catch (err) {
@@ -526,6 +503,10 @@ function Tarihsel() {
             </Grid>
 
             {/* Sonuç */}
+            {!fiyatResult && !loading && (
+              <EmptyState message="Sorgu yapmak için HUV kodu ve tarih girin" />
+            )}
+
             {fiyatResult && (
               <Card variant="outlined" sx={{ bgcolor: 'background.default' }}>
                 <CardContent sx={{ p: 3 }}>
@@ -629,8 +610,8 @@ function Tarihsel() {
                   fullWidth
                   label="Başlangıç Tarihi"
                   type="date"
-                  value={degişenlerForm.baslangic}
-                  onChange={(e) => setDegişenlerForm({ ...degişenlerForm, baslangic: e.target.value })}
+                  value={degisiklikForm.baslangic}
+                  onChange={(e) => setDegisiklikForm({ ...degisiklikForm, baslangic: e.target.value })}
                   slotProps={{
                     inputLabel: { shrink: true },
                     input: {
@@ -648,8 +629,8 @@ function Tarihsel() {
                   fullWidth
                   label="Bitiş Tarihi"
                   type="date"
-                  value={degişenlerForm.bitis}
-                  onChange={(e) => setDegişenlerForm({ ...degişenlerForm, bitis: e.target.value })}
+                  value={degisiklikForm.bitis}
+                  onChange={(e) => setDegisiklikForm({ ...degisiklikForm, bitis: e.target.value })}
                   slotProps={{ inputLabel: { shrink: true } }}
                 />
               </Grid>
@@ -658,7 +639,7 @@ function Tarihsel() {
                   fullWidth
                   variant="contained"
                   size="large"
-                  onClick={handleDegişenlerSorgula}
+                  onClick={handleDegisiklikSorgula}
                   disabled={loading}
                   sx={{ height: '56px' }}
                 >
@@ -668,16 +649,16 @@ function Tarihsel() {
             </Grid>
 
             {/* Sonuç */}
-            {degişenlerResult && degişenlerResult.length > 0 && (
+            {degisiklikResult && degisiklikResult.length > 0 && (
               <Box>
                 <Stack direction="row" spacing={2} alignItems="center" sx={{ mb: 2 }}>
                   <Alert severity="success" sx={{ flexGrow: 1 }}>
-                    <strong>{degişenlerResult.length}</strong> işlemde değişiklik bulundu
+                    <strong>{degisiklikResult.length}</strong> işlemde değişiklik bulundu
                   </Alert>
                   <Button
                     variant="contained"
                     startIcon={<FileDownloadIcon />}
-                    onClick={handleDegişenlerExport}
+                    onClick={handleDegisiklikExport}
                   >
                     Excel'e Aktar
                   </Button>
@@ -697,7 +678,7 @@ function Tarihsel() {
                       </TableRow>
                     </TableHead>
                     <TableBody>
-                      {degişenlerResult.map((item, index) => {
+                      {degisiklikResult.map((item, index) => {
                         const fark = (item.YeniBirim || 0) - (item.EskiBirim || 0);
                         const yuzde = item.EskiBirim ? ((fark / item.EskiBirim) * 100) : 0;
                         const artis = fark > 0;
@@ -759,9 +740,14 @@ function Tarihsel() {
               </Box>
             )}
 
-            {degişenlerResult && degişenlerResult.length === 0 && !loading && (
-              <Paper sx={{ p: 6, textAlign: 'center', bgcolor: 'background.default' }}>
+            {degisiklikResult && degisiklikResult.length === 0 && !loading && (
+              <Paper sx={{ p: 4, bgcolor: 'background.default' }}>
                 <EmptyState message="Bu tarih aralığında değişiklik bulunamadı" />
+                <Alert severity="info" sx={{ mt: 2 }}>
+                  <Typography variant="body2">
+                    <strong>Not:</strong> Değişiklik sorgusu en az 2 farklı liste versiyonu gerektirir. Sisteme henüz tek bir HUV listesi yüklenmiş ise bu sekme doğal olarak boş döner. Yeni bir liste import edildiğinde fark raporları burada görünecektir.
+                  </Typography>
+                </Alert>
               </Paper>
             )}
           </Stack>
@@ -902,6 +888,12 @@ function Tarihsel() {
                   <Typography variant="h6" gutterBottom fontWeight="600" sx={{ mb: 2 }}>
                     Fiyat Değişim Geçmişi
                   </Typography>
+
+                  {gecmisResult.versiyonlar && gecmisResult.versiyonlar.length === 1 && (
+                    <Alert severity="info" sx={{ mb: 2 }}>
+                      Bu işlem için henüz tek bir versiyon kaydı bulunmaktadır. Fiyat karşılaştırması yapabilmek için sisteme en az iki farklı liste yüklenmiş olmalıdır.
+                    </Alert>
+                  )}
                   
                   {gecmisResult.versiyonlar && gecmisResult.versiyonlar.length > 0 ? (
                     <TableContainer component={Paper} variant="outlined">
@@ -929,7 +921,7 @@ function Tarihsel() {
                                 hover
                                 sx={{ 
                                   '&:nth-of-type(odd)': { bgcolor: 'action.hover' },
-                                  bgcolor: aktif ? 'success.lighter' : undefined
+                                  bgcolor: aktif ? 'rgba(76, 175, 80, 0.08)' : undefined
                                 }}
                               >
                                 <TableCell>
@@ -1168,7 +1160,7 @@ function Tarihsel() {
                   </TableContainer>
                   
                   {/* Şu anki durum özeti */}
-                  <Box sx={{ mt: 2, p: 2, bgcolor: gecmisResult.mevcutMu ? 'success.lighter' : 'error.lighter', borderRadius: 1 }}>
+                  <Box sx={{ mt: 2, p: 2, bgcolor: gecmisResult.mevcutMu ? 'rgba(76, 175, 80, 0.08)' : 'rgba(244, 67, 54, 0.08)', borderRadius: 1 }}>
                     <Stack direction="row" spacing={1} alignItems="center">
                       <Chip 
                         label={gecmisResult.mevcutMu ? 'AKTİF' : 'SİLİNMİŞ'} 

@@ -9,6 +9,7 @@ import { Refresh as RefreshIcon } from '@mui/icons-material';
 
 function ErrorAlert({ 
   error, 
+  message,
   title = 'Hata Oluştu',
   onRetry,
   showRetry = true 
@@ -31,7 +32,7 @@ function ErrorAlert({
       }
     >
       <AlertTitle>{title}</AlertTitle>
-      {typeof error === 'string' ? error : error?.message || 'Bilinmeyen bir hata oluştu'}
+      {message || (typeof error === 'string' ? error : error?.message || 'Bilinmeyen bir hata oluştu')}
     </Alert>
   );
 }

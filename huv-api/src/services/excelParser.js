@@ -7,7 +7,7 @@
 
 const XLSX = require('xlsx');
 const { fixTurkishEncoding } = require('../utils/turkishCharFix');
-const { getPool, sql } = require('../config/database');
+const { getPool } = require('../config/database');
 
 // ============================================
 // Dosya adından tarihi çıkar
@@ -150,15 +150,6 @@ const parseTurkishDate = (dateValue) => {
   }
   
   return null;
-};
-
-// ============================================
-// Türkçe karakter encoding'ini düzelt
-// ============================================
-// NOT: Bu fonksiyon artık utils/turkishCharFix.js'den import ediliyor
-// Burada sadece backward compatibility için bırakıldı
-const fixTurkishEncodingLocal = (str) => {
-  return fixTurkishEncoding(str);
 };
 
 // ============================================
@@ -546,8 +537,6 @@ const normalizeHuvData = async (data) => {
   // Eğer data zaten normalize edilmişse direkt kullan, değilse normalize et
   const sourceData = (data[0] && data[0].HuvKodu !== undefined) ? data : normalizeColumnNames(data);
   
-  // Ana dal mapping'i için veritabanından çek
-  const { getPool } = require('../config/database');
   const pool = await getPool();
   const anaDallarResult = await pool.request().query('SELECT AnaDalKodu, BolumAdi FROM AnaDallar');
   

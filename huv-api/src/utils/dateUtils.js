@@ -140,18 +140,60 @@ const getDaysDifference = (startDate, endDate) => {
 };
 
 // ============================================
-// BAŞLANGIÇ TARİHLERİ (İlk import tarihleri)
+// BAŞLANGIÇ TARİHLERİ (DB'den dinamik çekilir)
 // ============================================
-const HUV_START_DATE = '2025-10-07'; // 07.10.2025
-const SUT_START_DATE = '2026-01-01'; // 01.01.2026
+// Fallback: İlk listeler 05.02.2026 olarak kabul edilir
+const DEFAULT_START_DATE = '2026-02-05';
+
+// Cache: DB'den çekilen başlangıç tarihleri (uygulama ömrü boyunca)
+let _startDateCache = {};
+
+/**
+ * Belirli bir liste tipi için DB'deki ilk import tarihini getirir.
+ * Sonucu cache'ler, tekrar DB'ye gitmez.
+ * @param {string} listeTipi - 'HUV', 'SUT' veya 'ILKATSAYI'
+ * @returns {Promise<string>} YYYY-MM-DD formatında başlangıç tarihi
+ */
+const getStartDate = async (listeTipi = 'HUV') => {
+  if (_startDateCache[listeTipi]) {
+    return _startDateCache[listeTipi];
+  }
+
+  try {
+    const { getPool, sql } = require('../config/database');
+    const pool = await getPool();
+    const result = await pool.request()
+      .input('ListeTipi', sql.NVarChar, listeTipi)
+      .query(`SELECT MIN(YuklemeTarihi) as IlkTarih FROM ListeVersiyon WHERE ListeTipi = @ListeTipi`);
+    
+    const ilkTarih = result.recordset[0]?.IlkTarih;
+    if (ilkTarih) {
+      const dateStr = toSqlDate(ilkTarih);
+      _startDateCache[listeTipi] = dateStr;
+      return dateStr;
+    }
+  } catch (err) {
+    console.warn(`DB'den başlangıç tarihi alınamadı (${listeTipi}): ${err.message}`);
+  }
+
+  _startDateCache[listeTipi] = DEFAULT_START_DATE;
+  return DEFAULT_START_DATE;
+};
+
+/**
+ * Cache'i temizler (yeni import sonrası güncellemek için)
+ */
+const clearStartDateCache = () => {
+  _startDateCache = {};
+};
 
 /**
  * Tarihin başlangıç tarihinden önce olup olmadığını kontrol eder
  * @param {Date|string} date - Kontrol edilecek tarih
  * @param {string} listeTipi - 'HUV' veya 'SUT'
- * @returns {object} { valid: boolean, error: string, startDate: string }
+ * @returns {Promise<object>} { valid: boolean, error: string, startDate: string }
  */
-const validateStartDate = (date, listeTipi = 'HUV') => {
+const validateStartDate = async (date, listeTipi = 'HUV') => {
   if (!date) {
     return { 
       valid: false, 
@@ -163,26 +205,25 @@ const validateStartDate = (date, listeTipi = 'HUV') => {
   if (!isValidDate(date)) {
     return { 
       valid: false, 
-      error: 'Geçersiz tarih formatı. Lütfen YYYY-MM-DD formatında girin (örn: 2025-10-07)',
+      error: 'Geçersiz tarih formatı. Lütfen YYYY-MM-DD formatında girin (örn: 2026-02-05)',
       startDate: null
     };
   }
 
   const checkDate = date instanceof Date ? date : new Date(date);
-  const startDate = listeTipi === 'SUT' ? SUT_START_DATE : HUV_START_DATE;
+  const startDate = await getStartDate(listeTipi);
   const startDateObj = new Date(startDate);
   
-  // Tarihleri sadece gün bazında karşılaştır (saat bilgisi olmadan)
   checkDate.setHours(0, 0, 0, 0);
   startDateObj.setHours(0, 0, 0, 0);
 
   if (checkDate < startDateObj) {
-    const listeAdi = listeTipi === 'SUT' ? 'SUT' : 'HUV';
-    const tarihFormat = listeTipi === 'SUT' ? '01.01.2026' : '07.10.2025';
+    const parts = startDate.split('-');
+    const tarihFormat = `${parts[2]}.${parts[1]}.${parts[0]}`;
     
     return { 
       valid: false, 
-      error: `${listeAdi} listesi için sorgu yapılabilecek en eski tarih ${tarihFormat} tarihidir. Bu tarih, sistemdeki ilk import tarihidir.`,
+      error: `${listeTipi} listesi için sorgu yapılabilecek en eski tarih ${tarihFormat} tarihidir. Bu tarih, sistemdeki ilk import tarihidir.`,
       startDate: startDate,
       tip: 'TARIH_BASLANGIC_ONDEN',
       cozum: `Lütfen ${tarihFormat} tarihinden sonra bir tarih seçin.`
@@ -201,17 +242,15 @@ const validateStartDate = (date, listeTipi = 'HUV') => {
  * @param {Date|string} startDate - Başlangıç tarihi
  * @param {Date|string} endDate - Bitiş tarihi
  * @param {string} listeTipi - 'HUV' veya 'SUT'
- * @returns {object} { valid: boolean, error: string }
+ * @returns {Promise<object>} { valid: boolean, error: string }
  */
-const validateDateRangeWithStart = (startDate, endDate, listeTipi = 'HUV') => {
-  // Önce normal tarih aralığı validasyonu
+const validateDateRangeWithStart = async (startDate, endDate, listeTipi = 'HUV') => {
   const rangeValidation = validateDateRange(startDate, endDate);
   if (!rangeValidation.valid) {
     return rangeValidation;
   }
 
-  // Başlangıç tarihi kontrolü
-  const startValidation = validateStartDate(startDate, listeTipi);
+  const startValidation = await validateStartDate(startDate, listeTipi);
   if (!startValidation.valid) {
     return {
       valid: false,
@@ -221,8 +260,7 @@ const validateDateRangeWithStart = (startDate, endDate, listeTipi = 'HUV') => {
     };
   }
 
-  // Bitiş tarihi de başlangıç tarihinden önce olamaz
-  const endValidation = validateStartDate(endDate, listeTipi);
+  const endValidation = await validateStartDate(endDate, listeTipi);
   if (!endValidation.valid) {
     return {
       valid: false,
@@ -247,8 +285,9 @@ module.exports = {
   validateDateRange,
   addDays,
   getDaysDifference,
+  getStartDate,
+  clearStartDateCache,
   validateStartDate,
   validateDateRangeWithStart,
-  HUV_START_DATE,
-  SUT_START_DATE
+  DEFAULT_START_DATE
 };

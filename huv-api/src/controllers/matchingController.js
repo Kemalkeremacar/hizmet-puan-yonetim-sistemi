@@ -182,10 +182,10 @@ exports.getResults = async (req, res) => {
 exports.approveMatch = async (req, res) => {
   try {
     const { sutId } = req.params;
-    const { userId } = req.body;
+    const userId = req.user?.kullaniciId;
     
     if (!userId) {
-      return errorResponse(res, 'User ID is required', 400);
+      return errorResponse(res, 'Oturum bilgisi bulunamadı (kullaniciId)', 401);
     }
     
     const pool = await getPool();
@@ -210,7 +210,8 @@ exports.approveMatch = async (req, res) => {
 exports.changeMatch = async (req, res) => {
   try {
     const { sutId } = req.params;
-    const { newAltTeminatId, userId } = req.body;
+    const { newAltTeminatId } = req.body;
+    const userId = req.user?.kullaniciId;
     
     if (!newAltTeminatId) {
       return errorResponse(res, 'New alt teminat ID is required', 400);
@@ -245,7 +246,6 @@ exports.changeMatch = async (req, res) => {
  */
 exports.getHuvOptions = async (req, res) => {
   try {
-    const { sutId } = req.params;
     const pool = await getPool();
     
     // Manuel eşleştirme için TÜM HUV teminatlarını getir

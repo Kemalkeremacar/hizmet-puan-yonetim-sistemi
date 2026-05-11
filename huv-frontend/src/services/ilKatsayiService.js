@@ -15,14 +15,6 @@ export const ilKatsayiService = {
   getAll: () => {
     return api.get('/external/il-katsayi');
   },
-
-  // ============================================
-  // GET /api/external/il-katsayi/changes
-  // İl katsayıları değişiklikleri (en son import)
-  // ============================================
-  getChanges: () => {
-    return api.get('/external/il-katsayi/changes');
-  },
 };
 
 export default ilKatsayiService;

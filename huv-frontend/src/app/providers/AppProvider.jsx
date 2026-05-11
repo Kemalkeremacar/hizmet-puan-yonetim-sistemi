@@ -9,7 +9,6 @@ import CssBaseline from '@mui/material/CssBaseline';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { ThemeProvider } from '../context/ThemeContext';
-import { AppProvider as AppContextProvider } from '../context/AppContext';
 import { AuthProvider } from '../context/AuthContext';
 import { TOAST_CONFIG } from '../config/constants';
 
@@ -18,11 +17,9 @@ export const AppProvider = ({ children }) => {
     <BrowserRouter>
       <ThemeProvider>
         <AuthProvider>
-          <AppContextProvider>
-            <CssBaseline />
-            <ToastContainer {...TOAST_CONFIG} />
-            {children}
-          </AppContextProvider>
+          <CssBaseline />
+          <ToastContainer {...TOAST_CONFIG} />
+          {children}
         </AuthProvider>
       </ThemeProvider>
     </BrowserRouter>

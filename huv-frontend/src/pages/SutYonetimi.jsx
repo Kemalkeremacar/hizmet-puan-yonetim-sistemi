@@ -37,19 +37,11 @@ import {
   Close as CloseIcon
 } from '@mui/icons-material';
 import { adminService } from '../services/adminService';
-import { showError, showSuccess } from '../utils/toast';
+import { showError } from '../utils/toastManager';
 import { LoadingSpinner, ErrorAlert, EmptyState, PageHeader, DateDisplay } from '../components/common';
 import SutExcelImportTab from '../components/admin/SutExcelImportTab';
-import { formatDateShort, formatDateTime } from '../utils/dateUtils';
-
-// Tab Panel Component
-function TabPanel({ children, value, index }) {
-  return (
-    <div hidden={value !== index}>
-      {value === index && <Box sx={{ pt: 3 }}>{children}</Box>}
-    </div>
-  );
-}
+import { formatDateTime } from '../utils/dateUtils';
+import { TabPanel } from '../components/common';
 
 // ============================================
 // Versiyon Listesi Tab
@@ -99,11 +91,11 @@ function VersiyonListesiTab() {
 
     try {
       const response = await adminService.getVersiyonDetay(versiyon.VersionID);
-      setVersiyonDetay(response.data);
+      setVersiyonDetay(response?.data || null);
     } catch (err) {
       console.error('Versiyon detayı yüklenemedi:', {
         message: err.message,
-        versionId: id,
+        versionId: versiyon.VersionID,
         timestamp: new Date().toISOString()
       });
       showError('Versiyon detayı yüklenirken hata oluştu');
@@ -174,6 +166,9 @@ function VersiyonListesiTab() {
                           color="primary" 
                           size="small" 
                         />
+                        {versiyonlar.length > 0 && versiyonlar[versiyonlar.length - 1]?.VersionID === versiyon.VersionID && (
+                          <Chip label="İlk Yükleme" size="small" variant="outlined" color="success" />
+                        )}
                       </Box>
                     </TableCell>
                     <TableCell>
@@ -255,6 +250,7 @@ function VersiyonListesiTab() {
             <IconButton
               onClick={() => setDetayDialog(false)}
               size="small"
+              aria-label="Kapat"
             >
               <CloseIcon />
             </IconButton>
@@ -436,7 +432,7 @@ function VersiyonListesiTab() {
                  versiyonDetay.summary.silinen === 0 &&
                  versiyonDetay.summary.degismeyen === 0 &&
                  versiyonDetay.summary.eklenen === versiyonDetay.summary.toplam)) ? (
-                <Box sx={{ mt: 2, p: 3, bgcolor: 'success.lighter', borderRadius: 2, textAlign: 'center' }}>
+                <Box sx={{ mt: 2, p: 3, bgcolor: (theme) => theme.palette.success.light + '22', borderRadius: 2, textAlign: 'center' }}>
                   <InfoIcon sx={{ fontSize: 48, color: 'success.main', mb: 1 }} />
                   <Typography variant="body1" fontWeight="medium" gutterBottom>
                     Bu versiyon ilk versiyon
@@ -450,7 +446,7 @@ function VersiyonListesiTab() {
                  versiyonDetay.summary.guncellenen === 0 &&
                  versiyonDetay.summary.silinen === 0 &&
                  versiyonDetay.summary.degismeyen > 0 ? (
-                <Box sx={{ mt: 2, p: 3, bgcolor: 'info.lighter', borderRadius: 2, textAlign: 'center' }}>
+                <Box sx={{ mt: 2, p: 3, bgcolor: (theme) => theme.palette.info.light + '22', borderRadius: 2, textAlign: 'center' }}>
                   <InfoIcon sx={{ fontSize: 48, color: 'info.main', mb: 1 }} />
                   <Typography variant="body1" fontWeight="medium" gutterBottom>
                     Değişiklik yok

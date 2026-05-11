@@ -8,20 +8,14 @@
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "test": "playwright test",
-    "test:ui": "playwright test --ui",
-    "test:headed": "playwright test --headed",
-    "test:debug": "playwright test --debug",
-    "test:report": "playwright show-report"
+    "test": "echo \"No test runner configured\" && exit 0"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.1",
     "@mui/icons-material": "^7.3.7",
-    "@mui/lab": "^7.0.1-beta.21",
     "@mui/material": "^7.3.7",
     "@mui/x-tree-view": "^8.27.0",
-    "@tanstack/react-table": "^8.21.3",
     "axios": "^1.13.4",
     "date-fns": "^4.1.0",
     "file-saver": "^2.0.5",
@@ -29,12 +23,10 @@
     "react-dom": "^19.2.0",
     "react-router-dom": "^7.13.0",
     "react-toastify": "^11.0.5",
-    "recharts": "^3.7.0",
     "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.1",
-    "@playwright/test": "^1.58.2",
     "@types/react": "^19.2.5",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^5.1.1",

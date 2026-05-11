@@ -37,7 +37,7 @@ import {
   getAltTeminatlar, 
   getAltTeminatIslemler,
 } from '../services/altTeminatService';
-import ToastManager from '../utils/toastManager';
+import { showError } from '../utils/toastManager';
 
 // ============================================
 // AltTeminatlar Component
@@ -53,9 +53,9 @@ function AltTeminatlar() {
   const [teminatIslemler, setTeminatIslemler] = useState([]);
   const [islemlerLoading, setIslemlerLoading] = useState(false);
 
-  // Popover states for SUT code hover
+  // Popover states
   const [popoverAnchor, setPopoverAnchor] = useState(null);
-  const [hoveredIslem, setHoveredIslem] = useState(null);
+  const [activeIslem, setActiveIslem] = useState(null);
 
   // ============================================
   // Verileri yükle
@@ -90,7 +90,7 @@ function AltTeminatlar() {
       setTeminatIslemler(islemler);
     } catch (err) {
       console.error('İşlemler yüklenemedi:', err);
-      ToastManager.error('İşlemler yüklenirken hata oluştu');
+      showError('İşlemler yüklenirken hata oluştu');
     } finally {
       setIslemlerLoading(false);
     }
@@ -108,14 +108,19 @@ function AltTeminatlar() {
   // ============================================
   // Popover handlers
   // ============================================
-  const handlePopoverOpen = (event, islem) => {
-    setPopoverAnchor(event.currentTarget);
-    setHoveredIslem(islem);
+  const handlePopoverToggle = (event, islem) => {
+    if (popoverAnchor && activeIslem?.SutKodu === islem.SutKodu) {
+      setPopoverAnchor(null);
+      setActiveIslem(null);
+    } else {
+      setPopoverAnchor(event.currentTarget);
+      setActiveIslem(islem);
+    }
   };
 
   const handlePopoverClose = () => {
     setPopoverAnchor(null);
-    setHoveredIslem(null);
+    setActiveIslem(null);
   };
 
   const popoverOpen = Boolean(popoverAnchor);
@@ -289,10 +294,13 @@ function AltTeminatlar() {
                             size="small"
                             color="success"
                             variant="outlined"
-                            onMouseEnter={(e) => handlePopoverOpen(e, islem)}
-                            onMouseLeave={handlePopoverClose}
+                            onClick={(e) => { e.stopPropagation(); handlePopoverToggle(e, islem); }}
+                            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') handlePopoverToggle(e, islem); }}
+                            aria-haspopup="true"
+                            aria-expanded={popoverOpen && activeIslem?.SutKodu === islem.SutKodu}
+                            tabIndex={0}
                             sx={{ 
-                              cursor: 'help',
+                              cursor: 'pointer',
                               '&:hover': { 
                                 backgroundColor: 'success.light',
                                 color: 'white'
@@ -331,49 +339,41 @@ function AltTeminatlar() {
           vertical: 'top',
           horizontal: 'center',
         }}
-        disableRestoreFocus
-        sx={{
-          pointerEvents: 'none',
-        }}
         slotProps={{
           paper: {
             sx: {
-              pointerEvents: 'auto',
               maxWidth: 500,
               boxShadow: 3,
             }
           }
         }}
       >
-        {hoveredIslem && (
+        {activeIslem && (
           <Box sx={{ p: 2 }}>
             <Stack spacing={1.5}>
-              {/* SUT Üst Teminat */}
-              {hoveredIslem.SutUstTeminat && (
+              {activeIslem.SutUstTeminat && (
                 <Box>
                   <Typography variant="caption" color="text.secondary" display="block">
                     SUT Üst Teminat
                   </Typography>
                   <Typography variant="body2" fontWeight="600">
-                    {hoveredIslem.SutUstTeminat}
+                    {activeIslem.SutUstTeminat}
                   </Typography>
                 </Box>
               )}
 
-              {/* SUT Alt Teminat */}
-              {hoveredIslem.SutAltTeminat && (
+              {activeIslem.SutAltTeminat && (
                 <Box>
                   <Typography variant="caption" color="text.secondary" display="block">
                     SUT Alt Teminat
                   </Typography>
                   <Typography variant="body2" fontWeight="600">
-                    {hoveredIslem.SutAltTeminat}
+                    {activeIslem.SutAltTeminat}
                   </Typography>
                 </Box>
               )}
 
-              {/* Eğer hiçbiri yoksa */}
-              {!hoveredIslem.SutUstTeminat && !hoveredIslem.SutAltTeminat && (
+              {!activeIslem.SutUstTeminat && !activeIslem.SutAltTeminat && (
                 <Typography variant="body2" color="text.secondary">
                   Teminat bilgisi bulunamadı
                 </Typography>

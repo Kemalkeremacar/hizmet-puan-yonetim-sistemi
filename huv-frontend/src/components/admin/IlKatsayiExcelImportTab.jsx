@@ -21,7 +21,7 @@ import {
   Visibility as VisibilityIcon
 } from '@mui/icons-material';
 import { adminService } from '../../services/adminService';
-import { showError, showSuccess, showWarning } from '../../utils/toast';
+import { showError, showSuccess, showWarning } from '../../utils/toastManager';
 import ImportPreviewDialog from './ImportPreviewDialog';
 
 export default function IlKatsayiExcelImportTab() {
@@ -98,8 +98,8 @@ export default function IlKatsayiExcelImportTab() {
 
       const response = await adminService.importIlKatsayiList(formData);
       
-      if (response.data?.success !== false) {
-        const summary = response.data?.summary || {};
+      if (response?.success !== false) {
+        const summary = response?.data?.summary || {};
         const parts = [];
         if (summary.added > 0) parts.push(`${summary.added} eklendi`);
         if (summary.updated > 0) parts.push(`${summary.updated} güncellendi`);
@@ -118,7 +118,7 @@ export default function IlKatsayiExcelImportTab() {
         const fileInput = document.getElementById('il-katsayi-excel-file-input');
         if (fileInput) fileInput.value = '';
       } else {
-        showError(response.data?.message || 'Import başarısız');
+        showError(response?.message || 'Import başarısız');
       }
     } catch (err) {
       console.error('Import hatası:', err);

@@ -12,12 +12,13 @@ require('dotenv').config({ override: true });
 // ============================================
 const config = {
   server: process.env.DB_SERVER,
+  port: parseInt(process.env.DB_PORT) || 1433,
   database: process.env.DB_DATABASE,
   options: {
     encrypt: process.env.DB_ENCRYPT === 'true',
     trustServerCertificate: process.env.DB_TRUST_SERVER_CERTIFICATE === 'true',
     enableArithAbort: true,
-    useUTC: false // Türkiye saat dilimi için
+    useUTC: false
   },
   pool: {
     max: 10,

@@ -41,10 +41,11 @@ import { SimpleTreeView } from '@mui/x-tree-view/SimpleTreeView';
 import { TreeItem } from '@mui/x-tree-view/TreeItem';
 import { islemService } from '../services/islemService';
 import { anadalService } from '../services/anadalService';
-import { showError, showSuccess, showWarning, showInfo } from '../utils/toast';
+import { showError, showSuccess, showWarning, showInfo } from '../utils/toastManager';
 import { exportToExcel } from '../utils/export';
 import { normalizeString } from '../utils/stringUtils';
 import { PageHeader } from '../components/common';
+import { useDebounce } from '../hooks/useDebounce';
 
 // ============================================
 // HiyerarsiAgaci Component
@@ -59,6 +60,7 @@ function HiyerarsiAgaci() {
   const [selected, setSelected] = useState([]);
   const [breadcrumb, setBreadcrumb] = useState([]);
   const [searchText, setSearchText] = useState('');
+  const debouncedSearchText = useDebounce(searchText, 300);
   const [selectedNodeDetails, setSelectedNodeDetails] = useState(null);
 
   // ============================================
@@ -138,10 +140,6 @@ function HiyerarsiAgaci() {
       
       setIslemler(data);
       buildTreeData(data);
-      
-      if (data.length > 0 && data.length <= 3000) {
-        showSuccess(`${data.length} işlem yüklendi`);
-      }
     } catch (err) {
       console.error('İşlemler yüklenemedi:', {
         message: err.message,
@@ -263,15 +261,14 @@ function HiyerarsiAgaci() {
   // Filtrelenmiş tree data - Memoized
   // ============================================
   const filteredTreeData = useMemo(() => {
-    return filterTreeBySearch(treeData, searchText);
-  }, [treeData, searchText, filterTreeBySearch]);
+    return filterTreeBySearch(treeData, debouncedSearchText);
+  }, [treeData, debouncedSearchText, filterTreeBySearch]);
 
   // ============================================
   // Arama değiştiğinde otomatik genişlet
   // ============================================
   useEffect(() => {
-    if (searchText && searchText.trim() !== '' && filteredTreeData.length > 0) {
-      // Arama yapıldığında tüm eşleşen node'ları genişlet
+    if (debouncedSearchText && debouncedSearchText.trim() !== '' && filteredTreeData.length > 0) {
       const getAllNodeIds = (nodes) => {
         let ids = [];
         nodes.forEach(node => {
@@ -286,7 +283,7 @@ function HiyerarsiAgaci() {
       };
       setExpanded(getAllNodeIds(filteredTreeData));
     }
-  }, [searchText, filteredTreeData]);
+  }, [debouncedSearchText, filteredTreeData]);
 
   // ============================================
   // Arama temizle
@@ -474,7 +471,7 @@ function HiyerarsiAgaci() {
           '& .MuiTreeItem-group': {
             marginLeft: 3,
             paddingLeft: 2,
-            borderLeft: '1px dashed rgba(0, 0, 0, 0.12)'
+            borderLeft: (t) => `1px dashed ${t.palette.divider}`
           }
         }}
       >

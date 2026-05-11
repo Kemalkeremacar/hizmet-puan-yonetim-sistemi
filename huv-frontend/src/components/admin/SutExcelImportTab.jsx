@@ -21,7 +21,7 @@ import {
   Visibility as VisibilityIcon
 } from '@mui/icons-material';
 import { adminService } from '../../services/adminService';
-import { showError, showSuccess, showWarning } from '../../utils/toast';
+import { showError, showSuccess, showWarning } from '../../utils/toastManager';
 import ImportPreviewDialog from './ImportPreviewDialog';
 
 export default function SutExcelImportTab() {
@@ -98,9 +98,8 @@ export default function SutExcelImportTab() {
 
       const response = await adminService.importSutList(formData);
       
-      // Synchronous import - direkt sonuç
-      if (response.data?.success !== false) {
-        const summary = response.data?.summary || {};
+      if (response?.success !== false) {
+        const summary = response?.data?.summary || {};
         const parts = [];
         if (summary.added > 0) parts.push(`${summary.added} eklendi`);
         if (summary.updated > 0) parts.push(`${summary.updated} güncellendi`);
@@ -119,7 +118,7 @@ export default function SutExcelImportTab() {
         const fileInput = document.getElementById('sut-excel-file-input');
         if (fileInput) fileInput.value = '';
       } else {
-        showError(response.data?.message || 'Import başarısız');
+        showError(response?.message || 'Import başarısız');
       }
     } catch (err) {
       console.error('Import hatası:', err);

@@ -63,7 +63,20 @@ const deleteFile = (filePath) => {
   }
 };
 
+const decodeDosyaAdi = (originalname) => {
+  try {
+    return decodeURIComponent(originalname);
+  } catch {
+    try {
+      return Buffer.from(originalname, 'latin1').toString('utf8');
+    } catch {
+      return originalname;
+    }
+  }
+};
+
 module.exports = {
   cleanupOldUploads,
-  deleteFile
+  deleteFile,
+  decodeDosyaAdi
 };

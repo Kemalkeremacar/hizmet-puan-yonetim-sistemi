@@ -10,10 +10,9 @@ const { success, error } = require('../utils/response');
 const { 
   isValidDate, 
   isFutureDate, 
-  validateDateRange,
   validateStartDate,
   validateDateRangeWithStart,
-  SUT_START_DATE
+  getStartDate
 } = require('../utils/dateUtils');
 
 // ============================================
@@ -47,12 +46,13 @@ const getPuanByTarih = async (req, res, next) => {
     }
 
     // Başlangıç tarihi kontrolü (SUT için 01.01.2026)
-    const startDateValidation = validateStartDate(tarih, 'SUT');
+    const sutStartDate = await getStartDate('SUT');
+    const startDateValidation = await validateStartDate(tarih, 'SUT');
     if (!startDateValidation.valid) {
       return error(res, startDateValidation.error, 400, {
         tip: startDateValidation.tip || 'TARIH_BASLANGIC_ONDEN',
-        cozum: startDateValidation.cozum || `SUT listesi için sorgu yapılabilecek en eski tarih ${SUT_START_DATE} tarihidir.`,
-        baslangicTarihi: SUT_START_DATE,
+        cozum: startDateValidation.cozum || `SUT listesi için sorgu yapılabilecek en eski tarih ${sutStartDate} tarihidir.`,
+        baslangicTarihi: sutStartDate,
         girilenTarih: tarih
       });
     }
@@ -122,12 +122,13 @@ const getDegişenler = async (req, res, next) => {
     const { baslangic, bitis, anaBaslikNo } = req.query;
 
     // Tarih aralığı validasyonu (başlangıç tarihi kontrolü dahil)
-    const validation = validateDateRangeWithStart(baslangic, bitis, 'SUT');
+    const sutStartDate = await getStartDate('SUT');
+    const validation = await validateDateRangeWithStart(baslangic, bitis, 'SUT');
     if (!validation.valid) {
       return error(res, validation.error, 400, {
         tip: validation.tip || 'GECERSIZ_TARIH_ARALIGI',
-        cozum: validation.cozum || `SUT listesi için sorgu yapılabilecek en eski tarih ${SUT_START_DATE} tarihidir.`,
-        baslangicTarihi: SUT_START_DATE,
+        cozum: validation.cozum || `SUT listesi için sorgu yapılabilecek en eski tarih ${sutStartDate} tarihidir.`,
+        baslangicTarihi: sutStartDate,
         girilenBaslangic: baslangic,
         girilenBitis: bitis
       });
@@ -150,13 +151,8 @@ const getDegişenler = async (req, res, next) => {
       DegisiklikTarihi: item.SonDegisiklik || item.DegisiklikTarihi || item.IlkDegisiklik // SonDegisiklik -> DegisiklikTarihi
     }));
 
-    // Boş sonuç için bilgilendirme
     if (mappedData.length === 0) {
-      return success(res, [], 'Belirtilen tarih aralığında değişiklik bulunamadı', {
-        baslangic,
-        bitis,
-        uyari: 'Bu tarih aralığında puan değişikliği olan SUT kodu bulunamadı'
-      });
+      return success(res, [], 'Belirtilen tarih aralığında değişiklik bulunamadı');
     }
 
     return success(res, mappedData, `${mappedData.length} SUT kodu değişikliği bulundu`);
@@ -175,18 +171,34 @@ const getPuanGecmisi = async (req, res, next) => {
     const { identifier } = req.params;
     const pool = await getPool();
 
-    // Identifier sayı mı yoksa SUT kodu mu kontrol et
+    // Identifier: önce SUT ID olarak dene, bulamazsa SUT kodu olarak ara
     const isNumericId = /^\d+$/.test(identifier);
     let sutId;
 
-    if (isNumericId && parseInt(identifier) < 100000) {
-      // Küçük sayı = SUT ID
-      sutId = parseInt(identifier);
+    if (isNumericId) {
+      const numericVal = parseInt(identifier);
+      const idCheck = await pool.request()
+        .input('SutID', sql.Int, numericVal)
+        .query('SELECT SutID FROM SutIslemler WHERE SutID = @SutID');
+      
+      if (idCheck.recordset.length > 0) {
+        sutId = numericVal;
+      } else {
+        const codeCheck = await pool.request()
+          .input('SutKodu', sql.NVarChar, identifier)
+          .query('SELECT SutID FROM SutIslemler WHERE SutKodu = @SutKodu');
+        if (codeCheck.recordset.length > 0) {
+          sutId = codeCheck.recordset[0].SutID;
+        } else {
+          return error(res, 'Bu SUT koduna veya ID\'ye sahip işlem bulunamadı', 404, {
+            tip: 'SUT_BULUNAMADI',
+            sutKodu: identifier
+          });
+        }
+      }
     } else {
-      // SUT Kodu - önce SUT ID'yi bul
-      const sutKodu = identifier;
       const islemResult = await pool.request()
-        .input('SutKodu', sql.NVarChar, sutKodu)
+        .input('SutKodu', sql.NVarChar, identifier)
         .query('SELECT SutID FROM SutIslemler WHERE SutKodu = @SutKodu');
 
       if (islemResult.recordset.length === 0) {
@@ -278,16 +290,18 @@ const getPuanGecmisi = async (req, res, next) => {
       ? new Date(enEskiVersiyon.GecerlilikBaslangic).toISOString().split('T')[0]
       : null;
 
+    const sutStartDate = await getStartDate('SUT');
+
     return success(res, {
       islem: islemInfo,
       sut: islemInfo, // Frontend uyumluluğu için (sut field'ı da ekle)
       versiyonlar: mappedVersiyonlar,
       istatistikler: istatistikler,
       mevcutMu: mevcutMu,
-      baslangicTarihi: SUT_START_DATE,
+      baslangicTarihi: sutStartDate,
       enEskiVersiyonTarihi: enEskiTarih,
-      uyari: enEskiTarih && new Date(enEskiTarih) < new Date(SUT_START_DATE)
-        ? `Not: Bu işlemin bazı versiyonları başlangıç tarihinden (${SUT_START_DATE}) önce olabilir. Sistemde sorgu yapılabilecek en eski tarih ${SUT_START_DATE} tarihidir.`
+      uyari: enEskiTarih && new Date(enEskiTarih) < new Date(sutStartDate)
+        ? `Not: Bu işlemin bazı versiyonları başlangıç tarihinden (${sutStartDate}) önce olabilir. Sistemde sorgu yapılabilecek en eski tarih ${sutStartDate} tarihidir.`
         : null
     }, 'Puan geçmişi');
   } catch (err) {
@@ -414,18 +428,34 @@ const getYasamDongusu = async (req, res, next) => {
     const { identifier } = req.params;
     const pool = await getPool();
 
-    // Identifier sayı mı yoksa SUT kodu mu kontrol et
+    // Identifier: önce SUT ID olarak dene, bulamazsa SUT kodu olarak ara
     const isNumericId = /^\d+$/.test(identifier);
     let sutId;
 
-    if (isNumericId && parseInt(identifier) < 100000) {
-      // Küçük sayı = SUT ID
-      sutId = parseInt(identifier);
+    if (isNumericId) {
+      const numericVal = parseInt(identifier);
+      const idCheck = await pool.request()
+        .input('SutID', sql.Int, numericVal)
+        .query('SELECT SutID FROM SutIslemler WHERE SutID = @SutID');
+      
+      if (idCheck.recordset.length > 0) {
+        sutId = numericVal;
+      } else {
+        const codeCheck = await pool.request()
+          .input('SutKodu', sql.NVarChar, identifier)
+          .query('SELECT SutID FROM SutIslemler WHERE SutKodu = @SutKodu');
+        if (codeCheck.recordset.length > 0) {
+          sutId = codeCheck.recordset[0].SutID;
+        } else {
+          return error(res, 'Bu SUT koduna veya ID\'ye sahip işlem bulunamadı', 404, {
+            tip: 'SUT_BULUNAMADI',
+            sutKodu: identifier
+          });
+        }
+      }
     } else {
-      // SUT Kodu - önce SUT ID'yi bul
-      const sutKodu = identifier;
       const islemResult = await pool.request()
-        .input('SutKodu', sql.NVarChar, sutKodu)
+        .input('SutKodu', sql.NVarChar, identifier)
         .query('SELECT SutID FROM SutIslemler WHERE SutKodu = @SutKodu');
       
       if (islemResult.recordset.length === 0) {
@@ -498,7 +528,7 @@ const getYasamDongusu = async (req, res, next) => {
     if (yasamDongusuData.length === 0) {
       // Versiyon yok, mevcut kaydı ekle
       // İlk import tarihini ListeVersiyon'dan al
-      let ilkImportTarihi = new Date('2026-01-01'); // Varsayılan
+      let ilkImportTarihi = new Date('2026-02-05');
       
       try {
         const ilkImportResult = await pool.request().query(`

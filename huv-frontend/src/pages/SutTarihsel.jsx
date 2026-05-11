@@ -38,7 +38,7 @@ import {
   Info as InfoIcon
 } from '@mui/icons-material';
 import { tarihselService } from '../services/tarihselService';
-import { showSuccess, showError, showInfo } from '../utils/toast';
+import { showSuccess, showError, showInfo } from '../utils/toastManager';
 import { exportToExcel } from '../utils/export';
 import { LoadingSpinner, ErrorAlert, EmptyState, PageHeader } from '../components/common';
 import { 
@@ -49,14 +49,7 @@ import {
   formatDateShort,
   formatDateTime
 } from '../utils/dateUtils';
-
-function TabPanel({ children, value, index }) {
-  return (
-    <div hidden={value !== index}>
-      {value === index && <Box sx={{ pt: 3 }}>{children}</Box>}
-    </div>
-  );
-}
+import { TabPanel } from '../components/common';
 
 function SutTarihsel() {
   const [tabValue, setTabValue] = useState(0);
@@ -71,11 +64,11 @@ function SutTarihsel() {
   const [puanResult, setPuanResult] = useState(null);
 
   // Tab 2: Değişenler
-  const [degişenlerForm, setDegişenlerForm] = useState({
+  const [degisiklikForm, setDegisiklikForm] = useState({
     baslangic: getDaysAgo(30),
     bitis: getTodayString()
   });
-  const [degişenlerResult, setDegişenlerResult] = useState([]);
+  const [degisiklikResult, setDegisiklikResult] = useState([]);
 
   // Tab 3: Puan Geçmişi
   const [gecmisForm, setGecmisForm] = useState({
@@ -175,8 +168,8 @@ function SutTarihsel() {
   // ============================================
   // TAB 2: Değişenleri Sorgula
   // ============================================
-  const handleDegişenlerSorgula = async () => {
-    const validation = validateDateRange(degişenlerForm.baslangic, degişenlerForm.bitis);
+  const handleDegisiklikSorgula = async () => {
+    const validation = validateDateRange(degisiklikForm.baslangic, degisiklikForm.bitis);
     if (!validation.valid) {
       showError(validation.error);
       return;
@@ -186,16 +179,14 @@ function SutTarihsel() {
       setLoading(true);
       setError(null);
       const response = await tarihselService.getSutDegişenler({
-        baslangic: degişenlerForm.baslangic,
-        bitis: degişenlerForm.bitis
+        baslangic: degisiklikForm.baslangic,
+        bitis: degisiklikForm.bitis
       });
 
-      // API response formatı: { success: true, data: [...], message: "..." }
       const data = response.data?.data || response.data || [];
-      setDegişenlerResult(data);
+      setDegisiklikResult(data);
       
       if (data.length === 0) {
-        // Backend'den gelen uyarı mesajını göster
         const uyari = response.data?.uyari || 'Bu tarih aralığında değişiklik bulunamadı';
         showInfo(uyari);
       } else {
@@ -204,8 +195,7 @@ function SutTarihsel() {
     } catch (err) {
       console.error('Değişenler sorgu hatası:', err);
       setError(err);
-      setDegişenlerResult([]);
-      // Backend'den gelen detaylı hata mesajı
+      setDegisiklikResult([]);
       const errorData = err.response?.data;
       const errorMessage = errorData?.message || 
                           errorData?.errors?.cozum || 
@@ -213,7 +203,6 @@ function SutTarihsel() {
                           err.message || 
                           'Değişiklikler sorgulanamadı';
       
-      // Başlangıç tarihi hatası için özel mesaj
       if (errorData?.errors?.tip === 'TARIH_BASLANGIC_ONDEN' || errorData?.errors?.tip === 'GECERSIZ_TARIH_ARALIGI') {
         const cozum = errorData.errors.cozum || '';
         const baslangicTarihi = errorData.errors.baslangicTarihi || '2026-01-01';
@@ -226,14 +215,14 @@ function SutTarihsel() {
     }
   };
 
-  const handleDegişenlerExport = () => {
-    if (!degişenlerResult || degişenlerResult.length === 0) {
+  const handleDegisiklikExport = () => {
+    if (!degisiklikResult || degisiklikResult.length === 0) {
       showError('Export edilecek veri yok');
       return;
     }
 
     try {
-      const data = degişenlerResult.map(item => ({
+      const data = degisiklikResult.map(item => ({
         'SUT Kodu': item.SutKodu || '-',
         'İşlem Adı': item.IslemAdi || '-',
         'Eski Puan': item.EskiPuan || item.IlkPuan || '-',
@@ -542,8 +531,8 @@ function SutTarihsel() {
                   fullWidth
                   label="Başlangıç Tarihi"
                   type="date"
-                  value={degişenlerForm.baslangic}
-                  onChange={(e) => setDegişenlerForm({ ...degişenlerForm, baslangic: e.target.value })}
+                  value={degisiklikForm.baslangic}
+                  onChange={(e) => setDegisiklikForm({ ...degisiklikForm, baslangic: e.target.value })}
                   slotProps={{
                     inputLabel: { shrink: true },
                     input: {
@@ -561,8 +550,8 @@ function SutTarihsel() {
                   fullWidth
                   label="Bitiş Tarihi"
                   type="date"
-                  value={degişenlerForm.bitis}
-                  onChange={(e) => setDegişenlerForm({ ...degişenlerForm, bitis: e.target.value })}
+                  value={degisiklikForm.bitis}
+                  onChange={(e) => setDegisiklikForm({ ...degisiklikForm, bitis: e.target.value })}
                   slotProps={{ inputLabel: { shrink: true } }}
                 />
               </Box>
@@ -571,7 +560,7 @@ function SutTarihsel() {
                   fullWidth
                   variant="contained"
                   size="large"
-                  onClick={handleDegişenlerSorgula}
+                  onClick={handleDegisiklikSorgula}
                   disabled={loading}
                   sx={{ height: '56px' }}
                 >
@@ -580,16 +569,16 @@ function SutTarihsel() {
               </Box>
             </Box>
 
-            {degişenlerResult && degişenlerResult.length > 0 && (
+            {degisiklikResult && degisiklikResult.length > 0 && (
               <Box>
                 <Stack direction="row" spacing={2} alignItems="center" sx={{ mb: 2 }}>
                   <Alert severity="success" sx={{ flexGrow: 1 }}>
-                    <strong>{degişenlerResult.length}</strong> SUT kodunda değişiklik bulundu
+                    <strong>{degisiklikResult.length}</strong> SUT kodunda değişiklik bulundu
                   </Alert>
                   <Button
                     variant="contained"
                     startIcon={<FileDownloadIcon />}
-                    onClick={handleDegişenlerExport}
+                    onClick={handleDegisiklikExport}
                   >
                     Excel'e Aktar
                   </Button>
@@ -609,7 +598,7 @@ function SutTarihsel() {
                       </TableRow>
                     </TableHead>
                     <TableBody>
-                      {degişenlerResult.map((item, index) => {
+                      {degisiklikResult.map((item, index) => {
                         const fark = (item.YeniPuan || 0) - (item.EskiPuan || 0);
                         const yuzde = item.EskiPuan ? ((fark / item.EskiPuan) * 100) : 0;
                         const artis = fark > 0;
@@ -671,9 +660,14 @@ function SutTarihsel() {
               </Box>
             )}
 
-            {degişenlerResult && degişenlerResult.length === 0 && !loading && (
-              <Paper sx={{ p: 6, textAlign: 'center', bgcolor: 'background.default' }}>
+            {degisiklikResult && degisiklikResult.length === 0 && !loading && (
+              <Paper sx={{ p: 4, bgcolor: 'background.default' }}>
                 <EmptyState message="Bu tarih aralığında değişiklik bulunamadı" />
+                <Alert severity="info" sx={{ mt: 2 }}>
+                  <Typography variant="body2">
+                    <strong>Not:</strong> Değişiklik sorgusu en az 2 farklı liste versiyonu gerektirir. Sisteme henüz tek bir SUT listesi yüklenmiş ise bu sekme doğal olarak boş döner. Yeni bir liste import edildiğinde fark raporları burada görünecektir.
+                  </Typography>
+                </Alert>
               </Paper>
             )}
           </Stack>
@@ -808,6 +802,12 @@ function SutTarihsel() {
                   <Typography variant="h6" gutterBottom fontWeight="600" sx={{ mb: 2 }}>
                     Puan Değişim Geçmişi
                   </Typography>
+
+                  {gecmisResult.versiyonlar && gecmisResult.versiyonlar.length === 1 && (
+                    <Alert severity="info" sx={{ mb: 2 }}>
+                      Bu işlem için henüz tek bir versiyon kaydı bulunmaktadır. Puan karşılaştırması yapabilmek için sisteme en az iki farklı liste yüklenmiş olmalıdır.
+                    </Alert>
+                  )}
                   
                   {gecmisResult.versiyonlar && gecmisResult.versiyonlar.length > 0 ? (
                     <TableContainer component={Paper} variant="outlined">
@@ -835,7 +835,7 @@ function SutTarihsel() {
                                 hover
                                 sx={{ 
                                   '&:nth-of-type(odd)': { bgcolor: 'action.hover' },
-                                  bgcolor: aktif ? 'success.lighter' : undefined
+                                  bgcolor: aktif ? 'rgba(76, 175, 80, 0.08)' : undefined
                                 }}
                               >
                                 <TableCell>
@@ -1061,7 +1061,7 @@ function SutTarihsel() {
                     </Table>
                   </TableContainer>
                   
-                  <Box sx={{ mt: 2, p: 2, bgcolor: gecmisResult.mevcutMu ? 'success.lighter' : 'error.lighter', borderRadius: 1 }}>
+                  <Box sx={{ mt: 2, p: 2, bgcolor: gecmisResult.mevcutMu ? 'rgba(76, 175, 80, 0.08)' : 'rgba(244, 67, 54, 0.08)', borderRadius: 1 }}>
                     <Stack direction="row" spacing={1} alignItems="center">
                       <Chip 
                         label={gecmisResult.mevcutMu ? 'AKTİF' : 'SİLİNMİŞ'} 

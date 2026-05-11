@@ -27,14 +27,6 @@ export const adminService = {
   },
 
   // ============================================
-  // GET /api/admin/import/report/:versionId
-  // Import detay raporu
-  // ============================================
-  getImportReport: (versionId) => {
-    return axios.get(`/admin/import/report/${versionId}`);
-  },
-
-  // ============================================
   // POST /api/admin/import/preview
   // Excel dosyasını önizle (import yapmadan)
   // ============================================

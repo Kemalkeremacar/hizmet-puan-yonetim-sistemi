@@ -102,7 +102,7 @@ function AppRoutes() {
           <MatchingReview />
         </ProtectedRoute>
       } />
-      <Route path="/matching/unmatched" element={
+      <Route path={ROUTES.unmatchedRecords} element={
         <ProtectedRoute adminOnly>
           <UnmatchedRecords />
         </ProtectedRoute>

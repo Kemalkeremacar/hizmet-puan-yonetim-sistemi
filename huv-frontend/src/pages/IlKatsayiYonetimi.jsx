@@ -43,47 +43,12 @@ import {
   ExpandMore as ExpandMoreIcon
 } from '@mui/icons-material';
 import { adminService } from '../services/adminService';
-import { showError, showSuccess } from '../utils/toast';
+import { showError } from '../utils/toastManager';
 import { LoadingSpinner, ErrorAlert, EmptyState, PageHeader, DateDisplay } from '../components/common';
 import IlKatsayiExcelImportTab from '../components/admin/IlKatsayiExcelImportTab';
-import { formatDateShort, formatDateTime } from '../utils/dateUtils';
+import { formatDateTime } from '../utils/dateUtils';
 import { ilKatsayiService } from '../services/ilKatsayiService';
-
-// Tab Panel Component
-function TabPanel({ children, value, index }) {
-  return (
-    <div hidden={value !== index}>
-      {value === index && (
-        <Box 
-          sx={{ 
-            pt: 3,
-            pb: 3,
-            px: 2,
-            minHeight: '60vh',
-            maxHeight: 'calc(100vh - 300px)',
-            overflowY: 'auto',
-            '&::-webkit-scrollbar': {
-              width: '8px',
-            },
-            '&::-webkit-scrollbar-track': {
-              background: 'rgba(0,0,0,0.05)',
-              borderRadius: '4px',
-            },
-            '&::-webkit-scrollbar-thumb': {
-              background: 'rgba(0,0,0,0.2)',
-              borderRadius: '4px',
-              '&:hover': {
-                background: 'rgba(0,0,0,0.3)',
-              },
-            },
-          }}
-        >
-          {children}
-        </Box>
-      )}
-    </div>
-  );
-}
+import { TabPanel } from '../components/common';
 
 // ============================================
 // İl Katsayıları Listesi Tab
@@ -102,7 +67,7 @@ function IlKatsayilariListesiTab() {
       setLoading(true);
       setError(null);
       const response = await ilKatsayiService.getAll();
-      const data = response?.data?.data || [];
+      const data = response?.data || [];
       setIlKatsayilari(Array.isArray(data) ? data : []);
     } catch (err) {
       console.error('İl katsayıları yüklenemedi:', {
@@ -519,6 +484,7 @@ function VersiyonListesiTab() {
             </Typography>
             <IconButton
               size="small"
+              aria-label="Kapat"
               onClick={() => {
                 setDetayDialog(false);
                 setSecilenVersiyon(null);
@@ -605,12 +571,29 @@ function VersiyonListesiTab() {
                 <Grid item xs={6} sm={3}>
                   <Paper sx={{ p: 2, bgcolor: 'info.light', textAlign: 'center' }}>
                     <Typography variant="h4" color="info.dark">
-                      {versiyonDetay.summary?.eklenen + versiyonDetay.summary?.guncellenen + versiyonDetay.summary?.silinen || 0}
+                      {(versiyonDetay.summary?.eklenen || 0) + (versiyonDetay.summary?.guncellenen || 0) + (versiyonDetay.summary?.silinen || 0)}
                     </Typography>
                     <Typography variant="caption">Toplam Değişiklik</Typography>
                   </Paper>
                 </Grid>
               </Grid>
+
+              {/* İlk Versiyon Kontrolü */}
+              {versiyonDetay?.summary &&
+               versiyonDetay.summary.eklenen > 0 &&
+               (versiyonDetay.summary.guncellenen || 0) === 0 &&
+               (versiyonDetay.summary.silinen || 0) === 0 && (
+                <Box sx={{ mt: 2, mb: 2, p: 3, bgcolor: 'rgba(76, 175, 80, 0.08)', borderRadius: 2, textAlign: 'center' }}>
+                  <InfoIcon sx={{ fontSize: 48, color: 'success.main', mb: 1 }} />
+                  <Typography variant="body1" fontWeight="medium" gutterBottom>
+                    Bu versiyon ilk versiyon
+                  </Typography>
+                  <Typography variant="body2" color="textSecondary">
+                    Tüm {versiyonDetay.summary.eklenen || 0} il katsayısı yeni kayıt olarak eklendi.
+                    Karşılaştırma yapmak için en az iki versiyon olmalıdır.
+                  </Typography>
+                </Box>
+              )}
 
               {versiyonDetay.guncellenenler && versiyonDetay.guncellenenler.length > 0 && (
                 <Box sx={{ mb: 3 }}>
