@@ -1,0 +1,3184 @@
+{
+  "database": {
+    "DatabaseName": "HuvDB",
+    "SQLServerVersion": "16.0.1000.6",
+    "Edition": "Express Edition (64-bit)",
+    "ProductLevel": "RTM",
+    "Collation": "Turkish_CI_AS",
+    "Status": "ONLINE",
+    "RecoveryModel": "SIMPLE"
+  },
+  "tables": [
+    {
+      "schema": "dbo",
+      "name": "AltTeminatIslemler",
+      "rowCount": 3991,
+      "totalSpaceMB": 1.62,
+      "usedSpaceMB": 1.41,
+      "columns": [
+        {
+          "name": "ID",
+          "dataType": "int",
+          "maxLength": null,
+          "precision": 10,
+          "scale": 0,
+          "nullable": false,
+          "defaultValue": null,
+          "isIdentity": true,
+          "isComputed": false
+        },
+        {
+          "name": "AltTeminatID",
+          "dataType": "int",
+          "maxLength": null,
+          "precision": 10,
+          "scale": 0,
+          "nullable": false,
+          "defaultValue": null,
+          "isIdentity": false,
+          "isComputed": false
+        },
+        {
+          "name": "SutID",
+          "dataType": "int",
+          "maxLength": null,
+          "precision": 10,
+          "scale": 0,
+          "nullable": false,
+          "defaultValue": null,
+          "isIdentity": false,
+          "isComputed": false
+        },
+        {
+          "name": "EklemeTarihi",
+          "dataType": "datetime",
+          "maxLength": null,
+          "precision": null,
+          "scale": null,
+          "nullable": true,
+          "defaultValue": "(getdate())",
+          "isIdentity": false,
+          "isComputed": false
+        },
+        {
+          "name": "ConfidenceScore",
+          "dataType": "decimal",
+          "maxLength": null,
+          "precision": 5,
+          "scale": 2,
+          "nullable": true,
+          "defaultValue": null,
+          "isIdentity": false,
+          "isComputed": false
+        },
+        {
+          "name": "MatchingRuleType",
+          "dataType": "nvarchar",
+          "maxLength": 50,
+          "precision": null,
+          "scale": null,
+          "nullable": true,
+          "defaultValue": null,
+          "isIdentity": false,
+          "isComputed": false
+        },
+        {
+          "name": "IsAutomatic",
+          "dataType": "bit",
+          "maxLength": null,
+          "precision": null,
+          "scale": null,
+          "nullable": true,
+          "defaultValue": "((1))",
+          "isIdentity": false,
+          "isComputed": false
+        },
+        {
+          "name": "IsApproved",
+          "dataType": "bit",
+          "maxLength": null,
+          "precision": null,
+          "scale": null,
+          "nullable": true,
+          "defaultValue": "((0))",
+          "isIdentity": false,
+          "isComputed": false
+        },
+        {
+          "name": "CreatedAt",
+          "dataType": "datetime2",
+          "maxLength": null,
+          "precision": null,
+          "scale": null,
+          "nullable": true,
+          "defaultValue": "(getdate())",
+          "isIdentity": false,
+          "isComputed": false
+        },
+        {
+          "name": "CreatedBy",
+          "dataType": "int",
+          "maxLength": null,
+          "precision": 10,
+          "scale": 0,
+          "nullable": true,
+          "defaultValue": null,
+          "isIdentity": false,
+          "isComputed": false
+        },
+        {
+          "name": "UpdatedAt",
+          "dataType": "datetime2",
+          "maxLength": null,
+          "precision": null,
+          "scale": null,
+          "nullable": true,
+          "defaultValue": null,
+          "isIdentity": false,
+          "isComputed": false
+        },
+        {
+          "name": "UpdatedBy",
+          "dataType": "int",
+          "maxLength": null,
+          "precision": 10,
+          "scale": 0,
+          "nullable": true,
+          "defaultValue": null,
+          "isIdentity": false,
+          "isComputed": false
+        },
+        {
+          "name": "IsOverridden",
+          "dataType": "bit",
+          "maxLength": null,
+          "precision": null,
+          "scale": null,
+          "nullable": true,
+          "defaultValue": "((0))",
+          "isIdentity": false,
+          "isComputed": false
+        },
+        {
+          "name": "OriginalAltTeminatID",
+          "dataType": "int",
+          "maxLength": null,
+          "precision": 10,
+          "scale": 0,
+          "nullable": true,
+          "defaultValue": null,
+          "isIdentity": false,
+          "isComputed": false
+        },
+        {
+          "name": "OriginalConfidenceScore",
+          "dataType": "decimal",
+          "maxLength": null,
+          "precision": 5,
+          "scale": 2,
+          "nullable": true,
+          "defaultValue": null,
+          "isIdentity": false,
+          "isComputed": false
+        },
+        {
+          "name": "OriginalRuleType",
+          "dataType": "nvarchar",
+          "maxLength": 50,
+          "precision": null,
+          "scale": null,
+          "nullable": true,
+          "defaultValue": null,
+          "isIdentity": false,
+          "isComputed": false
+        },
+        {
+          "name": "OverriddenAt",
+          "dataType": "datetime2",
+          "maxLength": null,
+          "precision": null,
+          "scale": null,
+          "nullable": true,
+          "defaultValue": null,
+          "isIdentity": false,
+          "isComputed": false
+        },
+        {
+          "name": "OverriddenBy",
+          "dataType": "int",
+          "maxLength": null,
+          "precision": 10,
+          "scale": 0,
+          "nullable": true,
+          "defaultValue": null,
+          "isIdentity": false,
+          "isComputed": false
+        }
+      ],
+      "primaryKey": {
+        "name": "PK__AltTemin__3214EC275EB51ECF",
+        "columns": [
+          "ID"
+        ]
+      },
+      "foreignKeys": [
+        {
+          "name": "FK__AltTemina__SutID__0307610B",
+          "column": "SutID",
+          "referencedSchema": "dbo",
+          "referencedTable": "SutIslemler",
+          "referencedColumn": "SutID",
+          "deleteAction": "NO_ACTION",
+          "updateAction": "NO_ACTION"
+        },
+        {
+          "name": "FK__AltTemina__AltTe__02133CD2",
+          "column": "AltTeminatID",
+          "referencedSchema": "dbo",
+          "referencedTable": "HuvAltTeminatlar",
+          "referencedColumn": "AltTeminatID",
+          "deleteAction": "NO_ACTION",
+          "updateAction": "NO_ACTION"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "IX_AltTeminatIslemler_ConfidenceScore",
+          "type": "NONCLUSTERED",
+          "isUnique": false,
+          "isPrimaryKey": false,
+          "columns": "ConfidenceScore"
+        },
+        {
+          "name": "IX_AltTeminatIslemler_IsApproved",
+          "type": "NONCLUSTERED",
+          "isUnique": false,
+          "isPrimaryKey": false,
+          "columns": "IsApproved"
+        },
+        {
+          "name": "IX_AltTeminatIslemler_IsOverridden",
+          "type": "NONCLUSTERED",
+          "isUnique": false,
+          "isPrimaryKey": false,
+          "columns": "IsOverridden"
+        },
+        {
+          "name": "IX_AltTeminatIslemler_MatchingRuleType",
+          "type": "NONCLUSTERED",
+          "isUnique": false,
+          "isPrimaryKey": false,
+          "columns": "MatchingRuleType"
+        },
+        {
+          "name": "IX_AltTeminatIslemler_SutID",
+          "type": "NONCLUSTERED",
+          "isUnique": false,
+          "isPrimaryKey": false,
+          "columns": "SutID"
+        },
+        {
+          "name": "PK__AltTemin__3214EC275EB51ECF",
+          "type": "CLUSTERED",
+          "isUnique": true,
+          "isPrimaryKey": true,
+          "columns": "ID"
+        },
+        {
+          "name": "UQ_AltTeminatIslemler_SutID",
+          "type": "NONCLUSTERED",
+          "isUnique": true,
+          "isPrimaryKey": false,
+          "columns": "SutID"
+        }
+      ],
+      "triggers": []
+    },
+    {
+      "schema": "dbo",
+      "name": "AnaDallar",
+      "rowCount": 34,
+      "totalSpaceMB": 0.13,
+      "usedSpaceMB": 0.03,
+      "columns": [
+        {
+          "name": "AnaDalKodu",
+          "dataType": "int",
+          "maxLength": null,
+          "precision": 10,
+          "scale": 0,
+          "nullable": false,
+          "defaultValue": null,
+          "isIdentity": false,
+          "isComputed": false
+        },
+        {
+          "name": "BolumAdi",
+          "dataType": "nvarchar",
+          "maxLength": 200,
+          "precision": null,
+          "scale": null,
+          "nullable": false,
+          "defaultValue": null,
+          "isIdentity": false,
+          "isComputed": false
+        },
+        {
+          "name": "OlusturmaTarihi",
+          "dataType": "datetime",
+          "maxLength": null,
+          "precision": null,
+          "scale": null,
+          "nullable": true,
+          "defaultValue": "(getdate())",
+          "isIdentity": false,
+          "isComputed": false
+        },
+        {
+          "name": "ToplamIslemSayisi",
+          "dataType": "int",
+          "maxLength": null,
+          "precision": 10,
+          "scale": 0,
+          "nullable": true,
+          "defaultValue": null,
+          "isIdentity": false,
+          "isComputed": false
+        }
+      ],
+      "primaryKey": {
+        "name": "PK__AnaDalla__97F720920BFB60AB",
+        "columns": [
+          "AnaDalKodu"
+        ]
+      },
+      "foreignKeys": [],
+      "indexes": [
+        {
+          "name": "PK__AnaDalla__97F720920BFB60AB",
+          "type": "CLUSTERED",
+          "isUnique": true,
+          "isPrimaryKey": true,
+          "columns": "AnaDalKodu"
+        }
+      ],
+      "triggers": []
+    },
+    {
+      "schema": "dbo",
+      "name": "HuvAltTeminatlar",
+      "rowCount": 333,
+      "totalSpaceMB": 0.41,
+      "usedSpaceMB": 0.2,
+      "columns": [
+        {
+          "name": "AltTeminatID",
+          "dataType": "int",
+          "maxLength": null,
+          "precision": 10,
+          "scale": 0,
+          "nullable": false,
+          "defaultValue": null,
+          "isIdentity": true,
+          "isComputed": false
+        },
+        {
+          "name": "AltTeminatAdi",
+          "dataType": "nvarchar",
+          "maxLength": 255,
+          "precision": null,
+          "scale": null,
+          "nullable": false,
+          "defaultValue": null,
+          "isIdentity": false,
+          "isComputed": false
+        },
+        {
+          "name": "UstTeminatAdi",
+          "dataType": "nvarchar",
+          "maxLength": 255,
+          "precision": null,
+          "scale": null,
+          "nullable": false,
+          "defaultValue": null,
+          "isIdentity": false,
+          "isComputed": false
+        },
+        {
+          "name": "AnaDalKodu",
+          "dataType": "int",
+          "maxLength": null,
+          "precision": 10,
+          "scale": 0,
+          "nullable": false,
+          "defaultValue": null,
+          "isIdentity": false,
+          "isComputed": false
+        },
+        {
+          "name": "AktifMi",
+          "dataType": "bit",
+          "maxLength": null,
+          "precision": null,
+          "scale": null,
+          "nullable": true,
+          "defaultValue": "((1))",
+          "isIdentity": false,
+          "isComputed": false
+        },
+        {
+          "name": "OlusturmaTarihi",
+          "dataType": "datetime",
+          "maxLength": null,
+          "precision": null,
+          "scale": null,
+          "nullable": true,
+          "defaultValue": "(getdate())",
+          "isIdentity": false,
+          "isComputed": false
+        },
+        {
+          "name": "GuncellemeTarihi",
+          "dataType": "datetime",
+          "maxLength": null,
+          "precision": null,
+          "scale": null,
+          "nullable": true,
+          "defaultValue": null,
+          "isIdentity": false,
+          "isComputed": false
+        },
+        {
+          "name": "Sira",
+          "dataType": "int",
+          "maxLength": null,
+          "precision": 10,
+          "scale": 0,
+          "nullable": true,
+          "defaultValue": null,
+          "isIdentity": false,
+          "isComputed": false
+        }
+      ],
+      "primaryKey": {
+        "name": "PK__HuvAltTe__012F3FA974DA0AC8",
+        "columns": [
+          "AltTeminatID"
+        ]
+      },
+      "foreignKeys": [
+        {
+          "name": "FK__HuvAltTem__AnaDa__6C23FBB3",
+          "column": "AnaDalKodu",
+          "referencedSchema": "dbo",
+          "referencedTable": "AnaDallar",
+          "referencedColumn": "AnaDalKodu",
+          "deleteAction": "NO_ACTION",
+          "updateAction": "NO_ACTION"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "IX_HuvAltTeminatlar_AktifMi",
+          "type": "NONCLUSTERED",
+          "isUnique": false,
+          "isPrimaryKey": false,
+          "columns": "AktifMi"
+        },
+        {
+          "name": "IX_HuvAltTeminatlar_AnaDalKodu",
+          "type": "NONCLUSTERED",
+          "isUnique": false,
+          "isPrimaryKey": false,
+          "columns": "AnaDalKodu"
+        },
+        {
+          "name": "IX_HuvAltTeminatlar_Sira",
+          "type": "NONCLUSTERED",
+          "isUnique": false,
+          "isPrimaryKey": false,
+          "columns": "Sira"
+        },
+        {
+          "name": "PK__HuvAltTe__012F3FA974DA0AC8",
+          "type": "CLUSTERED",
+          "isUnique": true,
+          "isPrimaryKey": true,
+          "columns": "AltTeminatID"
+        },
+        {
+          "name": "UQ_HuvAltTeminat",
+          "type": "NONCLUSTERED",
+          "isUnique": true,
+          "isPrimaryKey": false,
+          "columns": "AnaDalKodu, UstTeminatAdi, AltTeminatAdi"
+        }
+      ],
+      "triggers": []
+    },
+    {
+      "schema": "dbo",
+      "name": "HuvIslemler",
+      "rowCount": 8085,
+      "totalSpaceMB": 0.26,
+      "usedSpaceMB": 0.26,
+      "columns": [
+        {
+          "name": "IslemID",
+          "dataType": "int",
+          "maxLength": null,
+          "precision": 10,
+          "scale": 0,
+          "nullable": false,
+          "defaultValue": null,
+          "isIdentity": false,
+          "isComputed": false
+        },
+        {
+          "name": "HuvKodu",
+          "dataType": "decimal",
+          "maxLength": null,
+          "precision": 10,
+          "scale": 5,
+          "nullable": false,
+          "defaultValue": null,
+          "isIdentity": false,
+          "isComputed": false
+        },
+        {
+          "name": "AnaDalKodu",
+          "dataType": "int",
+          "maxLength": null,
+          "precision": 10,
+          "scale": 0,
+          "nullable": true,
+          "defaultValue": null,
+          "isIdentity": false,
+          "isComputed": false
+        },
+        {
+          "name": "IslemAdi",
+          "dataType": "nvarchar",
+          "maxLength": -1,
+          "precision": null,
+          "scale": null,
+          "nullable": true,
+          "defaultValue": null,
+          "isIdentity": false,
+          "isComputed": false
+        },
+        {
+          "name": "Birim",
+          "dataType": "float",
+          "maxLength": null,
+          "precision": 53,
+          "scale": null,
+          "nullable": true,
+          "defaultValue": null,
+          "isIdentity": false,
+          "isComputed": false
+        },
+        {
+          "name": "SutKodu",
+          "dataType": "nvarchar",
+          "maxLength": 100,
+          "precision": null,
+          "scale": null,
+          "nullable": true,
+          "defaultValue": null,
+          "isIdentity": false,
+          "isComputed": false
+        },
+        {
+          "name": "UstBaslik",
+          "dataType": "nvarchar",
+          "maxLength": -1,
+          "precision": null,
+          "scale": null,
+          "nullable": true,
+          "defaultValue": null,
+          "isIdentity": false,
+          "isComputed": false
+        },
+        {
+          "name": "HiyerarsiSeviyesi",
+          "dataType": "int",
+          "maxLength": null,
+          "precision": 10,
+          "scale": 0,
+          "nullable": true,
+          "defaultValue": null,
+          "isIdentity": false,
+          "isComputed": false
+        },
+        {
+          "name": "Not",
+          "dataType": "nvarchar",
+          "maxLength": -1,
+          "precision": null,
+          "scale": null,
+          "nullable": true,
+          "defaultValue": null,
+          "isIdentity": false,
+          "isComputed": false
+        },
+        {
+          "name": "GuncellemeTarihi",
+          "dataType": "nvarchar",
+          "maxLength": 50,
+          "precision": null,
+          "scale": null,
+          "nullable": true,
+          "defaultValue": null,
+          "isIdentity": false,
+          "isComputed": false
+        },
+        {
+          "name": "EklemeTarihi",
+          "dataType": "nvarchar",
+          "maxLength": 50,
+          "precision": null,
+          "scale": null,
+          "nullable": true,
+          "defaultValue": null,
+          "isIdentity": false,
+          "isComputed": false
+        },
+        {
+          "name": "GuncellemeTarihiDate",
+          "dataType": "date",
+          "maxLength": null,
+          "precision": null,
+          "scale": null,
+          "nullable": true,
+          "defaultValue": null,
+          "isIdentity": false,
+          "isComputed": false
+        },
+        {
+          "name": "EklemeTarihiDate",
+          "dataType": "date",
+          "maxLength": null,
+          "precision": null,
+          "scale": null,
+          "nullable": true,
+          "defaultValue": null,
+          "isIdentity": false,
+          "isComputed": false
+        },
+        {
+          "name": "ListeVersiyonID",
+          "dataType": "int",
+          "maxLength": null,
+          "precision": 10,
+          "scale": 0,
+          "nullable": true,
+          "defaultValue": null,
+          "isIdentity": false,
+          "isComputed": false
+        },
+        {
+          "name": "ListeTipi",
+          "dataType": "nvarchar",
+          "maxLength": 50,
+          "precision": null,
+          "scale": null,
+          "nullable": true,
+          "defaultValue": "('HUV')",
+          "isIdentity": false,
+          "isComputed": false
+        },
+        {
+          "name": "AktifMi",
+          "dataType": "bit",
+          "maxLength": null,
+          "precision": null,
+          "scale": null,
+          "nullable": false,
+          "defaultValue": "((1))",
+          "isIdentity": false,
+          "isComputed": false
+        },
+        {
+          "name": "AltTeminatID",
+          "dataType": "int",
+          "maxLength": null,
+          "precision": 10,
+          "scale": 0,
+          "nullable": true,
+          "defaultValue": null,
+          "isIdentity": false,
+          "isComputed": false
+        }
+      ],
+      "primaryKey": {
+        "name": "PK__Islemler__246DE2BB3D0F9E15",
+        "columns": [
+          "IslemID"
+        ]
+      },
+      "foreignKeys": [
+        {
+          "name": "FK_HuvIslemler_ListeVersiyon",
+          "column": "ListeVersiyonID",
+          "referencedSchema": "dbo",
+          "referencedTable": "ListeVersiyon",
+          "referencedColumn": "VersionID",
+          "deleteAction": "NO_ACTION",
+          "updateAction": "NO_ACTION"
+        },
+        {
+          "name": "FK_HuvIslemler_AnaDallar",
+          "column": "AnaDalKodu",
+          "referencedSchema": "dbo",
+          "referencedTable": "AnaDallar",
+          "referencedColumn": "AnaDalKodu",
+          "deleteAction": "NO_ACTION",
+          "updateAction": "NO_ACTION"
+        },
+        {
+          "name": "FK__Islemler__AnaDal__5DCAEF64",
+          "column": "AnaDalKodu",
+          "referencedSchema": "dbo",
+          "referencedTable": "AnaDallar",
+          "referencedColumn": "AnaDalKodu",
+          "deleteAction": "NO_ACTION",
+          "updateAction": "NO_ACTION"
+        },
+        {
+          "name": "FK_HuvIslemler_AltTeminatID",
+          "column": "AltTeminatID",
+          "referencedSchema": "dbo",
+          "referencedTable": "HuvAltTeminatlar",
+          "referencedColumn": "AltTeminatID",
+          "deleteAction": "NO_ACTION",
+          "updateAction": "NO_ACTION"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "IX_HuvIslemler_AktifMi",
+          "type": "NONCLUSTERED",
+          "isUnique": false,
+          "isPrimaryKey": false,
+          "columns": "AktifMi"
+        },
+        {
+          "name": "IX_HuvIslemler_AnaDalKodu",
+          "type": "NONCLUSTERED",
+          "isUnique": false,
+          "isPrimaryKey": false,
+          "columns": "AnaDalKodu"
+        },
+        {
+          "name": "IX_HuvIslemler_Birim",
+          "type": "NONCLUSTERED",
+          "isUnique": false,
+          "isPrimaryKey": false,
+          "columns": "Birim"
+        },
+        {
+          "name": "IX_HuvIslemler_EklemeTarihiDate",
+          "type": "NONCLUSTERED",
+          "isUnique": false,
+          "isPrimaryKey": false,
+          "columns": "EklemeTarihiDate"
+        },
+        {
+          "name": "IX_HuvIslemler_GuncellemeTarihi",
+          "type": "NONCLUSTERED",
+          "isUnique": false,
+          "isPrimaryKey": false,
+          "columns": "GuncellemeTarihi"
+        },
+        {
+          "name": "IX_HuvIslemler_HuvKodu",
+          "type": "NONCLUSTERED",
+          "isUnique": false,
+          "isPrimaryKey": false,
+          "columns": "HuvKodu"
+        },
+        {
+          "name": "IX_HuvIslemler_ListeTipi",
+          "type": "NONCLUSTERED",
+          "isUnique": false,
+          "isPrimaryKey": false,
+          "columns": "ListeTipi"
+        },
+        {
+          "name": "IX_HuvIslemler_ListeVersiyonID",
+          "type": "NONCLUSTERED",
+          "isUnique": false,
+          "isPrimaryKey": false,
+          "columns": "ListeVersiyonID"
+        },
+        {
+          "name": "PK__Islemler__246DE2BB3D0F9E15",
+          "type": "CLUSTERED",
+          "isUnique": true,
+          "isPrimaryKey": true,
+          "columns": "IslemID"
+        }
+      ],
+      "triggers": [
+        {
+          "name": "TR_Islemler_Update_Audit",
+          "events": [
+            "UPDATE"
+          ],
+          "isDisabled": false
+        },
+        {
+          "name": "TR_Islemler_Insert_Audit",
+          "events": [
+            "INSERT"
+          ],
+          "isDisabled": false
+        },
+        {
+          "name": "TR_Islemler_Delete_Audit",
+          "events": [
+            "DELETE"
+          ],
+          "isDisabled": false
+        }
+      ]
+    },
+    {
+      "schema": "dbo",
+      "name": "HuvIslemler",
+      "rowCount": 8594,
+      "totalSpaceMB": 12.82,
+      "usedSpaceMB": 12.58,
+      "columns": [
+        {
+          "name": "IslemID",
+          "dataType": "int",
+          "maxLength": null,
+          "precision": 10,
+          "scale": 0,
+          "nullable": false,
+          "defaultValue": null,
+          "isIdentity": false,
+          "isComputed": false
+        },
+        {
+          "name": "HuvKodu",
+          "dataType": "decimal",
+          "maxLength": null,
+          "precision": 10,
+          "scale": 5,
+          "nullable": false,
+          "defaultValue": null,
+          "isIdentity": false,
+          "isComputed": false
+        },
+        {
+          "name": "AnaDalKodu",
+          "dataType": "int",
+          "maxLength": null,
+          "precision": 10,
+          "scale": 0,
+          "nullable": true,
+          "defaultValue": null,
+          "isIdentity": false,
+          "isComputed": false
+        },
+        {
+          "name": "IslemAdi",
+          "dataType": "nvarchar",
+          "maxLength": -1,
+          "precision": null,
+          "scale": null,
+          "nullable": true,
+          "defaultValue": null,
+          "isIdentity": false,
+          "isComputed": false
+        },
+        {
+          "name": "Birim",
+          "dataType": "float",
+          "maxLength": null,
+          "precision": 53,
+          "scale": null,
+          "nullable": true,
+          "defaultValue": null,
+          "isIdentity": false,
+          "isComputed": false
+        },
+        {
+          "name": "SutKodu",
+          "dataType": "nvarchar",
+          "maxLength": 100,
+          "precision": null,
+          "scale": null,
+          "nullable": true,
+          "defaultValue": null,
+          "isIdentity": false,
+          "isComputed": false
+        },
+        {
+          "name": "UstBaslik",
+          "dataType": "nvarchar",
+          "maxLength": -1,
+          "precision": null,
+          "scale": null,
+          "nullable": true,
+          "defaultValue": null,
+          "isIdentity": false,
+          "isComputed": false
+        },
+        {
+          "name": "HiyerarsiSeviyesi",
+          "dataType": "int",
+          "maxLength": null,
+          "precision": 10,
+          "scale": 0,
+          "nullable": true,
+          "defaultValue": null,
+          "isIdentity": false,
+          "isComputed": false
+        },
+        {
+          "name": "Not",
+          "dataType": "nvarchar",
+          "maxLength": -1,
+          "precision": null,
+          "scale": null,
+          "nullable": true,
+          "defaultValue": null,
+          "isIdentity": false,
+          "isComputed": false
+        },
+        {
+          "name": "GuncellemeTarihi",
+          "dataType": "nvarchar",
+          "maxLength": 50,
+          "precision": null,
+          "scale": null,
+          "nullable": true,
+          "defaultValue": null,
+          "isIdentity": false,
+          "isComputed": false
+        },
+        {
+          "name": "EklemeTarihi",
+          "dataType": "nvarchar",
+          "maxLength": 50,
+          "precision": null,
+          "scale": null,
+          "nullable": true,
+          "defaultValue": null,
+          "isIdentity": false,
+          "isComputed": false
+        },
+        {
+          "name": "GuncellemeTarihiDate",
+          "dataType": "date",
+          "maxLength": null,
+          "precision": null,
+          "scale": null,
+          "nullable": true,
+          "defaultValue": null,
+          "isIdentity": false,
+          "isComputed": false
+        },
+        {
+          "name": "EklemeTarihiDate",
+          "dataType": "date",
+          "maxLength": null,
+          "precision": null,
+          "scale": null,
+          "nullable": true,
+          "defaultValue": null,
+          "isIdentity": false,
+          "isComputed": false
+        },
+        {
+          "name": "ListeVersiyonID",
+          "dataType": "int",
+          "maxLength": null,
+          "precision": 10,
+          "scale": 0,
+          "nullable": true,
+          "defaultValue": null,
+          "isIdentity": false,
+          "isComputed": false
+        },
+        {
+          "name": "ListeTipi",
+          "dataType": "nvarchar",
+          "maxLength": 50,
+          "precision": null,
+          "scale": null,
+          "nullable": true,
+          "defaultValue": "('HUV')",
+          "isIdentity": false,
+          "isComputed": false
+        },
+        {
+          "name": "AktifMi",
+          "dataType": "bit",
+          "maxLength": null,
+          "precision": null,
+          "scale": null,
+          "nullable": false,
+          "defaultValue": "((1))",
+          "isIdentity": false,
+          "isComputed": false
+        },
+        {
+          "name": "AltTeminatID",
+          "dataType": "int",
+          "maxLength": null,
+          "precision": 10,
+          "scale": 0,
+          "nullable": true,
+          "defaultValue": null,
+          "isIdentity": false,
+          "isComputed": false
+        }
+      ],
+      "primaryKey": {
+        "name": "PK__Islemler__246DE2BB3D0F9E15",
+        "columns": [
+          "IslemID"
+        ]
+      },
+      "foreignKeys": [
+        {
+          "name": "FK_HuvIslemler_ListeVersiyon",
+          "column": "ListeVersiyonID",
+          "referencedSchema": "dbo",
+          "referencedTable": "ListeVersiyon",
+          "referencedColumn": "VersionID",
+          "deleteAction": "NO_ACTION",
+          "updateAction": "NO_ACTION"
+        },
+        {
+          "name": "FK_HuvIslemler_AnaDallar",
+          "column": "AnaDalKodu",
+          "referencedSchema": "dbo",
+          "referencedTable": "AnaDallar",
+          "referencedColumn": "AnaDalKodu",
+          "deleteAction": "NO_ACTION",
+          "updateAction": "NO_ACTION"
+        },
+        {
+          "name": "FK__Islemler__AnaDal__5DCAEF64",
+          "column": "AnaDalKodu",
+          "referencedSchema": "dbo",
+          "referencedTable": "AnaDallar",
+          "referencedColumn": "AnaDalKodu",
+          "deleteAction": "NO_ACTION",
+          "updateAction": "NO_ACTION"
+        },
+        {
+          "name": "FK_HuvIslemler_AltTeminatID",
+          "column": "AltTeminatID",
+          "referencedSchema": "dbo",
+          "referencedTable": "HuvAltTeminatlar",
+          "referencedColumn": "AltTeminatID",
+          "deleteAction": "NO_ACTION",
+          "updateAction": "NO_ACTION"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "IX_HuvIslemler_AktifMi",
+          "type": "NONCLUSTERED",
+          "isUnique": false,
+          "isPrimaryKey": false,
+          "columns": "AktifMi"
+        },
+        {
+          "name": "IX_HuvIslemler_AnaDalKodu",
+          "type": "NONCLUSTERED",
+          "isUnique": false,
+          "isPrimaryKey": false,
+          "columns": "AnaDalKodu"
+        },
+        {
+          "name": "IX_HuvIslemler_Birim",
+          "type": "NONCLUSTERED",
+          "isUnique": false,
+          "isPrimaryKey": false,
+          "columns": "Birim"
+        },
+        {
+          "name": "IX_HuvIslemler_EklemeTarihiDate",
+          "type": "NONCLUSTERED",
+          "isUnique": false,
+          "isPrimaryKey": false,
+          "columns": "EklemeTarihiDate"
+        },
+        {
+          "name": "IX_HuvIslemler_GuncellemeTarihi",
+          "type": "NONCLUSTERED",
+          "isUnique": false,
+          "isPrimaryKey": false,
+          "columns": "GuncellemeTarihi"
+        },
+        {
+          "name": "IX_HuvIslemler_HuvKodu",
+          "type": "NONCLUSTERED",
+          "isUnique": false,
+          "isPrimaryKey": false,
+          "columns": "HuvKodu"
+        },
+        {
+          "name": "IX_HuvIslemler_ListeTipi",
+          "type": "NONCLUSTERED",
+          "isUnique": false,
+          "isPrimaryKey": false,
+          "columns": "ListeTipi"
+        },
+        {
+          "name": "IX_HuvIslemler_ListeVersiyonID",
+          "type": "NONCLUSTERED",
+          "isUnique": false,
+          "isPrimaryKey": false,
+          "columns": "ListeVersiyonID"
+        },
+        {
+          "name": "PK__Islemler__246DE2BB3D0F9E15",
+          "type": "CLUSTERED",
+          "isUnique": true,
+          "isPrimaryKey": true,
+          "columns": "IslemID"
+        }
+      ],
+      "triggers": [
+        {
+          "name": "TR_Islemler_Update_Audit",
+          "events": [
+            "UPDATE"
+          ],
+          "isDisabled": false
+        },
+        {
+          "name": "TR_Islemler_Insert_Audit",
+          "events": [
+            "INSERT"
+          ],
+          "isDisabled": false
+        },
+        {
+          "name": "TR_Islemler_Delete_Audit",
+          "events": [
+            "DELETE"
+          ],
+          "isDisabled": false
+        }
+      ]
+    },
+    {
+      "schema": "dbo",
+      "name": "IlKatsayilari",
+      "rowCount": 81,
+      "totalSpaceMB": 0.14,
+      "usedSpaceMB": 0.03,
+      "columns": [
+        {
+          "name": "IlKatsayiID",
+          "dataType": "int",
+          "maxLength": null,
+          "precision": 10,
+          "scale": 0,
+          "nullable": false,
+          "defaultValue": null,
+          "isIdentity": true,
+          "isComputed": false
+        },
+        {
+          "name": "IlAdi",
+          "dataType": "nvarchar",
+          "maxLength": 100,
+          "precision": null,
+          "scale": null,
+          "nullable": false,
+          "defaultValue": null,
+          "isIdentity": false,
+          "isComputed": false
+        },
+        {
+          "name": "PlakaKodu",
+          "dataType": "int",
+          "maxLength": null,
+          "precision": 10,
+          "scale": 0,
+          "nullable": true,
+          "defaultValue": null,
+          "isIdentity": false,
+          "isComputed": false
+        },
+        {
+          "name": "Katsayi",
+          "dataType": "decimal",
+          "maxLength": null,
+          "precision": 18,
+          "scale": 2,
+          "nullable": false,
+          "defaultValue": null,
+          "isIdentity": false,
+          "isComputed": false
+        },
+        {
+          "name": "DonemBaslangic",
+          "dataType": "date",
+          "maxLength": null,
+          "precision": null,
+          "scale": null,
+          "nullable": true,
+          "defaultValue": null,
+          "isIdentity": false,
+          "isComputed": false
+        },
+        {
+          "name": "DonemBitis",
+          "dataType": "date",
+          "maxLength": null,
+          "precision": null,
+          "scale": null,
+          "nullable": true,
+          "defaultValue": null,
+          "isIdentity": false,
+          "isComputed": false
+        },
+        {
+          "name": "AktifMi",
+          "dataType": "bit",
+          "maxLength": null,
+          "precision": null,
+          "scale": null,
+          "nullable": false,
+          "defaultValue": "((1))",
+          "isIdentity": false,
+          "isComputed": false
+        },
+        {
+          "name": "OlusturmaTarihi",
+          "dataType": "datetime",
+          "maxLength": null,
+          "precision": null,
+          "scale": null,
+          "nullable": false,
+          "defaultValue": "(getdate())",
+          "isIdentity": false,
+          "isComputed": false
+        },
+        {
+          "name": "GuncellemeTarihi",
+          "dataType": "datetime",
+          "maxLength": null,
+          "precision": null,
+          "scale": null,
+          "nullable": true,
+          "defaultValue": null,
+          "isIdentity": false,
+          "isComputed": false
+        }
+      ],
+      "primaryKey": {
+        "name": "PK_IlKatsayilari",
+        "columns": [
+          "IlKatsayiID"
+        ]
+      },
+      "foreignKeys": [],
+      "indexes": [
+        {
+          "name": "IX_IlKatsayilari_IlAdi_Aktif",
+          "type": "NONCLUSTERED",
+          "isUnique": true,
+          "isPrimaryKey": false,
+          "columns": "IlAdi"
+        },
+        {
+          "name": "PK_IlKatsayilari",
+          "type": "CLUSTERED",
+          "isUnique": true,
+          "isPrimaryKey": true,
+          "columns": "IlKatsayiID"
+        }
+      ],
+      "triggers": []
+    },
+    {
+      "schema": "dbo",
+      "name": "IlKatsayiVersionlar",
+      "rowCount": 162,
+      "totalSpaceMB": 0.21,
+      "usedSpaceMB": 0.08,
+      "columns": [
+        {
+          "name": "VersionID",
+          "dataType": "int",
+          "maxLength": null,
+          "precision": 10,
+          "scale": 0,
+          "nullable": false,
+          "defaultValue": null,
+          "isIdentity": true,
+          "isComputed": false
+        },
+        {
+          "name": "IlKatsayiID",
+          "dataType": "int",
+          "maxLength": null,
+          "precision": 10,
+          "scale": 0,
+          "nullable": false,
+          "defaultValue": null,
+          "isIdentity": false,
+          "isComputed": false
+        },
+        {
+          "name": "IlAdi",
+          "dataType": "nvarchar",
+          "maxLength": 100,
+          "precision": null,
+          "scale": null,
+          "nullable": false,
+          "defaultValue": null,
+          "isIdentity": false,
+          "isComputed": false
+        },
+        {
+          "name": "PlakaKodu",
+          "dataType": "int",
+          "maxLength": null,
+          "precision": 10,
+          "scale": 0,
+          "nullable": true,
+          "defaultValue": null,
+          "isIdentity": false,
+          "isComputed": false
+        },
+        {
+          "name": "Katsayi",
+          "dataType": "decimal",
+          "maxLength": null,
+          "precision": 18,
+          "scale": 2,
+          "nullable": false,
+          "defaultValue": null,
+          "isIdentity": false,
+          "isComputed": false
+        },
+        {
+          "name": "DonemBaslangic",
+          "dataType": "date",
+          "maxLength": null,
+          "precision": null,
+          "scale": null,
+          "nullable": true,
+          "defaultValue": null,
+          "isIdentity": false,
+          "isComputed": false
+        },
+        {
+          "name": "DonemBitis",
+          "dataType": "date",
+          "maxLength": null,
+          "precision": null,
+          "scale": null,
+          "nullable": true,
+          "defaultValue": null,
+          "isIdentity": false,
+          "isComputed": false
+        },
+        {
+          "name": "GecerlilikBaslangic",
+          "dataType": "date",
+          "maxLength": null,
+          "precision": null,
+          "scale": null,
+          "nullable": false,
+          "defaultValue": null,
+          "isIdentity": false,
+          "isComputed": false
+        },
+        {
+          "name": "GecerlilikBitis",
+          "dataType": "date",
+          "maxLength": null,
+          "precision": null,
+          "scale": null,
+          "nullable": true,
+          "defaultValue": null,
+          "isIdentity": false,
+          "isComputed": false
+        },
+        {
+          "name": "AktifMi",
+          "dataType": "bit",
+          "maxLength": null,
+          "precision": null,
+          "scale": null,
+          "nullable": false,
+          "defaultValue": null,
+          "isIdentity": false,
+          "isComputed": false
+        },
+        {
+          "name": "ListeVersiyonID",
+          "dataType": "int",
+          "maxLength": null,
+          "precision": 10,
+          "scale": 0,
+          "nullable": true,
+          "defaultValue": null,
+          "isIdentity": false,
+          "isComputed": false
+        },
+        {
+          "name": "DegisiklikSebebi",
+          "dataType": "nvarchar",
+          "maxLength": 500,
+          "precision": null,
+          "scale": null,
+          "nullable": true,
+          "defaultValue": null,
+          "isIdentity": false,
+          "isComputed": false
+        },
+        {
+          "name": "OlusturanKullanici",
+          "dataType": "nvarchar",
+          "maxLength": 100,
+          "precision": null,
+          "scale": null,
+          "nullable": true,
+          "defaultValue": null,
+          "isIdentity": false,
+          "isComputed": false
+        },
+        {
+          "name": "OlusturmaTarihi",
+          "dataType": "datetime",
+          "maxLength": null,
+          "precision": null,
+          "scale": null,
+          "nullable": false,
+          "defaultValue": "(getdate())",
+          "isIdentity": false,
+          "isComputed": false
+        }
+      ],
+      "primaryKey": {
+        "name": "PK_IlKatsayiVersionlar",
+        "columns": [
+          "VersionID"
+        ]
+      },
+      "foreignKeys": [
+        {
+          "name": "FK_IlKatsayiVersionlar_ListeVersiyon",
+          "column": "ListeVersiyonID",
+          "referencedSchema": "dbo",
+          "referencedTable": "ListeVersiyon",
+          "referencedColumn": "VersionID",
+          "deleteAction": "NO_ACTION",
+          "updateAction": "NO_ACTION"
+        },
+        {
+          "name": "FK_IlKatsayiVersionlar_IlKatsayilari",
+          "column": "IlKatsayiID",
+          "referencedSchema": "dbo",
+          "referencedTable": "IlKatsayilari",
+          "referencedColumn": "IlKatsayiID",
+          "deleteAction": "NO_ACTION",
+          "updateAction": "NO_ACTION"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "IX_IlKatsayiVersionlar_Aktif",
+          "type": "NONCLUSTERED",
+          "isUnique": false,
+          "isPrimaryKey": false,
+          "columns": "IlKatsayiID, AktifMi, GecerlilikBitis"
+        },
+        {
+          "name": "IX_IlKatsayiVersionlar_ListeVersiyonID",
+          "type": "NONCLUSTERED",
+          "isUnique": false,
+          "isPrimaryKey": false,
+          "columns": "ListeVersiyonID"
+        },
+        {
+          "name": "PK_IlKatsayiVersionlar",
+          "type": "CLUSTERED",
+          "isUnique": true,
+          "isPrimaryKey": true,
+          "columns": "VersionID"
+        }
+      ],
+      "triggers": []
+    },
+    {
+      "schema": "dbo",
+      "name": "IslemAudit",
+      "rowCount": 17191,
+      "totalSpaceMB": 5.53,
+      "usedSpaceMB": 5.3,
+      "columns": [
+        {
+          "name": "AuditID",
+          "dataType": "int",
+          "maxLength": null,
+          "precision": 10,
+          "scale": 0,
+          "nullable": false,
+          "defaultValue": null,
+          "isIdentity": true,
+          "isComputed": false
+        },
+        {
+          "name": "IslemID",
+          "dataType": "int",
+          "maxLength": null,
+          "precision": 10,
+          "scale": 0,
+          "nullable": false,
+          "defaultValue": null,
+          "isIdentity": false,
+          "isComputed": false
+        },
+        {
+          "name": "IslemTipi",
+          "dataType": "nvarchar",
+          "maxLength": 20,
+          "precision": null,
+          "scale": null,
+          "nullable": false,
+          "defaultValue": null,
+          "isIdentity": false,
+          "isComputed": false
+        },
+        {
+          "name": "HuvKodu",
+          "dataType": "decimal",
+          "maxLength": null,
+          "precision": 10,
+          "scale": 5,
+          "nullable": true,
+          "defaultValue": null,
+          "isIdentity": false,
+          "isComputed": false
+        },
+        {
+          "name": "IslemAdi",
+          "dataType": "nvarchar",
+          "maxLength": -1,
+          "precision": null,
+          "scale": null,
+          "nullable": true,
+          "defaultValue": null,
+          "isIdentity": false,
+          "isComputed": false
+        },
+        {
+          "name": "EskiBirim",
+          "dataType": "float",
+          "maxLength": null,
+          "precision": 53,
+          "scale": null,
+          "nullable": true,
+          "defaultValue": null,
+          "isIdentity": false,
+          "isComputed": false
+        },
+        {
+          "name": "YeniBirim",
+          "dataType": "float",
+          "maxLength": null,
+          "precision": 53,
+          "scale": null,
+          "nullable": true,
+          "defaultValue": null,
+          "isIdentity": false,
+          "isComputed": false
+        },
+        {
+          "name": "DegisiklikTarihi",
+          "dataType": "datetime",
+          "maxLength": null,
+          "precision": null,
+          "scale": null,
+          "nullable": true,
+          "defaultValue": "(getdate())",
+          "isIdentity": false,
+          "isComputed": false
+        },
+        {
+          "name": "DegistirenKullanici",
+          "dataType": "nvarchar",
+          "maxLength": 100,
+          "precision": null,
+          "scale": null,
+          "nullable": true,
+          "defaultValue": "(suser_sname())",
+          "isIdentity": false,
+          "isComputed": false
+        },
+        {
+          "name": "Aciklama",
+          "dataType": "nvarchar",
+          "maxLength": 500,
+          "precision": null,
+          "scale": null,
+          "nullable": true,
+          "defaultValue": null,
+          "isIdentity": false,
+          "isComputed": false
+        }
+      ],
+      "primaryKey": {
+        "name": "PK__IslemAud__A17F23B88D52CBBA",
+        "columns": [
+          "AuditID"
+        ]
+      },
+      "foreignKeys": [],
+      "indexes": [
+        {
+          "name": "IX_IslemAudit_DegisiklikTarihi",
+          "type": "NONCLUSTERED",
+          "isUnique": false,
+          "isPrimaryKey": false,
+          "columns": "DegisiklikTarihi"
+        },
+        {
+          "name": "IX_IslemAudit_IslemID",
+          "type": "NONCLUSTERED",
+          "isUnique": false,
+          "isPrimaryKey": false,
+          "columns": "IslemID"
+        },
+        {
+          "name": "IX_IslemAudit_IslemTipi",
+          "type": "NONCLUSTERED",
+          "isUnique": false,
+          "isPrimaryKey": false,
+          "columns": "IslemTipi"
+        },
+        {
+          "name": "PK__IslemAud__A17F23B88D52CBBA",
+          "type": "CLUSTERED",
+          "isUnique": true,
+          "isPrimaryKey": true,
+          "columns": "AuditID"
+        }
+      ],
+      "triggers": []
+    },
+    {
+      "schema": "dbo",
+      "name": "IslemVersionlar",
+      "rowCount": 17185,
+      "totalSpaceMB": 23.88,
+      "usedSpaceMB": 23.55,
+      "columns": [
+        {
+          "name": "VersionID",
+          "dataType": "int",
+          "maxLength": null,
+          "precision": 10,
+          "scale": 0,
+          "nullable": false,
+          "defaultValue": null,
+          "isIdentity": true,
+          "isComputed": false
+        },
+        {
+          "name": "IslemID",
+          "dataType": "int",
+          "maxLength": null,
+          "precision": 10,
+          "scale": 0,
+          "nullable": false,
+          "defaultValue": null,
+          "isIdentity": false,
+          "isComputed": false
+        },
+        {
+          "name": "HuvKodu",
+          "dataType": "decimal",
+          "maxLength": null,
+          "precision": 10,
+          "scale": 5,
+          "nullable": false,
+          "defaultValue": null,
+          "isIdentity": false,
+          "isComputed": false
+        },
+        {
+          "name": "IslemAdi",
+          "dataType": "nvarchar",
+          "maxLength": -1,
+          "precision": null,
+          "scale": null,
+          "nullable": true,
+          "defaultValue": null,
+          "isIdentity": false,
+          "isComputed": false
+        },
+        {
+          "name": "Birim",
+          "dataType": "float",
+          "maxLength": null,
+          "precision": 53,
+          "scale": null,
+          "nullable": true,
+          "defaultValue": null,
+          "isIdentity": false,
+          "isComputed": false
+        },
+        {
+          "name": "SutKodu",
+          "dataType": "nvarchar",
+          "maxLength": 100,
+          "precision": null,
+          "scale": null,
+          "nullable": true,
+          "defaultValue": null,
+          "isIdentity": false,
+          "isComputed": false
+        },
+        {
+          "name": "Not",
+          "dataType": "nvarchar",
+          "maxLength": -1,
+          "precision": null,
+          "scale": null,
+          "nullable": true,
+          "defaultValue": null,
+          "isIdentity": false,
+          "isComputed": false
+        },
+        {
+          "name": "GecerlilikBaslangic",
+          "dataType": "date",
+          "maxLength": null,
+          "precision": null,
+          "scale": null,
+          "nullable": false,
+          "defaultValue": null,
+          "isIdentity": false,
+          "isComputed": false
+        },
+        {
+          "name": "GecerlilikBitis",
+          "dataType": "date",
+          "maxLength": null,
+          "precision": null,
+          "scale": null,
+          "nullable": true,
+          "defaultValue": null,
+          "isIdentity": false,
+          "isComputed": false
+        },
+        {
+          "name": "AktifMi",
+          "dataType": "bit",
+          "maxLength": null,
+          "precision": null,
+          "scale": null,
+          "nullable": true,
+          "defaultValue": "((1))",
+          "isIdentity": false,
+          "isComputed": false
+        },
+        {
+          "name": "OlusturanKullanici",
+          "dataType": "nvarchar",
+          "maxLength": 100,
+          "precision": null,
+          "scale": null,
+          "nullable": true,
+          "defaultValue": "(suser_sname())",
+          "isIdentity": false,
+          "isComputed": false
+        },
+        {
+          "name": "OlusturmaTarihi",
+          "dataType": "datetime",
+          "maxLength": null,
+          "precision": null,
+          "scale": null,
+          "nullable": true,
+          "defaultValue": "(getdate())",
+          "isIdentity": false,
+          "isComputed": false
+        },
+        {
+          "name": "DegisiklikSebebi",
+          "dataType": "nvarchar",
+          "maxLength": 500,
+          "precision": null,
+          "scale": null,
+          "nullable": true,
+          "defaultValue": null,
+          "isIdentity": false,
+          "isComputed": false
+        },
+        {
+          "name": "ListeVersiyonID",
+          "dataType": "int",
+          "maxLength": null,
+          "precision": 10,
+          "scale": 0,
+          "nullable": true,
+          "defaultValue": null,
+          "isIdentity": false,
+          "isComputed": false
+        }
+      ],
+      "primaryKey": {
+        "name": "PK__IslemVer__16C6402FC2A8348F",
+        "columns": [
+          "VersionID"
+        ]
+      },
+      "foreignKeys": [
+        {
+          "name": "FK_IslemVersionlar_ListeVersiyon",
+          "column": "ListeVersiyonID",
+          "referencedSchema": "dbo",
+          "referencedTable": "ListeVersiyon",
+          "referencedColumn": "VersionID",
+          "deleteAction": "NO_ACTION",
+          "updateAction": "NO_ACTION"
+        },
+        {
+          "name": "FK__IslemVers__Islem__08B54D69",
+          "column": "IslemID",
+          "referencedSchema": "dbo",
+          "referencedTable": "HuvIslemler",
+          "referencedColumn": "IslemID",
+          "deleteAction": "NO_ACTION",
+          "updateAction": "NO_ACTION"
+        },
+        {
+          "name": "FK_IslemVersionlar_HuvIslemler",
+          "column": "IslemID",
+          "referencedSchema": "dbo",
+          "referencedTable": "HuvIslemler",
+          "referencedColumn": "IslemID",
+          "deleteAction": "NO_ACTION",
+          "updateAction": "NO_ACTION"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "IX_IslemVersionlar_AktifMi",
+          "type": "NONCLUSTERED",
+          "isUnique": false,
+          "isPrimaryKey": false,
+          "columns": "AktifMi"
+        },
+        {
+          "name": "IX_IslemVersionlar_GecerlilikBaslangic",
+          "type": "NONCLUSTERED",
+          "isUnique": false,
+          "isPrimaryKey": false,
+          "columns": "GecerlilikBaslangic"
+        },
+        {
+          "name": "IX_IslemVersionlar_HuvKodu",
+          "type": "NONCLUSTERED",
+          "isUnique": false,
+          "isPrimaryKey": false,
+          "columns": "HuvKodu"
+        },
+        {
+          "name": "IX_IslemVersionlar_IslemID",
+          "type": "NONCLUSTERED",
+          "isUnique": false,
+          "isPrimaryKey": false,
+          "columns": "IslemID"
+        },
+        {
+          "name": "IX_IslemVersionlar_IslemID_Aktif",
+          "type": "NONCLUSTERED",
+          "isUnique": false,
+          "isPrimaryKey": false,
+          "columns": "GecerlilikBaslangic, GecerlilikBitis, IslemID, AktifMi"
+        },
+        {
+          "name": "IX_IslemVersionlar_ListeVersiyonID",
+          "type": "NONCLUSTERED",
+          "isUnique": false,
+          "isPrimaryKey": false,
+          "columns": "ListeVersiyonID"
+        },
+        {
+          "name": "PK__IslemVer__16C6402FC2A8348F",
+          "type": "CLUSTERED",
+          "isUnique": true,
+          "isPrimaryKey": true,
+          "columns": "VersionID"
+        }
+      ],
+      "triggers": []
+    },
+    {
+      "schema": "dbo",
+      "name": "Kullanicilar",
+      "rowCount": 2,
+      "totalSpaceMB": 0.14,
+      "usedSpaceMB": 0.03,
+      "columns": [
+        {
+          "name": "KullaniciID",
+          "dataType": "int",
+          "maxLength": null,
+          "precision": 10,
+          "scale": 0,
+          "nullable": false,
+          "defaultValue": null,
+          "isIdentity": true,
+          "isComputed": false
+        },
+        {
+          "name": "KullaniciAdi",
+          "dataType": "nvarchar",
+          "maxLength": 100,
+          "precision": null,
+          "scale": null,
+          "nullable": false,
+          "defaultValue": null,
+          "isIdentity": false,
+          "isComputed": false
+        },
+        {
+          "name": "Sifre",
+          "dataType": "nvarchar",
+          "maxLength": 255,
+          "precision": null,
+          "scale": null,
+          "nullable": false,
+          "defaultValue": null,
+          "isIdentity": false,
+          "isComputed": false
+        },
+        {
+          "name": "Rol",
+          "dataType": "nvarchar",
+          "maxLength": 20,
+          "precision": null,
+          "scale": null,
+          "nullable": false,
+          "defaultValue": null,
+          "isIdentity": false,
+          "isComputed": false
+        },
+        {
+          "name": "AktifMi",
+          "dataType": "bit",
+          "maxLength": null,
+          "precision": null,
+          "scale": null,
+          "nullable": false,
+          "defaultValue": "((1))",
+          "isIdentity": false,
+          "isComputed": false
+        },
+        {
+          "name": "OlusturmaTarihi",
+          "dataType": "datetime",
+          "maxLength": null,
+          "precision": null,
+          "scale": null,
+          "nullable": false,
+          "defaultValue": "(getdate())",
+          "isIdentity": false,
+          "isComputed": false
+        },
+        {
+          "name": "SonGirisTarihi",
+          "dataType": "datetime",
+          "maxLength": null,
+          "precision": null,
+          "scale": null,
+          "nullable": true,
+          "defaultValue": null,
+          "isIdentity": false,
+          "isComputed": false
+        },
+        {
+          "name": "SonGirisIP",
+          "dataType": "nvarchar",
+          "maxLength": 50,
+          "precision": null,
+          "scale": null,
+          "nullable": true,
+          "defaultValue": null,
+          "isIdentity": false,
+          "isComputed": false
+        }
+      ],
+      "primaryKey": {
+        "name": "PK_Kullanicilar",
+        "columns": [
+          "KullaniciID"
+        ]
+      },
+      "foreignKeys": [],
+      "indexes": [
+        {
+          "name": "PK_Kullanicilar",
+          "type": "CLUSTERED",
+          "isUnique": true,
+          "isPrimaryKey": true,
+          "columns": "KullaniciID"
+        },
+        {
+          "name": "UQ_Kullanicilar_KullaniciAdi",
+          "type": "NONCLUSTERED",
+          "isUnique": true,
+          "isPrimaryKey": false,
+          "columns": "KullaniciAdi"
+        }
+      ],
+      "triggers": []
+    },
+    {
+      "schema": "dbo",
+      "name": "ListeVersiyon",
+      "rowCount": 6,
+      "totalSpaceMB": 0.21,
+      "usedSpaceMB": 0.05,
+      "columns": [
+        {
+          "name": "VersionID",
+          "dataType": "int",
+          "maxLength": null,
+          "precision": 10,
+          "scale": 0,
+          "nullable": false,
+          "defaultValue": null,
+          "isIdentity": true,
+          "isComputed": false
+        },
+        {
+          "name": "ListeTipi",
+          "dataType": "nvarchar",
+          "maxLength": 50,
+          "precision": null,
+          "scale": null,
+          "nullable": false,
+          "defaultValue": "('HUV')",
+          "isIdentity": false,
+          "isComputed": false
+        },
+        {
+          "name": "YuklemeTarihi",
+          "dataType": "date",
+          "maxLength": null,
+          "precision": null,
+          "scale": null,
+          "nullable": false,
+          "defaultValue": null,
+          "isIdentity": false,
+          "isComputed": false
+        },
+        {
+          "name": "DosyaAdi",
+          "dataType": "nvarchar",
+          "maxLength": 255,
+          "precision": null,
+          "scale": null,
+          "nullable": true,
+          "defaultValue": null,
+          "isIdentity": false,
+          "isComputed": false
+        },
+        {
+          "name": "KayitSayisi",
+          "dataType": "int",
+          "maxLength": null,
+          "precision": 10,
+          "scale": 0,
+          "nullable": true,
+          "defaultValue": null,
+          "isIdentity": false,
+          "isComputed": false
+        },
+        {
+          "name": "Aciklama",
+          "dataType": "nvarchar",
+          "maxLength": 500,
+          "precision": null,
+          "scale": null,
+          "nullable": true,
+          "defaultValue": null,
+          "isIdentity": false,
+          "isComputed": false
+        },
+        {
+          "name": "YukleyenKullanici",
+          "dataType": "nvarchar",
+          "maxLength": 100,
+          "precision": null,
+          "scale": null,
+          "nullable": true,
+          "defaultValue": null,
+          "isIdentity": false,
+          "isComputed": false
+        },
+        {
+          "name": "OlusturmaTarihi",
+          "dataType": "datetime",
+          "maxLength": null,
+          "precision": null,
+          "scale": null,
+          "nullable": false,
+          "defaultValue": "(getdate())",
+          "isIdentity": false,
+          "isComputed": false
+        },
+        {
+          "name": "EklenenSayisi",
+          "dataType": "int",
+          "maxLength": null,
+          "precision": 10,
+          "scale": 0,
+          "nullable": true,
+          "defaultValue": null,
+          "isIdentity": false,
+          "isComputed": false
+        },
+        {
+          "name": "GuncellenenSayisi",
+          "dataType": "int",
+          "maxLength": null,
+          "precision": 10,
+          "scale": 0,
+          "nullable": true,
+          "defaultValue": null,
+          "isIdentity": false,
+          "isComputed": false
+        },
+        {
+          "name": "SilinenSayisi",
+          "dataType": "int",
+          "maxLength": null,
+          "precision": 10,
+          "scale": 0,
+          "nullable": true,
+          "defaultValue": null,
+          "isIdentity": false,
+          "isComputed": false
+        }
+      ],
+      "primaryKey": {
+        "name": "PK_ListeVersiyon",
+        "columns": [
+          "VersionID"
+        ]
+      },
+      "foreignKeys": [],
+      "indexes": [
+        {
+          "name": "IX_ListeVersiyon_ListeTipi",
+          "type": "NONCLUSTERED",
+          "isUnique": false,
+          "isPrimaryKey": false,
+          "columns": "YuklemeTarihi, ListeTipi"
+        },
+        {
+          "name": "IX_ListeVersiyon_YuklemeTarihi",
+          "type": "NONCLUSTERED",
+          "isUnique": false,
+          "isPrimaryKey": false,
+          "columns": "YuklemeTarihi"
+        },
+        {
+          "name": "PK_ListeVersiyon",
+          "type": "CLUSTERED",
+          "isUnique": true,
+          "isPrimaryKey": true,
+          "columns": "VersionID"
+        }
+      ],
+      "triggers": []
+    },
+    {
+      "schema": "dbo",
+      "name": "SutAnaBasliklar",
+      "rowCount": 10,
+      "totalSpaceMB": 0.28,
+      "usedSpaceMB": 0.06,
+      "columns": [
+        {
+          "name": "AnaBaslikNo",
+          "dataType": "int",
+          "maxLength": null,
+          "precision": 10,
+          "scale": 0,
+          "nullable": false,
+          "defaultValue": null,
+          "isIdentity": false,
+          "isComputed": false
+        },
+        {
+          "name": "AnaBaslikAdi",
+          "dataType": "nvarchar",
+          "maxLength": 500,
+          "precision": null,
+          "scale": null,
+          "nullable": false,
+          "defaultValue": null,
+          "isIdentity": false,
+          "isComputed": false
+        },
+        {
+          "name": "Aciklama",
+          "dataType": "nvarchar",
+          "maxLength": -1,
+          "precision": null,
+          "scale": null,
+          "nullable": true,
+          "defaultValue": null,
+          "isIdentity": false,
+          "isComputed": false
+        },
+        {
+          "name": "HiyerarsiID",
+          "dataType": "int",
+          "maxLength": null,
+          "precision": 10,
+          "scale": 0,
+          "nullable": true,
+          "defaultValue": null,
+          "isIdentity": false,
+          "isComputed": false
+        },
+        {
+          "name": "Sira",
+          "dataType": "int",
+          "maxLength": null,
+          "precision": 10,
+          "scale": 0,
+          "nullable": true,
+          "defaultValue": null,
+          "isIdentity": false,
+          "isComputed": false
+        },
+        {
+          "name": "ToplamIslemSayisi",
+          "dataType": "int",
+          "maxLength": null,
+          "precision": 10,
+          "scale": 0,
+          "nullable": true,
+          "defaultValue": null,
+          "isIdentity": false,
+          "isComputed": false
+        },
+        {
+          "name": "AktifMi",
+          "dataType": "bit",
+          "maxLength": null,
+          "precision": null,
+          "scale": null,
+          "nullable": false,
+          "defaultValue": "((1))",
+          "isIdentity": false,
+          "isComputed": false
+        },
+        {
+          "name": "OlusturmaTarihi",
+          "dataType": "datetime",
+          "maxLength": null,
+          "precision": null,
+          "scale": null,
+          "nullable": false,
+          "defaultValue": "(getdate())",
+          "isIdentity": false,
+          "isComputed": false
+        }
+      ],
+      "primaryKey": {
+        "name": "PK_SutAnaBasliklar",
+        "columns": [
+          "AnaBaslikNo"
+        ]
+      },
+      "foreignKeys": [
+        {
+          "name": "FK_SutAnaBasliklar_Hiyerarsi",
+          "column": "HiyerarsiID",
+          "referencedSchema": "dbo",
+          "referencedTable": "SutHiyerarsi",
+          "referencedColumn": "HiyerarsiID",
+          "deleteAction": "NO_ACTION",
+          "updateAction": "NO_ACTION"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "IX_SutAnaBasliklar_AktifMi",
+          "type": "NONCLUSTERED",
+          "isUnique": false,
+          "isPrimaryKey": false,
+          "columns": "AktifMi"
+        },
+        {
+          "name": "IX_SutAnaBasliklar_HiyerarsiID",
+          "type": "NONCLUSTERED",
+          "isUnique": false,
+          "isPrimaryKey": false,
+          "columns": "HiyerarsiID"
+        },
+        {
+          "name": "IX_SutAnaBasliklar_Sira",
+          "type": "NONCLUSTERED",
+          "isUnique": false,
+          "isPrimaryKey": false,
+          "columns": "Sira"
+        },
+        {
+          "name": "PK_SutAnaBasliklar",
+          "type": "CLUSTERED",
+          "isUnique": true,
+          "isPrimaryKey": true,
+          "columns": "AnaBaslikNo"
+        }
+      ],
+      "triggers": []
+    },
+    {
+      "schema": "dbo",
+      "name": "SutHiyerarsi",
+      "rowCount": 390,
+      "totalSpaceMB": 0.35,
+      "usedSpaceMB": 0.12,
+      "columns": [
+        {
+          "name": "HiyerarsiID",
+          "dataType": "int",
+          "maxLength": null,
+          "precision": 10,
+          "scale": 0,
+          "nullable": false,
+          "defaultValue": null,
+          "isIdentity": true,
+          "isComputed": false
+        },
+        {
+          "name": "ParentID",
+          "dataType": "int",
+          "maxLength": null,
+          "precision": 10,
+          "scale": 0,
+          "nullable": true,
+          "defaultValue": null,
+          "isIdentity": false,
+          "isComputed": false
+        },
+        {
+          "name": "SeviyeNo",
+          "dataType": "int",
+          "maxLength": null,
+          "precision": 10,
+          "scale": 0,
+          "nullable": false,
+          "defaultValue": null,
+          "isIdentity": false,
+          "isComputed": false
+        },
+        {
+          "name": "SeviyeAdi",
+          "dataType": "nvarchar",
+          "maxLength": 50,
+          "precision": null,
+          "scale": null,
+          "nullable": true,
+          "defaultValue": null,
+          "isIdentity": false,
+          "isComputed": false
+        },
+        {
+          "name": "Baslik",
+          "dataType": "nvarchar",
+          "maxLength": -1,
+          "precision": null,
+          "scale": null,
+          "nullable": false,
+          "defaultValue": null,
+          "isIdentity": false,
+          "isComputed": false
+        },
+        {
+          "name": "SutKoduBaslangic",
+          "dataType": "nvarchar",
+          "maxLength": 100,
+          "precision": null,
+          "scale": null,
+          "nullable": true,
+          "defaultValue": null,
+          "isIdentity": false,
+          "isComputed": false
+        },
+        {
+          "name": "SutKoduBitis",
+          "dataType": "nvarchar",
+          "maxLength": 100,
+          "precision": null,
+          "scale": null,
+          "nullable": true,
+          "defaultValue": null,
+          "isIdentity": false,
+          "isComputed": false
+        },
+        {
+          "name": "Sira",
+          "dataType": "int",
+          "maxLength": null,
+          "precision": 10,
+          "scale": 0,
+          "nullable": true,
+          "defaultValue": null,
+          "isIdentity": false,
+          "isComputed": false
+        },
+        {
+          "name": "AktifMi",
+          "dataType": "bit",
+          "maxLength": null,
+          "precision": null,
+          "scale": null,
+          "nullable": false,
+          "defaultValue": "((1))",
+          "isIdentity": false,
+          "isComputed": false
+        },
+        {
+          "name": "OlusturmaTarihi",
+          "dataType": "datetime",
+          "maxLength": null,
+          "precision": null,
+          "scale": null,
+          "nullable": false,
+          "defaultValue": "(getdate())",
+          "isIdentity": false,
+          "isComputed": false
+        }
+      ],
+      "primaryKey": {
+        "name": "PK_SutHiyerarsi",
+        "columns": [
+          "HiyerarsiID"
+        ]
+      },
+      "foreignKeys": [
+        {
+          "name": "FK_SutHiyerarsi_Parent",
+          "column": "ParentID",
+          "referencedSchema": "dbo",
+          "referencedTable": "SutHiyerarsi",
+          "referencedColumn": "HiyerarsiID",
+          "deleteAction": "NO_ACTION",
+          "updateAction": "NO_ACTION"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "IX_SutHiyerarsi_AktifMi",
+          "type": "NONCLUSTERED",
+          "isUnique": false,
+          "isPrimaryKey": false,
+          "columns": "AktifMi"
+        },
+        {
+          "name": "IX_SutHiyerarsi_ParentID",
+          "type": "NONCLUSTERED",
+          "isUnique": false,
+          "isPrimaryKey": false,
+          "columns": "ParentID"
+        },
+        {
+          "name": "IX_SutHiyerarsi_SeviyeNo",
+          "type": "NONCLUSTERED",
+          "isUnique": false,
+          "isPrimaryKey": false,
+          "columns": "SeviyeNo"
+        },
+        {
+          "name": "IX_SutHiyerarsi_Sira",
+          "type": "NONCLUSTERED",
+          "isUnique": false,
+          "isPrimaryKey": false,
+          "columns": "Sira"
+        },
+        {
+          "name": "PK_SutHiyerarsi",
+          "type": "CLUSTERED",
+          "isUnique": true,
+          "isPrimaryKey": true,
+          "columns": "HiyerarsiID"
+        }
+      ],
+      "triggers": []
+    },
+    {
+      "schema": "dbo",
+      "name": "SutIslemler",
+      "rowCount": 7130,
+      "totalSpaceMB": 5.24,
+      "usedSpaceMB": 4.73,
+      "columns": [
+        {
+          "name": "SutID",
+          "dataType": "int",
+          "maxLength": null,
+          "precision": 10,
+          "scale": 0,
+          "nullable": false,
+          "defaultValue": null,
+          "isIdentity": true,
+          "isComputed": false
+        },
+        {
+          "name": "SutKodu",
+          "dataType": "nvarchar",
+          "maxLength": 50,
+          "precision": null,
+          "scale": null,
+          "nullable": false,
+          "defaultValue": null,
+          "isIdentity": false,
+          "isComputed": false
+        },
+        {
+          "name": "IslemAdi",
+          "dataType": "nvarchar",
+          "maxLength": -1,
+          "precision": null,
+          "scale": null,
+          "nullable": true,
+          "defaultValue": null,
+          "isIdentity": false,
+          "isComputed": false
+        },
+        {
+          "name": "Puan",
+          "dataType": "float",
+          "maxLength": null,
+          "precision": 53,
+          "scale": null,
+          "nullable": true,
+          "defaultValue": null,
+          "isIdentity": false,
+          "isComputed": false
+        },
+        {
+          "name": "Aciklama",
+          "dataType": "nvarchar",
+          "maxLength": -1,
+          "precision": null,
+          "scale": null,
+          "nullable": true,
+          "defaultValue": null,
+          "isIdentity": false,
+          "isComputed": false
+        },
+        {
+          "name": "HiyerarsiID",
+          "dataType": "int",
+          "maxLength": null,
+          "precision": 10,
+          "scale": 0,
+          "nullable": true,
+          "defaultValue": null,
+          "isIdentity": false,
+          "isComputed": false
+        },
+        {
+          "name": "AnaBaslikNo",
+          "dataType": "int",
+          "maxLength": null,
+          "precision": 10,
+          "scale": 0,
+          "nullable": true,
+          "defaultValue": null,
+          "isIdentity": false,
+          "isComputed": false
+        },
+        {
+          "name": "ListeVersiyonID",
+          "dataType": "int",
+          "maxLength": null,
+          "precision": 10,
+          "scale": 0,
+          "nullable": true,
+          "defaultValue": null,
+          "isIdentity": false,
+          "isComputed": false
+        },
+        {
+          "name": "AktifMi",
+          "dataType": "bit",
+          "maxLength": null,
+          "precision": null,
+          "scale": null,
+          "nullable": false,
+          "defaultValue": "((1))",
+          "isIdentity": false,
+          "isComputed": false
+        },
+        {
+          "name": "OlusturmaTarihi",
+          "dataType": "datetime",
+          "maxLength": null,
+          "precision": null,
+          "scale": null,
+          "nullable": false,
+          "defaultValue": "(getdate())",
+          "isIdentity": false,
+          "isComputed": false
+        },
+        {
+          "name": "GuncellemeTarihi",
+          "dataType": "datetime",
+          "maxLength": null,
+          "precision": null,
+          "scale": null,
+          "nullable": true,
+          "defaultValue": null,
+          "isIdentity": false,
+          "isComputed": false
+        }
+      ],
+      "primaryKey": {
+        "name": "PK_SutIslemler",
+        "columns": [
+          "SutID"
+        ]
+      },
+      "foreignKeys": [
+        {
+          "name": "FK_SutIslemler_SutHiyerarsi",
+          "column": "HiyerarsiID",
+          "referencedSchema": "dbo",
+          "referencedTable": "SutHiyerarsi",
+          "referencedColumn": "HiyerarsiID",
+          "deleteAction": "NO_ACTION",
+          "updateAction": "NO_ACTION"
+        },
+        {
+          "name": "FK_SutIslemler_Hiyerarsi",
+          "column": "HiyerarsiID",
+          "referencedSchema": "dbo",
+          "referencedTable": "SutHiyerarsi",
+          "referencedColumn": "HiyerarsiID",
+          "deleteAction": "NO_ACTION",
+          "updateAction": "NO_ACTION"
+        },
+        {
+          "name": "FK_SutIslemler_SutAnaBasliklar",
+          "column": "AnaBaslikNo",
+          "referencedSchema": "dbo",
+          "referencedTable": "SutAnaBasliklar",
+          "referencedColumn": "AnaBaslikNo",
+          "deleteAction": "NO_ACTION",
+          "updateAction": "NO_ACTION"
+        },
+        {
+          "name": "FK_SutIslemler_AnaBaslik",
+          "column": "AnaBaslikNo",
+          "referencedSchema": "dbo",
+          "referencedTable": "SutAnaBasliklar",
+          "referencedColumn": "AnaBaslikNo",
+          "deleteAction": "NO_ACTION",
+          "updateAction": "NO_ACTION"
+        },
+        {
+          "name": "FK_SutIslemler_ListeVersiyon",
+          "column": "ListeVersiyonID",
+          "referencedSchema": "dbo",
+          "referencedTable": "ListeVersiyon",
+          "referencedColumn": "VersionID",
+          "deleteAction": "NO_ACTION",
+          "updateAction": "NO_ACTION"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "IX_SutIslemler_AktifMi",
+          "type": "NONCLUSTERED",
+          "isUnique": false,
+          "isPrimaryKey": false,
+          "columns": "SutKodu, IslemAdi, Puan, AktifMi"
+        },
+        {
+          "name": "IX_SutIslemler_AnaBaslikNo",
+          "type": "NONCLUSTERED",
+          "isUnique": false,
+          "isPrimaryKey": false,
+          "columns": "AnaBaslikNo"
+        },
+        {
+          "name": "IX_SutIslemler_HiyerarsiID",
+          "type": "NONCLUSTERED",
+          "isUnique": false,
+          "isPrimaryKey": false,
+          "columns": "HiyerarsiID"
+        },
+        {
+          "name": "IX_SutIslemler_ListeVersiyonID",
+          "type": "NONCLUSTERED",
+          "isUnique": false,
+          "isPrimaryKey": false,
+          "columns": "ListeVersiyonID"
+        },
+        {
+          "name": "IX_SutIslemler_SutKodu",
+          "type": "NONCLUSTERED",
+          "isUnique": false,
+          "isPrimaryKey": false,
+          "columns": "SutKodu"
+        },
+        {
+          "name": "PK_SutIslemler",
+          "type": "CLUSTERED",
+          "isUnique": true,
+          "isPrimaryKey": true,
+          "columns": "SutID"
+        },
+        {
+          "name": "UQ_SutIslemler_SutKodu",
+          "type": "NONCLUSTERED",
+          "isUnique": true,
+          "isPrimaryKey": false,
+          "columns": "SutKodu"
+        }
+      ],
+      "triggers": []
+    },
+    {
+      "schema": "dbo",
+      "name": "SutIslemVersionlar",
+      "rowCount": 7136,
+      "totalSpaceMB": 5.8,
+      "usedSpaceMB": 4.69,
+      "columns": [
+        {
+          "name": "SutVersionID",
+          "dataType": "int",
+          "maxLength": null,
+          "precision": 10,
+          "scale": 0,
+          "nullable": false,
+          "defaultValue": null,
+          "isIdentity": true,
+          "isComputed": false
+        },
+        {
+          "name": "SutID",
+          "dataType": "int",
+          "maxLength": null,
+          "precision": 10,
+          "scale": 0,
+          "nullable": false,
+          "defaultValue": null,
+          "isIdentity": false,
+          "isComputed": false
+        },
+        {
+          "name": "SutKodu",
+          "dataType": "nvarchar",
+          "maxLength": 50,
+          "precision": null,
+          "scale": null,
+          "nullable": false,
+          "defaultValue": null,
+          "isIdentity": false,
+          "isComputed": false
+        },
+        {
+          "name": "IslemAdi",
+          "dataType": "nvarchar",
+          "maxLength": -1,
+          "precision": null,
+          "scale": null,
+          "nullable": true,
+          "defaultValue": null,
+          "isIdentity": false,
+          "isComputed": false
+        },
+        {
+          "name": "Puan",
+          "dataType": "float",
+          "maxLength": null,
+          "precision": 53,
+          "scale": null,
+          "nullable": true,
+          "defaultValue": null,
+          "isIdentity": false,
+          "isComputed": false
+        },
+        {
+          "name": "Aciklama",
+          "dataType": "nvarchar",
+          "maxLength": -1,
+          "precision": null,
+          "scale": null,
+          "nullable": true,
+          "defaultValue": null,
+          "isIdentity": false,
+          "isComputed": false
+        },
+        {
+          "name": "AnaBaslikNo",
+          "dataType": "int",
+          "maxLength": null,
+          "precision": 10,
+          "scale": 0,
+          "nullable": true,
+          "defaultValue": null,
+          "isIdentity": false,
+          "isComputed": false
+        },
+        {
+          "name": "HiyerarsiID",
+          "dataType": "int",
+          "maxLength": null,
+          "precision": 10,
+          "scale": 0,
+          "nullable": true,
+          "defaultValue": null,
+          "isIdentity": false,
+          "isComputed": false
+        },
+        {
+          "name": "GecerlilikBaslangic",
+          "dataType": "date",
+          "maxLength": null,
+          "precision": null,
+          "scale": null,
+          "nullable": false,
+          "defaultValue": null,
+          "isIdentity": false,
+          "isComputed": false
+        },
+        {
+          "name": "GecerlilikBitis",
+          "dataType": "date",
+          "maxLength": null,
+          "precision": null,
+          "scale": null,
+          "nullable": true,
+          "defaultValue": null,
+          "isIdentity": false,
+          "isComputed": false
+        },
+        {
+          "name": "AktifMi",
+          "dataType": "bit",
+          "maxLength": null,
+          "precision": null,
+          "scale": null,
+          "nullable": false,
+          "defaultValue": "((1))",
+          "isIdentity": false,
+          "isComputed": false
+        },
+        {
+          "name": "ListeVersiyonID",
+          "dataType": "int",
+          "maxLength": null,
+          "precision": 10,
+          "scale": 0,
+          "nullable": true,
+          "defaultValue": null,
+          "isIdentity": false,
+          "isComputed": false
+        },
+        {
+          "name": "DegisiklikSebebi",
+          "dataType": "nvarchar",
+          "maxLength": 500,
+          "precision": null,
+          "scale": null,
+          "nullable": true,
+          "defaultValue": null,
+          "isIdentity": false,
+          "isComputed": false
+        },
+        {
+          "name": "OlusturanKullanici",
+          "dataType": "nvarchar",
+          "maxLength": 100,
+          "precision": null,
+          "scale": null,
+          "nullable": true,
+          "defaultValue": null,
+          "isIdentity": false,
+          "isComputed": false
+        },
+        {
+          "name": "OlusturmaTarihi",
+          "dataType": "datetime",
+          "maxLength": null,
+          "precision": null,
+          "scale": null,
+          "nullable": false,
+          "defaultValue": "(getdate())",
+          "isIdentity": false,
+          "isComputed": false
+        }
+      ],
+      "primaryKey": {
+        "name": "PK_SutIslemVersionlar",
+        "columns": [
+          "SutVersionID"
+        ]
+      },
+      "foreignKeys": [
+        {
+          "name": "FK_SutIslemVersionlar_SutHiyerarsi",
+          "column": "HiyerarsiID",
+          "referencedSchema": "dbo",
+          "referencedTable": "SutHiyerarsi",
+          "referencedColumn": "HiyerarsiID",
+          "deleteAction": "NO_ACTION",
+          "updateAction": "NO_ACTION"
+        },
+        {
+          "name": "FK_SutIslemVersionlar_SutAnaBasliklar",
+          "column": "AnaBaslikNo",
+          "referencedSchema": "dbo",
+          "referencedTable": "SutAnaBasliklar",
+          "referencedColumn": "AnaBaslikNo",
+          "deleteAction": "NO_ACTION",
+          "updateAction": "NO_ACTION"
+        },
+        {
+          "name": "FK_SutIslemVersionlar_ListeVersiyon",
+          "column": "ListeVersiyonID",
+          "referencedSchema": "dbo",
+          "referencedTable": "ListeVersiyon",
+          "referencedColumn": "VersionID",
+          "deleteAction": "NO_ACTION",
+          "updateAction": "NO_ACTION"
+        },
+        {
+          "name": "FK_SutIslemVersionlar_SutIslemler",
+          "column": "SutID",
+          "referencedSchema": "dbo",
+          "referencedTable": "SutIslemler",
+          "referencedColumn": "SutID",
+          "deleteAction": "NO_ACTION",
+          "updateAction": "NO_ACTION"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "IX_SutIslemVersionlar_ListeVersiyonID",
+          "type": "NONCLUSTERED",
+          "isUnique": false,
+          "isPrimaryKey": false,
+          "columns": "ListeVersiyonID"
+        },
+        {
+          "name": "IX_SutIslemVersionlar_SutID_Aktif",
+          "type": "NONCLUSTERED",
+          "isUnique": false,
+          "isPrimaryKey": false,
+          "columns": "GecerlilikBaslangic, GecerlilikBitis, SutID, AktifMi"
+        },
+        {
+          "name": "IX_SutIslemVersionlar_SutID_Tarih",
+          "type": "NONCLUSTERED",
+          "isUnique": false,
+          "isPrimaryKey": false,
+          "columns": "Puan, IslemAdi, DegisiklikSebebi, SutID, GecerlilikBaslangic, GecerlilikBitis"
+        },
+        {
+          "name": "IX_SutIslemVersionlar_SutKodu",
+          "type": "NONCLUSTERED",
+          "isUnique": false,
+          "isPrimaryKey": false,
+          "columns": "SutKodu"
+        },
+        {
+          "name": "IX_SutIslemVersionlar_SutKodu_Tarih",
+          "type": "NONCLUSTERED",
+          "isUnique": false,
+          "isPrimaryKey": false,
+          "columns": "SutID, Puan, IslemAdi, SutKodu, GecerlilikBaslangic, GecerlilikBitis"
+        },
+        {
+          "name": "IX_SutIslemVersionlar_Tarih",
+          "type": "NONCLUSTERED",
+          "isUnique": false,
+          "isPrimaryKey": false,
+          "columns": "GecerlilikBaslangic, GecerlilikBitis"
+        },
+        {
+          "name": "PK_SutIslemVersionlar",
+          "type": "CLUSTERED",
+          "isUnique": true,
+          "isPrimaryKey": true,
+          "columns": "SutVersionID"
+        }
+      ],
+      "triggers": []
+    }
+  ],
+  "views": [
+    {
+      "schema": "dbo",
+      "name": "vw_IslemArama",
+      "definition": "\n      CREATE VIEW [dbo].[vw_IslemArama]\n      AS\n      SELECT\n        i.IslemID,\n        i.HuvKodu,\n        i.IslemAdi,\n        i.Birim,\n        i.SutKodu,\n        i.HiyerarsiSeviyesi,\n        i.UstBaslik,\n        i.AnaDalKodu,\n        a.BolumAdi,\n        ISNULL(i.IslemAdi, '') + ' ' + ISNULL(i.SutKodu, '') + ' ' + ISNULL(i.UstBaslik, '') AS AramaMetni\n      FROM HuvIslemler i\n      LEFT JOIN AnaDallar a ON i.AnaDalKodu = a.AnaDalKodu\n      WHERE i.AktifMi = 1\n    "
+    },
+    {
+      "schema": "dbo",
+      "name": "vw_SutAnaBaslikOzet",
+      "definition": "\r\n-- Yeni view'ı oluştur (SutAnaBasliklar tablosunu kullanarak)\r\nCREATE VIEW vw_SutAnaBaslikOzet\r\nAS\r\nSELECT \r\n    ab.AnaBaslikNo,\r\n    ab.AnaBaslikAdi,\r\n    ab.Aciklama,\r\n    ISNULL(ab.Sira, ab.AnaBaslikNo) as Sira,\r\n    ab.AktifMi,\r\n    ab.OlusturmaTarihi,\r\n    -- İşlem istatistikleri (SutIslemler'den hesapla)\r\n    COUNT(DISTINCT s.SutID) as IslemSayisi,\r\n    COUNT(DISTINCT s.HiyerarsiID) as HiyerarsiSayisi,\r\n    ISNULL(MIN(s.Puan), 0) as MinPuan,\r\n    ISNULL(MAX(s.Puan), 0) as MaxPuan,\r\n    ISNULL(AVG(s.Puan), 0) as OrtalamaPuan,\r\n    SUM(CASE WHEN s.Puan > 0 THEN 1 ELSE 0 END) as PuanliIslemSayisi\r\nFROM SutAnaBasliklar ab\r\nLEFT JOIN SutIslemler s ON ab.AnaBaslikNo = s.AnaBaslikNo AND s.AktifMi = 1\r\nWHERE ab.AktifMi = 1\r\nGROUP BY \r\n    ab.AnaBaslikNo, ab.AnaBaslikAdi, ab.Aciklama, ab.Sira, \r\n    ab.AktifMi, ab.OlusturmaTarihi;\r\n"
+    },
+    {
+      "schema": "dbo",
+      "name": "vw_SutIslemDetay",
+      "definition": "\r\n-- View oluştur\r\nCREATE VIEW dbo.vw_SutIslemDetay\r\nAS\r\nSELECT \r\n    s.SutID,\r\n    s.SutKodu,\r\n    s.IslemAdi,\r\n    s.Aciklama,\r\n    s.Puan,\r\n    s.AktifMi,\r\n    s.AnaBaslikNo,\r\n    s.HiyerarsiID,\r\n    ab.AnaBaslikAdi,\r\n    sh.Baslik as HiyerarsiBaslik\r\nFROM SutIslemler s\r\nLEFT JOIN SutAnaBasliklar ab ON s.AnaBaslikNo = ab.AnaBaslikNo\r\nLEFT JOIN SutHiyerarsi sh ON s.HiyerarsiID = sh.HiyerarsiID;\r\n"
+    },
+    {
+      "schema": "dbo",
+      "name": "vw_SutKategoriOzet",
+      "definition": "\r\nCREATE VIEW vw_SutKategoriOzet\r\nAS\r\nSELECT \r\n    h.HiyerarsiID as KategoriID,\r\n    h.Baslik as KategoriAdi,\r\n    h.ParentID,\r\n    h.SeviyeNo as Seviye,\r\n    h.Sira,\r\n    COUNT(DISTINCT s.SutID) as IslemSayisi,\r\n    MIN(s.Puan) as MinPuan,\r\n    MAX(s.Puan) as MaxPuan,\r\n    AVG(s.Puan) as OrtalamaPuan\r\nFROM SutHiyerarsi h\r\nLEFT JOIN SutIslemler s ON h.HiyerarsiID = s.HiyerarsiID AND s.AktifMi = 1\r\nWHERE h.AktifMi = 1\r\nGROUP BY h.HiyerarsiID, h.Baslik, h.ParentID, h.SeviyeNo, h.Sira;\r\n"
+    }
+  ],
+  "storedProcedures": [
+    {
+      "schema": "dbo",
+      "name": "sp_EnPahaliIslemler",
+      "definition": "CREATE PROCEDURE [dbo].[sp_EnPahaliIslemler]\r\n    @TopN INT = 50,\r\n    @AnaDalKodu INT = NULL\r\nAS\r\nBEGIN\r\n    SET NOCOUNT ON;\r\n    \r\n    SELECT TOP (@TopN)\r\n        i.IslemID,\r\n        i.HuvKodu,\r\n        i.IslemAdi,\r\n        i.Birim,\r\n        i.SutKodu,\r\n        a.BolumAdi,\r\n        ROW_NUMBER() OVER (ORDER BY i.Birim DESC) as Sira\r\n    FROM HuvIslemler i\r\n    INNER JOIN AnaDallar a ON i.AnaDalKodu = a.AnaDalKodu\r\n    WHERE i.Birim IS NOT NULL\r\n      AND i.AktifMi = 1\r\n      AND (@AnaDalKodu IS NULL OR i.AnaDalKodu = @AnaDalKodu)\r\n    ORDER BY i.Birim DESC;\r\nEND",
+      "created": "2026-02-17T07:51:52.383Z",
+      "lastAltered": "2026-02-17T07:51:52.383Z"
+    },
+    {
+      "schema": "dbo",
+      "name": "sp_EnUcuzIslemler",
+      "definition": "CREATE PROCEDURE [dbo].[sp_EnUcuzIslemler]\r\n    @TopN INT = 50,\r\n    @AnaDalKodu INT = NULL\r\nAS\r\nBEGIN\r\n    SET NOCOUNT ON;\r\n    \r\n    SELECT TOP (@TopN)\r\n        i.IslemID,\r\n        i.HuvKodu,\r\n        i.IslemAdi,\r\n        i.Birim,\r\n        i.SutKodu,\r\n        a.BolumAdi,\r\n        ROW_NUMBER() OVER (ORDER BY i.Birim ASC) as Sira\r\n    FROM HuvIslemler i\r\n    INNER JOIN AnaDallar a ON i.AnaDalKodu = a.AnaDalKodu\r\n    WHERE i.Birim IS NOT NULL\r\n      AND i.Birim > 0\r\n      AND i.AktifMi = 1\r\n      AND (@AnaDalKodu IS NULL OR i.AnaDalKodu = @AnaDalKodu)\r\n    ORDER BY i.Birim ASC;\r\nEND",
+      "created": "2026-02-17T07:51:52.393Z",
+      "lastAltered": "2026-02-17T07:51:52.393Z"
+    },
+    {
+      "schema": "dbo",
+      "name": "sp_FiyatDegisimRaporu",
+      "definition": "CREATE PROCEDURE [dbo].[sp_FiyatDegisimRaporu]\r\n    @HuvKodu FLOAT = NULL,\r\n    @IslemID INT = NULL,\r\n    @BaslangicTarihi DATE = NULL,\r\n    @BitisTarihi DATE = NULL\r\nAS\r\nBEGIN\r\n    SET NOCOUNT ON;\r\n    \r\n    -- İşlem ID'yi belirle\r\n    DECLARE @TargetIslemID INT;\r\n    \r\n    IF @IslemID IS NOT NULL\r\n        SET @TargetIslemID = @IslemID;\r\n    ELSE IF @HuvKodu IS NOT NULL\r\n    BEGIN\r\n        -- Önce aktif kayıttan bak, yoksa IslemVersionlar'dan al\r\n        SELECT TOP 1 @TargetIslemID = IslemID \r\n        FROM HuvIslemler \r\n        WHERE HuvKodu = @HuvKodu;\r\n        \r\n        IF @TargetIslemID IS NULL\r\n        BEGIN\r\n            SELECT TOP 1 @TargetIslemID = IslemID\r\n            FROM IslemVersionlar\r\n            WHERE HuvKodu = @HuvKodu\r\n            ORDER BY VersionID DESC;\r\n        END\r\n    END\r\n    \r\n    -- Result Set 1: İşlem Bilgisi (HuvIslemler'den veya IslemVersionlar'dan)\r\n    SELECT \r\n        ISNULL(i.IslemID, v.IslemID) as IslemID,\r\n        ISNULL(i.HuvKodu, v.HuvKodu) as HuvKodu,\r\n        ISNULL(i.IslemAdi, v.IslemAdi) as IslemAdi,\r\n        i.Birim as GuncelBirim,\r\n        a.BolumAdi,\r\n        ISNULL(i.AktifMi, 0) as AktifMi\r\n    FROM (SELECT TOP 1 * FROM IslemVersionlar WHERE IslemID = @TargetIslemID ORDER BY VersionID DESC) v\r\n    LEFT JOIN HuvIslemler i ON v.IslemID = i.IslemID\r\n    LEFT JOIN AnaDallar a ON i.AnaDalKodu = a.AnaDalKodu;\r\n    \r\n    -- Result Set 2: Versiyonlar ve Fiyat Değişimleri\r\n    SELECT \r\n        v.HuvKodu,\r\n        v.IslemAdi,\r\n        v.Birim,\r\n        v.GecerlilikBaslangic,\r\n        v.GecerlilikBitis,\r\n        a.BolumAdi,\r\n        v.DegisiklikSebebi,\r\n        LAG(v.Birim) OVER (PARTITION BY v.IslemID ORDER BY v.GecerlilikBaslangic) as OncekiBirim,\r\n        v.Birim - LAG(v.Birim) OVER (PARTITION BY v.IslemID ORDER BY v.GecerlilikBaslangic) as BirimDegisimi,\r\n        CASE \r\n            WHEN LAG(v.Birim) OVER (PARTITION BY v.IslemID ORDER BY v.GecerlilikBaslangic) IS NOT NULL\r\n            THEN ((v.Birim - LAG(v.Birim) OVER (PARTITION BY v.IslemID ORDER BY v.GecerlilikBaslangic)) / \r\n                  LAG(v.Birim) OVER (PARTITION BY v.IslemID ORDER BY v.GecerlilikBaslangic) * 100)\r\n            ELSE NULL\r\n        END as DegisimYuzdesi,\r\n        v.ListeVersiyonID,\r\n        lv.DosyaAdi as VersiyonDosyaAdi,\r\n        v.VersionID\r\n    FROM IslemVersionlar v\r\n    LEFT JOIN HuvIslemler i ON v.IslemID = i.IslemID\r\n    LEFT JOIN AnaDallar a ON i.AnaDalKodu = a.AnaDalKodu\r\n    LEFT JOIN ListeVersiyon lv ON v.ListeVersiyonID = lv.VersionID\r\n    WHERE v.IslemID = @TargetIslemID\r\n      AND (@BaslangicTarihi IS NULL OR v.GecerlilikBaslangic >= @BaslangicTarihi)\r\n      AND (@BitisTarihi IS NULL OR v.GecerlilikBaslangic <= @BitisTarihi)\r\n    ORDER BY v.GecerlilikBaslangic DESC;\r\n    \r\n    -- Result Set 3: Audit Geçmişi\r\n    SELECT \r\n        AuditID,\r\n        IslemID,\r\n        IslemTipi,\r\n        HuvKodu,\r\n        IslemAdi,\r\n        EskiBirim,\r\n        YeniBirim,\r\n        DegisiklikTarihi,\r\n        DegistirenKullanici,\r\n        Aciklama\r\n    FROM IslemAudit\r\n    WHERE IslemID = @TargetIslemID\r\n      AND (@BaslangicTarihi IS NULL OR DegisiklikTarihi >= @BaslangicTarihi)\r\n      AND (@BitisTarihi IS NULL OR DegisiklikTarihi <= @BitisTarihi)\r\n    ORDER BY DegisiklikTarihi DESC;\r\nEND;",
+      "created": "2026-02-11T11:57:00.097Z",
+      "lastAltered": "2026-02-11T11:57:00.097Z"
+    },
+    {
+      "schema": "dbo",
+      "name": "sp_IslemAra",
+      "definition": "CREATE PROCEDURE sp_IslemAra\r\n    @AramaMetni NVARCHAR(200),\r\n    @AnaDalKodu INT = NULL,\r\n    @MinBirim FLOAT = NULL,\r\n    @MaxBirim FLOAT = NULL\r\nAS\r\nBEGIN\r\n    SET NOCOUNT ON;\r\n    \r\n    SELECT \r\n        IslemID,\r\n        HuvKodu,\r\n        IslemAdi,\r\n        Birim,\r\n        BolumAdi,\r\n        SutKodu,\r\n        HiyerarsiSeviyesi\r\n    FROM vw_IslemArama\r\n    WHERE \r\n        (@AramaMetni IS NULL OR AramaMetni LIKE '%' + @AramaMetni + '%')\r\n        AND (@AnaDalKodu IS NULL OR HuvKodu >= @AnaDalKodu AND HuvKodu < @AnaDalKodu + 1)\r\n        AND (@MinBirim IS NULL OR Birim >= @MinBirim)\r\n        AND (@MaxBirim IS NULL OR Birim <= @MaxBirim)\r\n    ORDER BY HuvKodu;\r\nEND;",
+      "created": "2026-02-02T15:34:39.440Z",
+      "lastAltered": "2026-02-02T15:34:39.440Z"
+    },
+    {
+      "schema": "dbo",
+      "name": "sp_IslemlerFiyatAralik",
+      "definition": "CREATE PROCEDURE [dbo].[sp_IslemlerFiyatAralik]\r\n    @MinFiyat FLOAT = NULL,\r\n    @MaxFiyat FLOAT = NULL,\r\n    @AnaDalKodu INT = NULL,\r\n    @Sayfa INT = 1,\r\n    @SayfaBoyutu INT = 50\r\nAS\r\nBEGIN\r\n    SET NOCOUNT ON;\r\n    \r\n    DECLARE @Offset INT = (@Sayfa - 1) * @SayfaBoyutu;\r\n    \r\n    -- Toplam kayıt sayısı\r\n    SELECT COUNT(*) as ToplamKayit\r\n    FROM HuvIslemler i\r\n    WHERE i.Birim IS NOT NULL\r\n      AND i.AktifMi = 1\r\n      AND (@MinFiyat IS NULL OR i.Birim >= @MinFiyat)\r\n      AND (@MaxFiyat IS NULL OR i.Birim <= @MaxFiyat)\r\n      AND (@AnaDalKodu IS NULL OR i.AnaDalKodu = @AnaDalKodu);\r\n    \r\n    -- Sayfalanmış sonuçlar\r\n    SELECT \r\n        i.IslemID,\r\n        i.HuvKodu,\r\n        i.IslemAdi,\r\n        i.Birim,\r\n        i.SutKodu,\r\n        i.GuncellemeTarihi,\r\n        a.BolumAdi\r\n    FROM HuvIslemler i\r\n    INNER JOIN AnaDallar a ON i.AnaDalKodu = a.AnaDalKodu\r\n    WHERE i.Birim IS NOT NULL\r\n      AND i.AktifMi = 1\r\n      AND (@MinFiyat IS NULL OR i.Birim >= @MinFiyat)\r\n      AND (@MaxFiyat IS NULL OR i.Birim <= @MaxFiyat)\r\n      AND (@AnaDalKodu IS NULL OR i.AnaDalKodu = @AnaDalKodu)\r\n    ORDER BY i.Birim DESC\r\n    OFFSET @Offset ROWS\r\n    FETCH NEXT @SayfaBoyutu ROWS ONLY;\r\nEND",
+      "created": "2026-02-17T07:51:52.403Z",
+      "lastAltered": "2026-02-17T07:51:52.403Z"
+    },
+    {
+      "schema": "dbo",
+      "name": "sp_IslemlerHiyerarsi",
+      "definition": "CREATE PROCEDURE [dbo].[sp_IslemlerHiyerarsi]\r\n    @HiyerarsiSeviyesi INT = NULL,\r\n    @AnaDalKodu INT = NULL,\r\n    @Sayfa INT = 1,\r\n    @SayfaBoyutu INT = 50\r\nAS\r\nBEGIN\r\n    SET NOCOUNT ON;\r\n    \r\n    DECLARE @Offset INT = (@Sayfa - 1) * @SayfaBoyutu;\r\n    \r\n    SELECT COUNT(*) as ToplamKayit\r\n    FROM HuvIslemler i\r\n    WHERE i.AktifMi = 1\r\n      AND (@HiyerarsiSeviyesi IS NULL OR i.HiyerarsiSeviyesi = @HiyerarsiSeviyesi)\r\n      AND (@AnaDalKodu IS NULL OR i.AnaDalKodu = @AnaDalKodu);\r\n    \r\n    SELECT \r\n        i.IslemID,\r\n        i.HuvKodu,\r\n        i.IslemAdi,\r\n        i.Birim,\r\n        i.HiyerarsiSeviyesi,\r\n        i.UstBaslik,\r\n        a.BolumAdi,\r\n        CASE \r\n            WHEN i.HiyerarsiSeviyesi = 0 THEN 'Ana Başlık'\r\n            WHEN i.HiyerarsiSeviyesi = 1 THEN 'Kategori'\r\n            WHEN i.HiyerarsiSeviyesi = 2 THEN 'Alt Kategori'\r\n            WHEN i.HiyerarsiSeviyesi = 3 THEN 'İşlem'\r\n            ELSE 'Detay İşlem'\r\n        END as SeviyeTipi\r\n    FROM HuvIslemler i\r\n    INNER JOIN AnaDallar a ON i.AnaDalKodu = a.AnaDalKodu\r\n    WHERE i.AktifMi = 1\r\n      AND (@HiyerarsiSeviyesi IS NULL OR i.HiyerarsiSeviyesi = @HiyerarsiSeviyesi)\r\n      AND (@AnaDalKodu IS NULL OR i.AnaDalKodu = @AnaDalKodu)\r\n    ORDER BY i.HuvKodu\r\n    OFFSET @Offset ROWS\r\n    FETCH NEXT @SayfaBoyutu ROWS ONLY;\r\nEND",
+      "created": "2026-02-17T07:51:52.413Z",
+      "lastAltered": "2026-02-17T07:51:52.413Z"
+    },
+    {
+      "schema": "dbo",
+      "name": "sp_IslemlerSutKodu",
+      "definition": "CREATE PROCEDURE [dbo].[sp_IslemlerSutKodu]\r\n    @SutKodu NVARCHAR(100),\r\n    @Sayfa INT = 1,\r\n    @SayfaBoyutu INT = 50\r\nAS\r\nBEGIN\r\n    SET NOCOUNT ON;\r\n    \r\n    DECLARE @Offset INT = (@Sayfa - 1) * @SayfaBoyutu;\r\n    \r\n    SELECT COUNT(*) as ToplamKayit\r\n    FROM HuvIslemler i\r\n    WHERE i.AktifMi = 1\r\n      AND i.SutKodu LIKE '%' + @SutKodu + '%';\r\n    \r\n    SELECT \r\n        i.IslemID,\r\n        i.HuvKodu,\r\n        i.IslemAdi,\r\n        i.Birim,\r\n        i.SutKodu,\r\n        a.BolumAdi\r\n    FROM HuvIslemler i\r\n    INNER JOIN AnaDallar a ON i.AnaDalKodu = a.AnaDalKodu\r\n    WHERE i.AktifMi = 1\r\n      AND i.SutKodu LIKE '%' + @SutKodu + '%'\r\n    ORDER BY i.HuvKodu\r\n    OFFSET @Offset ROWS\r\n    FETCH NEXT @SayfaBoyutu ROWS ONLY;\r\nEND",
+      "created": "2026-02-17T07:51:52.420Z",
+      "lastAltered": "2026-02-17T07:51:52.420Z"
+    },
+    {
+      "schema": "dbo",
+      "name": "sp_IslemlerTariheGore",
+      "definition": "CREATE PROCEDURE [dbo].[sp_IslemlerTariheGore]\r\n    @GunSayisi INT = 30,\r\n    @AnaDalKodu INT = NULL,\r\n    @Sayfa INT = 1,\r\n    @SayfaBoyutu INT = 50\r\nAS\r\nBEGIN\r\n    SET NOCOUNT ON;\r\n    \r\n    DECLARE @Offset INT = (@Sayfa - 1) * @SayfaBoyutu;\r\n    DECLARE @BaslangicTarihi DATE = DATEADD(DAY, -@GunSayisi, GETDATE());\r\n    \r\n    SELECT COUNT(*) as ToplamKayit\r\n    FROM HuvIslemler i\r\n    WHERE i.AktifMi = 1\r\n      AND i.GuncellemeTarihiDate >= @BaslangicTarihi\r\n      AND (@AnaDalKodu IS NULL OR i.AnaDalKodu = @AnaDalKodu);\r\n    \r\n    SELECT \r\n        i.IslemID,\r\n        i.HuvKodu,\r\n        i.IslemAdi,\r\n        i.Birim,\r\n        i.GuncellemeTarihi,\r\n        i.GuncellemeTarihiDate,\r\n        a.BolumAdi,\r\n        DATEDIFF(DAY, i.GuncellemeTarihiDate, GETDATE()) as KacGunOnce\r\n    FROM HuvIslemler i\r\n    INNER JOIN AnaDallar a ON i.AnaDalKodu = a.AnaDalKodu\r\n    WHERE i.AktifMi = 1\r\n      AND i.GuncellemeTarihiDate >= @BaslangicTarihi\r\n      AND (@AnaDalKodu IS NULL OR i.AnaDalKodu = @AnaDalKodu)\r\n    ORDER BY i.GuncellemeTarihiDate DESC\r\n    OFFSET @Offset ROWS\r\n    FETCH NEXT @SayfaBoyutu ROWS ONLY;\r\nEND",
+      "created": "2026-02-17T07:51:52.430Z",
+      "lastAltered": "2026-02-17T07:51:52.430Z"
+    },
+    {
+      "schema": "dbo",
+      "name": "sp_SutHiyerarsiGetir",
+      "definition": "CREATE PROCEDURE sp_SutHiyerarsiGetir\n    @AnaBaslikNo INT = NULL,\n    @ParentID INT = NULL\nAS\nBEGIN\n    SET NOCOUNT ON;\n\n    IF @ParentID IS NOT NULL\n    BEGIN\n        -- Belirli bir parent'?n ?ocuklar?n? getir\n        SELECT\n            h.HiyerarsiID, h.ParentID, h.SeviyeNo, h.SeviyeAdi, h.Baslik as Adi, h.Sira,\n            'HIYERARSI' as Tip, CAST(NULL AS NVARCHAR(50)) as SutKodu,\n            CAST(NULL AS DECIMAL(18,2)) as Puan, CAST(NULL AS NVARCHAR(MAX)) as Aciklama,\n            CAST(NULL AS INT) as IslemID,\n            COUNT(DISTINCT s.SutID) as IslemSayisi,\n            COUNT(DISTINCT h2.HiyerarsiID) as CocukSayisi\n        FROM SutHiyerarsi h\n        LEFT JOIN SutIslemler s ON s.HiyerarsiID = h.HiyerarsiID AND s.AktifMi = 1\n        LEFT JOIN SutHiyerarsi h2 ON h2.ParentID = h.HiyerarsiID\n        WHERE h.ParentID = @ParentID\n        GROUP BY h.HiyerarsiID, h.ParentID, h.SeviyeNo, h.SeviyeAdi, h.Baslik, h.Sira\n\n        UNION ALL\n\n        SELECT\n            s.SutID as HiyerarsiID, s.HiyerarsiID as ParentID, 4 as SeviyeNo, '??lem' as SeviyeAdi,\n            s.IslemAdi as Adi, s.AnaBaslikNo as Sira, 'ISLEM' as Tip, s.SutKodu, s.Puan, s.Aciklama,\n            s.SutID as IslemID, 0 as IslemSayisi, 0 as CocukSayisi\n        FROM SutIslemler s\n        WHERE s.HiyerarsiID = @ParentID AND s.AktifMi = 1\n\n        ORDER BY Tip, Sira, HiyerarsiID;\n    END\n    ELSE IF @AnaBaslikNo IS NOT NULL\n    BEGIN\n        -- Ana ba?l???n HiyerarsiID'sini bul\n        DECLARE @AnaBaslikHiyerarsiID INT;\n        SELECT @AnaBaslikHiyerarsiID = HiyerarsiID \n        FROM SutAnaBasliklar \n        WHERE AnaBaslikNo = @AnaBaslikNo;\n\n        WITH HiyerarsiCTE AS (\n            SELECT\n                h.HiyerarsiID, h.ParentID, h.SeviyeNo, h.SeviyeAdi, h.Baslik as Adi, h.Sira,\n                0 as Derinlik, 'HIYERARSI' as Tip, CAST(NULL AS NVARCHAR(50)) as SutKodu,\n                CAST(NULL AS DECIMAL(18,2)) as Puan, CAST(NULL AS NVARCHAR(MAX)) as Aciklama,\n                CAST(NULL AS INT) as IslemID\n            FROM SutHiyerarsi h\n            WHERE h.HiyerarsiID = @AnaBaslikHiyerarsiID\n\n            UNION ALL\n\n            SELECT\n                h.HiyerarsiID, h.ParentID, h.SeviyeNo, h.SeviyeAdi, h.Baslik as Adi, h.Sira,\n                hc.Derinlik + 1, 'HIYERARSI' as Tip, CAST(NULL AS NVARCHAR(50)) as SutKodu,\n                CAST(NULL AS DECIMAL(18,2)) as Puan, CAST(NULL AS NVARCHAR(MAX)) as Aciklama,\n                CAST(NULL AS INT) as IslemID\n            FROM SutHiyerarsi h\n            INNER JOIN HiyerarsiCTE hc ON h.ParentID = hc.HiyerarsiID\n        )\n        SELECT\n            hc.HiyerarsiID, hc.ParentID, hc.SeviyeNo, hc.SeviyeAdi, hc.Adi, hc.Sira, hc.Derinlik, hc.Tip,\n            hc.SutKodu, hc.Puan, hc.Aciklama, hc.IslemID,\n            COUNT(DISTINCT s.SutID) as IslemSayisi,\n            COUNT(DISTINCT h2.HiyerarsiID) as CocukSayisi\n        FROM HiyerarsiCTE hc\n        LEFT JOIN SutIslemler s ON s.HiyerarsiID = hc.HiyerarsiID AND s.AktifMi = 1\n        LEFT JOIN SutHiyerarsi h2 ON h2.ParentID = hc.HiyerarsiID\n        GROUP BY hc.HiyerarsiID, hc.ParentID, hc.SeviyeNo, hc.SeviyeAdi, hc.Adi, hc.Sira, hc.Derinlik, hc.Tip, hc.SutKodu, hc.Puan, hc.Aciklama, hc.IslemID\n\n        UNION ALL\n\n        SELECT\n            s.SutID as HiyerarsiID, s.HiyerarsiID as ParentID, 4 as SeviyeNo, '??lem' as SeviyeAdi,\n            s.IslemAdi as Adi, s.AnaBaslikNo as Sira, 3 as Derinlik, 'ISLEM' as Tip, s.SutKodu, s.Puan, s.Aciklama,\n            s.SutID as IslemID, 0 as IslemSayisi, 0 as CocukSayisi\n        FROM SutIslemler s\n        WHERE s.AnaBaslikNo = @AnaBaslikNo AND s.AktifMi = 1\n\n        ORDER BY Derinlik, Sira, HiyerarsiID;\n    END\n    ELSE\n    BEGIN\n        SELECT\n            h.HiyerarsiID, h.ParentID, h.SeviyeNo, h.SeviyeAdi, h.Baslik as Adi, h.Sira,\n            0 as Derinlik, 'HIYERARSI' as Tip, CAST(NULL AS NVARCHAR(50)) as SutKodu,\n            CAST(NULL AS DECIMAL(18,2)) as Puan, CAST(NULL AS NVARCHAR(MAX)) as Aciklama,\n            CAST(NULL AS INT) as IslemID,\n            COUNT(DISTINCT s.SutID) as IslemSayisi,\n            COUNT(DISTINCT h2.HiyerarsiID) as CocukSayisi\n        FROM SutHiyerarsi h\n        LEFT JOIN SutIslemler s ON s.AnaBaslikNo = h.Sira AND s.AktifMi = 1\n        LEFT JOIN SutHiyerarsi h2 ON h2.ParentID = h.HiyerarsiID\n        WHERE h.SeviyeNo = 1\n        GROUP BY h.HiyerarsiID, h.ParentID, h.SeviyeNo, h.SeviyeAdi, h.Baslik, h.Sira\n        ORDER BY h.Sira;\n    END\nEND;",
+      "created": "2026-02-10T12:18:48.343Z",
+      "lastAltered": "2026-02-12T16:01:49.480Z"
+    },
+    {
+      "schema": "dbo",
+      "name": "sp_SutPuanDegisimRaporu",
+      "definition": "CREATE PROCEDURE [dbo].[sp_SutPuanDegisimRaporu]\r\n    @SutID INT\r\nAS\r\nBEGIN\r\n    SET NOCOUNT ON;\r\n    \r\n    -- Parametre kontrolü\r\n    IF @SutID IS NULL\r\n    BEGIN\r\n        RAISERROR('SutID parametresi gereklidir', 16, 1);\r\n        RETURN;\r\n    END\r\n    \r\n    -- İlk import tarihini ListeVersiyon'dan al\r\n    DECLARE @IlkImportTarihi DATE;\r\n    \r\n    SELECT TOP 1 @IlkImportTarihi = CAST(YuklemeTarihi AS DATE)\r\n    FROM ListeVersiyon\r\n    WHERE ListeTipi = 'SUT'\r\n    ORDER BY VersionID ASC;\r\n    \r\n    -- Eğer ListeVersiyon'da kayıt yoksa, varsayılan tarih kullan\r\n    IF @IlkImportTarihi IS NULL\r\n    BEGIN\r\n        SET @IlkImportTarihi = CAST('2026-01-01' AS DATE);\r\n    END\r\n    \r\n    -- Result Set 1: İşlem Bilgisi\r\n    SELECT \r\n        s.SutID,\r\n        s.SutKodu,\r\n        s.IslemAdi,\r\n        s.Puan as GuncelPuan,\r\n        s.Aciklama,\r\n        s.AnaBaslikNo,\r\n        s.AktifMi,\r\n        s.OlusturmaTarihi,\r\n        s.GuncellemeTarihi\r\n    FROM SutIslemler s\r\n    WHERE s.SutID = @SutID;\r\n    \r\n    -- Result Set 2: Versiyonlar (puan değişimi ile)\r\n    -- Önce versiyon tablosundan al\r\n    WITH VersionlarSirali AS (\r\n        SELECT \r\n            v.SutVersionID,\r\n            v.SutKodu,\r\n            v.IslemAdi,\r\n            v.Puan,\r\n            v.Aciklama,\r\n            v.GecerlilikBaslangic,\r\n            v.GecerlilikBitis,\r\n            v.DegisiklikSebebi,\r\n            v.AktifMi,\r\n            lv.DosyaAdi,\r\n            lv.YukleyenKullanici,\r\n            lv.YuklemeTarihi,\r\n            -- Önceki versiyonun puanı\r\n            LAG(v.Puan) OVER (PARTITION BY v.SutID ORDER BY v.GecerlilikBaslangic) as OncekiPuan,\r\n            ROW_NUMBER() OVER (PARTITION BY v.SutID ORDER BY v.GecerlilikBaslangic DESC) as Sira\r\n        FROM SutIslemVersionlar v\r\n        LEFT JOIN ListeVersiyon lv ON v.ListeVersiyonID = lv.VersionID\r\n        WHERE v.SutID = @SutID\r\n    ),\r\n    -- Eğer versiyon yoksa, mevcut kaydı ekle\r\n    MevcutKayit AS (\r\n        SELECT \r\n            s.SutID,\r\n            s.SutKodu,\r\n            s.IslemAdi,\r\n            s.Puan,\r\n            s.Aciklama,\r\n            CASE \r\n                WHEN s.OlusturmaTarihi IS NOT NULL THEN CAST(s.OlusturmaTarihi AS DATE)\r\n                ELSE @IlkImportTarihi\r\n            END as GecerlilikBaslangic,\r\n            NULL as GecerlilikBitis,\r\n            'Değişiklik yok (Mevcut kayıt)' as DegisiklikSebebi,\r\n            s.AktifMi,\r\n            NULL as DosyaAdi,\r\n            NULL as YukleyenKullanici,\r\n            NULL as YuklemeTarihi,\r\n            0 as Sira\r\n        FROM SutIslemler s\r\n        WHERE s.SutID = @SutID\r\n          AND s.AktifMi = 1\r\n          AND NOT EXISTS (\r\n              SELECT 1 FROM SutIslemVersionlar v \r\n              WHERE v.SutID = s.SutID\r\n          )\r\n    ),\r\n    -- Versiyonlar ve mevcut kaydı birleştir\r\n    TumVersiyonlar AS (\r\n        SELECT \r\n            CAST(SutVersionID AS INT) as SutVersionID,\r\n            SutKodu,\r\n            IslemAdi,\r\n            Puan,\r\n            Aciklama,\r\n            GecerlilikBaslangic,\r\n            GecerlilikBitis,\r\n            DegisiklikSebebi,\r\n            AktifMi,\r\n            DosyaAdi,\r\n            YukleyenKullanici,\r\n            YuklemeTarihi,\r\n            OncekiPuan,\r\n            Sira\r\n        FROM VersionlarSirali\r\n        \r\n        UNION ALL\r\n        \r\n        SELECT \r\n            NULL as SutVersionID,\r\n            SutKodu,\r\n            IslemAdi,\r\n            Puan,\r\n            Aciklama,\r\n            GecerlilikBaslangic,\r\n            GecerlilikBitis,\r\n            DegisiklikSebebi,\r\n            AktifMi,\r\n            DosyaAdi,\r\n            YukleyenKullanici,\r\n            YuklemeTarihi,\r\n            NULL as OncekiPuan,\r\n            Sira\r\n        FROM MevcutKayit\r\n    )\r\n    SELECT \r\n        SutVersionID,\r\n        SutKodu,\r\n        IslemAdi,\r\n        Puan,\r\n        Aciklama,\r\n        GecerlilikBaslangic,\r\n        GecerlilikBitis,\r\n        DegisiklikSebebi,\r\n        AktifMi,\r\n        DosyaAdi,\r\n        YukleyenKullanici,\r\n        YuklemeTarihi,\r\n        -- Puan değişimi\r\n        CASE \r\n            WHEN OncekiPuan IS NOT NULL THEN (Puan - OncekiPuan)\r\n            ELSE NULL \r\n        END as PuanDegisimi,\r\n        CASE \r\n            WHEN OncekiPuan IS NOT NULL AND OncekiPuan > 0 THEN \r\n                CAST(((Puan - OncekiPuan) / OncekiPuan * 100) AS DECIMAL(10,2))\r\n            ELSE NULL \r\n        END as PuanDegisimYuzdesi,\r\n        Sira\r\n    FROM TumVersiyonlar\r\n    ORDER BY GecerlilikBaslangic DESC;\r\n    \r\n    -- Result Set 3: Özet İstatistikler\r\n    SELECT \r\n        COUNT(*) as ToplamVersionSayisi,\r\n        MIN(v.Puan) as MinPuan,\r\n        MAX(v.Puan) as MaxPuan,\r\n        AVG(v.Puan) as OrtalamaPuan,\r\n        (MAX(v.Puan) - MIN(v.Puan)) as ToplamPuanDegisimi,\r\n        MIN(v.GecerlilikBaslangic) as IlkYuklemeTarihi,\r\n        MAX(v.GecerlilikBaslangic) as SonGuncellemeTarihi,\r\n        -- Değişiklik sayısı (Değişiklik yok hariç)\r\n        SUM(CASE \r\n            WHEN v.DegisiklikSebebi IS NOT NULL \r\n             AND v.DegisiklikSebebi != 'Değişiklik yok' \r\n             AND v.DegisiklikSebebi != 'Değişiklik yok (Mevcut kayıt)'\r\n            THEN 1 ELSE 0 \r\n        END) as GercekDegisiklikSayisi\r\n    FROM (\r\n        SELECT Puan, GecerlilikBaslangic, DegisiklikSebebi\r\n        FROM SutIslemVersionlar\r\n        WHERE SutID = @SutID\r\n        \r\n        UNION ALL\r\n        \r\n        SELECT \r\n            s.Puan,\r\n            CASE \r\n                WHEN s.OlusturmaTarihi IS NOT NULL THEN CAST(s.OlusturmaTarihi AS DATE)\r\n                ELSE @IlkImportTarihi\r\n            END as GecerlilikBaslangic,\r\n            'Değişiklik yok (Mevcut kayıt)' as DegisiklikSebebi\r\n        FROM SutIslemler s\r\n        WHERE s.SutID = @SutID\r\n          AND s.AktifMi = 1\r\n          AND NOT EXISTS (\r\n              SELECT 1 FROM SutIslemVersionlar v \r\n              WHERE v.SutID = s.SutID\r\n          )\r\n    ) v;\r\nEND",
+      "created": "2026-02-17T12:29:24.780Z",
+      "lastAltered": "2026-02-17T12:29:24.780Z"
+    },
+    {
+      "schema": "dbo",
+      "name": "sp_SutTarihAraligindaDegiÅŸenler",
+      "definition": "CREATE PROCEDURE sp_SutTarihAraligindaDegiÅŸenler\r\n    @BaslangicTarihi DATE,\r\n    @BitisTarihi DATE,\r\n    @AnaBaslikNo INT = NULL\r\nAS\r\nBEGIN\r\n    SET NOCOUNT ON;\r\n    \r\n    -- Parametre kontrolÃ¼\r\n    IF @BaslangicTarihi IS NULL OR @BitisTarihi IS NULL\r\n    BEGIN\r\n        RAISERROR('BaÅŸlangÄ±Ã§ ve bitiÅŸ tarihleri gereklidir', 16, 1);\r\n        RETURN;\r\n    END\r\n    \r\n    IF @BaslangicTarihi > @BitisTarihi\r\n    BEGIN\r\n        RAISERROR('BaÅŸlangÄ±Ã§ tarihi bitiÅŸ tarihinden bÃ¼yÃ¼k olamaz', 16, 1);\r\n        RETURN;\r\n    END;\r\n    \r\n    -- Tarih aralÄ±ÄŸÄ±nda deÄŸiÅŸen SUT kodlarÄ±\r\n    WITH VersionDegisiklikleri AS (\r\n        SELECT \r\n            v.SutID,\r\n            v.SutKodu,\r\n            v.IslemAdi,\r\n            v.AnaBaslikNo,\r\n            COUNT(*) as DegisiklikSayisi,\r\n            MIN(v.GecerlilikBaslangic) as IlkDegisiklik,\r\n            MAX(v.GecerlilikBaslangic) as SonDegisiklik,\r\n            -- Ä°lk ve son puan deÄŸerleri\r\n            (SELECT TOP 1 Puan FROM SutIslemVersionlar \r\n             WHERE SutID = v.SutID \r\n               AND GecerlilikBaslangic >= @BaslangicTarihi\r\n               AND GecerlilikBaslangic <= @BitisTarihi\r\n             ORDER BY GecerlilikBaslangic ASC) as IlkPuan,\r\n            (SELECT TOP 1 Puan FROM SutIslemVersionlar \r\n             WHERE SutID = v.SutID \r\n               AND GecerlilikBaslangic >= @BaslangicTarihi\r\n               AND GecerlilikBaslangic <= @BitisTarihi\r\n             ORDER BY GecerlilikBaslangic DESC) as SonPuan\r\n        FROM SutIslemVersionlar v\r\n        WHERE v.GecerlilikBaslangic >= @BaslangicTarihi\r\n          AND v.GecerlilikBaslangic <= @BitisTarihi\r\n          AND (@AnaBaslikNo IS NULL OR v.AnaBaslikNo = @AnaBaslikNo)\r\n        GROUP BY v.SutID, v.SutKodu, v.IslemAdi, v.AnaBaslikNo\r\n        HAVING COUNT(*) > 1  -- En az 2 versiyon olmalÄ± (deÄŸiÅŸim var)\r\n    )\r\n    SELECT \r\n        d.SutID,\r\n        d.SutKodu,\r\n        d.IslemAdi,\r\n        d.AnaBaslikNo,\r\n        d.DegisiklikSayisi,\r\n        d.IlkDegisiklik,\r\n        d.SonDegisiklik,\r\n        d.IlkPuan as EskiPuan,\r\n        d.SonPuan as YeniPuan,\r\n        (d.SonPuan - d.IlkPuan) as PuanDegisimi,\r\n        CASE \r\n            WHEN d.IlkPuan > 0 THEN \r\n                CAST(((d.SonPuan - d.IlkPuan) / d.IlkPuan * 100) AS DECIMAL(10,2))\r\n            ELSE NULL \r\n        END as PuanDegisimYuzdesi,\r\n        -- DeÄŸiÅŸiklik tiplerini topla\r\n        STUFF((\r\n            SELECT DISTINCT ', ' + DegisiklikSebebi\r\n            FROM SutIslemVersionlar v2\r\n            WHERE v2.SutID = d.SutID\r\n              AND v2.GecerlilikBaslangic >= @BaslangicTarihi\r\n              AND v2.GecerlilikBaslangic <= @BitisTarihi\r\n              AND v2.DegisiklikSebebi IS NOT NULL\r\n              AND v2.DegisiklikSebebi != 'DeÄŸiÅŸiklik yok'\r\n            FOR XML PATH('')\r\n        ), 1, 2, '') as DegisiklikTipleri,\r\n        s.AktifMi\r\n    FROM VersionDegisiklikleri d\r\n    LEFT JOIN SutIslemler s ON d.SutID = s.SutID\r\n    ORDER BY d.DegisiklikSayisi DESC, ABS(d.SonPuan - d.IlkPuan) DESC;\r\nEND",
+      "created": "2026-02-12T13:29:29.070Z",
+      "lastAltered": "2026-02-12T13:29:29.070Z"
+    },
+    {
+      "schema": "dbo",
+      "name": "sp_SutTarihAraligindaDegis",
+      "definition": "CREATE PROCEDURE [dbo].[sp_SutTarihAraligindaDegis]\r\n    @BaslangicTarihi DATE,\r\n    @BitisTarihi DATE,\r\n    @AnaBaslikNo INT = NULL\r\nAS\r\nBEGIN\r\n    SET NOCOUNT ON;\r\n    \r\n    -- DÃœZELTME: AralÄ±k kontrolÃ¼nÃ¼ geniÅŸlet\r\n    -- AralÄ±k iÃ§inde baÅŸlayan VEYA aralÄ±k iÃ§inde biten VEYA aralÄ±ÄŸÄ± kapsayan deÄŸiÅŸiklikler\r\n    WITH PuanDegisiklikleri AS (\r\n        SELECT \r\n            v.SutID,\r\n            v.SutKodu,\r\n            v.IslemAdi,\r\n            v.AnaBaslikNo,\r\n            v.Puan,\r\n            v.GecerlilikBaslangic,\r\n            v.DegisiklikSebebi,\r\n            LAG(v.Puan) OVER (PARTITION BY v.SutID ORDER BY v.GecerlilikBaslangic) as OncekiPuan,\r\n            ROW_NUMBER() OVER (PARTITION BY v.SutID ORDER BY v.GecerlilikBaslangic) as Sira\r\n        FROM SutIslemVersionlar v\r\n        WHERE (\r\n            -- AralÄ±k iÃ§inde baÅŸlayan\r\n            (CONVERT(DATE, v.GecerlilikBaslangic) >= @BaslangicTarihi \r\n             AND CONVERT(DATE, v.GecerlilikBaslangic) <= @BitisTarihi)\r\n            OR\r\n            -- AralÄ±k dÄ±ÅŸÄ±nda baÅŸlayan ama aralÄ±k iÃ§inde biten\r\n            (CONVERT(DATE, v.GecerlilikBaslangic) < @BaslangicTarihi \r\n             AND (v.GecerlilikBitis IS NULL OR CONVERT(DATE, v.GecerlilikBitis) >= @BaslangicTarihi))\r\n            OR\r\n            -- AralÄ±k iÃ§inde baÅŸlayan ama aralÄ±k dÄ±ÅŸÄ±nda biten\r\n            (CONVERT(DATE, v.GecerlilikBaslangic) <= @BitisTarihi \r\n             AND v.GecerlilikBitis IS NOT NULL \r\n             AND CONVERT(DATE, v.GecerlilikBitis) > @BitisTarihi)\r\n            OR\r\n            -- AralÄ±ÄŸÄ± tamamen kapsayan\r\n            (CONVERT(DATE, v.GecerlilikBaslangic) < @BaslangicTarihi \r\n             AND v.GecerlilikBitis IS NOT NULL \r\n             AND CONVERT(DATE, v.GecerlilikBitis) > @BitisTarihi)\r\n        )\r\n        AND (@AnaBaslikNo IS NULL OR v.AnaBaslikNo = @AnaBaslikNo)\r\n    ),\r\n    GercekDegisiklikler AS (\r\n        SELECT \r\n            SutID,\r\n            SutKodu,\r\n            IslemAdi,\r\n            AnaBaslikNo,\r\n            COUNT(*) as DegisiklikSayisi,\r\n            MIN(GecerlilikBaslangic) as IlkDegisiklik,\r\n            MAX(GecerlilikBaslangic) as SonDegisiklik,\r\n            MIN(CASE WHEN OncekiPuan IS NOT NULL AND Puan != OncekiPuan THEN OncekiPuan ELSE Puan END) as IlkPuan,\r\n            MAX(Puan) as SonPuan\r\n        FROM PuanDegisiklikleri\r\n        WHERE OncekiPuan IS NULL OR Puan != OncekiPuan\r\n        GROUP BY SutID, SutKodu, IslemAdi, AnaBaslikNo\r\n        HAVING COUNT(*) > 1 OR MAX(Puan) != MIN(CASE WHEN OncekiPuan IS NOT NULL THEN OncekiPuan ELSE Puan END)\r\n    )\r\n    SELECT \r\n        d.SutID,\r\n        d.SutKodu,\r\n        d.IslemAdi,\r\n        d.AnaBaslikNo,\r\n        d.DegisiklikSayisi,\r\n        d.IlkDegisiklik,\r\n        d.SonDegisiklik,\r\n        d.IlkPuan as EskiPuan,\r\n        d.SonPuan as YeniPuan,\r\n        (d.SonPuan - d.IlkPuan) as PuanDegisimi,\r\n        CASE \r\n            WHEN d.IlkPuan > 0 THEN \r\n                CAST(((d.SonPuan - d.IlkPuan) / d.IlkPuan * 100) AS DECIMAL(10,2))\r\n            ELSE NULL \r\n        END as PuanDegisimYuzdesi,\r\n        s.AktifMi\r\n    FROM GercekDegisiklikler d\r\n    LEFT JOIN SutIslemler s ON d.SutID = s.SutID\r\n    WHERE ABS(d.SonPuan - d.IlkPuan) > 0.01\r\n    ORDER BY ABS(d.SonPuan - d.IlkPuan) DESC, d.DegisiklikSayisi DESC;\r\nEND",
+      "created": "2026-02-16T14:35:38.083Z",
+      "lastAltered": "2026-02-16T14:35:38.083Z"
+    },
+    {
+      "schema": "dbo",
+      "name": "sp_SutTarihtekiPuan",
+      "definition": "CREATE PROCEDURE [dbo].[sp_SutTarihtekiPuan]\r\n    @SutKodu NVARCHAR(50) = NULL,\r\n    @SutID INT = NULL,\r\n    @Tarih DATE\r\nAS\r\nBEGIN\r\n    SET NOCOUNT ON;\r\n    \r\n    -- Parametre kontrolü\r\n    IF @SutKodu IS NULL AND @SutID IS NULL\r\n    BEGIN\r\n        RAISERROR('SutKodu veya SutID parametresi gereklidir', 16, 1);\r\n        RETURN;\r\n    END\r\n    \r\n    IF @Tarih IS NULL\r\n    BEGIN\r\n        RAISERROR('Tarih parametresi gereklidir', 16, 1);\r\n        RETURN;\r\n    END\r\n    \r\n    -- Gelecek tarih kontrolü\r\n    IF @Tarih > CAST(GETDATE() AS DATE)\r\n    BEGIN\r\n        RAISERROR('Gelecek tarih için sorgu yapılamaz', 16, 1);\r\n        RETURN;\r\n    END\r\n    \r\n    -- Önce versiyon tablosuna bak (değişen kayıtlar için)\r\n    IF EXISTS (\r\n        SELECT 1\r\n        FROM SutIslemVersionlar v\r\n        WHERE (@SutKodu IS NULL OR v.SutKodu = @SutKodu)\r\n          AND (@SutID IS NULL OR v.SutID = @SutID)\r\n          AND CONVERT(DATE, v.GecerlilikBaslangic) <= CONVERT(DATE, @Tarih)\r\n          AND (v.GecerlilikBitis IS NULL OR CONVERT(DATE, v.GecerlilikBitis) >= CONVERT(DATE, @Tarih))\r\n    )\r\n    BEGIN\r\n        -- Versiyon tablosunda bulundu, versiyon kaydını döndür\r\n        SELECT TOP 1\r\n            v.SutID,\r\n            v.SutKodu,\r\n            v.IslemAdi,\r\n            v.Puan,\r\n            v.Aciklama,\r\n            v.AnaBaslikNo,\r\n            v.HiyerarsiID,\r\n            v.GecerlilikBaslangic,\r\n            v.GecerlilikBitis,\r\n            v.ListeVersiyonID,\r\n            lv.DosyaAdi,\r\n            lv.YuklemeTarihi,\r\n            v.DegisiklikSebebi,\r\n            v.AktifMi\r\n        FROM SutIslemVersionlar v\r\n        LEFT JOIN ListeVersiyon lv ON v.ListeVersiyonID = lv.VersionID\r\n        WHERE (@SutKodu IS NULL OR v.SutKodu = @SutKodu)\r\n          AND (@SutID IS NULL OR v.SutID = @SutID)\r\n          AND CONVERT(DATE, v.GecerlilikBaslangic) <= CONVERT(DATE, @Tarih)\r\n          AND (v.GecerlilikBitis IS NULL OR CONVERT(DATE, v.GecerlilikBitis) >= CONVERT(DATE, @Tarih))\r\n        ORDER BY v.GecerlilikBaslangic DESC;\r\n    END\r\n    ELSE\r\n    BEGIN\r\n        -- Versiyon tablosunda bulunamadı, mevcut kayda bak (değişmeyen kayıtlar için)\r\n        -- İlk import tarihini ListeVersiyon'dan al\r\n        DECLARE @IlkImportTarihi DATE;\r\n        \r\n        SELECT TOP 1 @IlkImportTarihi = CAST(YuklemeTarihi AS DATE)\r\n        FROM ListeVersiyon\r\n        WHERE ListeTipi = 'SUT'\r\n        ORDER BY VersionID ASC;\r\n        \r\n        -- Eğer ListeVersiyon'da kayıt yoksa, varsayılan tarih kullan\r\n        IF @IlkImportTarihi IS NULL\r\n        BEGIN\r\n            SET @IlkImportTarihi = CAST('2026-01-01' AS DATE);\r\n        END\r\n        \r\n        SELECT TOP 1\r\n            s.SutID,\r\n            s.SutKodu,\r\n            s.IslemAdi,\r\n            s.Puan,\r\n            s.Aciklama,\r\n            s.AnaBaslikNo,\r\n            s.HiyerarsiID,\r\n            -- Mevcut kaydın oluşturulma tarihini veya ilk import tarihini kullan\r\n            CASE \r\n                WHEN s.OlusturmaTarihi IS NOT NULL THEN CAST(s.OlusturmaTarihi AS DATE)\r\n                ELSE @IlkImportTarihi\r\n            END as GecerlilikBaslangic,\r\n            NULL as GecerlilikBitis,\r\n            NULL as ListeVersiyonID,\r\n            NULL as DosyaAdi,\r\n            NULL as YuklemeTarihi,\r\n            'Değişiklik yok (Mevcut kayıt)' as DegisiklikSebebi,\r\n            s.AktifMi\r\n        FROM SutIslemler s\r\n        WHERE (@SutKodu IS NULL OR s.SutKodu = @SutKodu)\r\n          AND (@SutID IS NULL OR s.SutID = @SutID)\r\n          AND s.AktifMi = 1\r\n          -- Tarih kontrolü: Mevcut kayıt, sorgu tarihinden önce oluşturulmuş olmalı\r\n          AND (\r\n              (s.OlusturmaTarihi IS NOT NULL AND CAST(s.OlusturmaTarihi AS DATE) <= @Tarih)\r\n              OR (s.OlusturmaTarihi IS NULL AND @IlkImportTarihi <= @Tarih)\r\n          );\r\n    END\r\nEND",
+      "created": "2026-02-17T12:29:24.763Z",
+      "lastAltered": "2026-02-17T12:29:24.763Z"
+    },
+    {
+      "schema": "dbo",
+      "name": "sp_SutVersiyonKarsilastir",
+      "definition": "CREATE PROCEDURE sp_SutVersiyonKarsilastir\r\n    @EskiVersiyonID INT,\r\n    @YeniVersiyonID INT\r\nAS\r\nBEGIN\r\n    SET NOCOUNT ON;\r\n    \r\n    -- Parametre kontrolÃ¼\r\n    IF @EskiVersiyonID IS NULL OR @YeniVersiyonID IS NULL\r\n    BEGIN\r\n        RAISERROR('Eski ve yeni versiyon ID''leri gereklidir', 16, 1);\r\n        RETURN;\r\n    END\r\n    \r\n    IF @EskiVersiyonID = @YeniVersiyonID\r\n    BEGIN\r\n        RAISERROR('Eski ve yeni versiyon aynÄ± olamaz', 16, 1);\r\n        RETURN;\r\n    END\r\n    \r\n    -- Versiyon bilgileri\r\n    DECLARE @EskiDosyaAdi NVARCHAR(255);\r\n    DECLARE @YeniDosyaAdi NVARCHAR(255);\r\n    DECLARE @EskiTarih DATE;\r\n    DECLARE @YeniTarih DATE;\r\n    \r\n    SELECT @EskiDosyaAdi = DosyaAdi, @EskiTarih = YuklemeTarihi\r\n    FROM ListeVersiyon\r\n    WHERE VersionID = @EskiVersiyonID AND ListeTipi = 'SUT';\r\n    \r\n    SELECT @YeniDosyaAdi = DosyaAdi, @YeniTarih = YuklemeTarihi\r\n    FROM ListeVersiyon\r\n    WHERE VersionID = @YeniVersiyonID AND ListeTipi = 'SUT';\r\n    \r\n    IF @EskiDosyaAdi IS NULL OR @YeniDosyaAdi IS NULL\r\n    BEGIN\r\n        RAISERROR('Belirtilen versiyon ID''leri bulunamadÄ± veya SUT tipinde deÄŸil', 16, 1);\r\n        RETURN;\r\n    END;\r\n    \r\n    -- KarÅŸÄ±laÅŸtÄ±rma\r\n    WITH EskiVersiyon AS (\r\n        SELECT \r\n            SutID, SutKodu, IslemAdi, Puan, Aciklama, AnaBaslikNo, HiyerarsiID\r\n        FROM SutIslemVersionlar\r\n        WHERE ListeVersiyonID = @EskiVersiyonID\r\n          AND AktifMi = 1\r\n    ),\r\n    YeniVersiyon AS (\r\n        SELECT \r\n            SutID, SutKodu, IslemAdi, Puan, Aciklama, AnaBaslikNo, HiyerarsiID\r\n        FROM SutIslemVersionlar\r\n        WHERE ListeVersiyonID = @YeniVersiyonID\r\n          AND AktifMi = 1\r\n    )\r\n    SELECT \r\n        COALESCE(e.SutKodu, y.SutKodu) as SutKodu,\r\n        COALESCE(e.IslemAdi, y.IslemAdi) as IslemAdi,\r\n        CASE \r\n            WHEN e.SutKodu IS NULL THEN 'ADDED'\r\n            WHEN y.SutKodu IS NULL THEN 'DELETED'\r\n            ELSE 'UPDATED'\r\n        END as DegisiklikTipi,\r\n        e.Puan as EskiPuan,\r\n        y.Puan as YeniPuan,\r\n        CASE \r\n            WHEN e.Puan IS NOT NULL AND y.Puan IS NOT NULL \r\n            THEN (y.Puan - e.Puan)\r\n            ELSE NULL \r\n        END as PuanFarki,\r\n        CASE \r\n            WHEN e.Puan IS NOT NULL AND y.Puan IS NOT NULL AND e.Puan > 0\r\n            THEN CAST(((y.Puan - e.Puan) / e.Puan * 100) AS DECIMAL(10,2))\r\n            ELSE NULL \r\n        END as PuanFarkiYuzdesi,\r\n        e.IslemAdi as EskiIslemAdi,\r\n        y.IslemAdi as YeniIslemAdi,\r\n        CASE \r\n            WHEN e.IslemAdi IS NOT NULL AND y.IslemAdi IS NOT NULL AND e.IslemAdi != y.IslemAdi THEN 1 \r\n            ELSE 0 \r\n        END as IslemAdiDegisti,\r\n        e.AnaBaslikNo as EskiAnaBaslikNo,\r\n        y.AnaBaslikNo as YeniAnaBaslikNo,\r\n        CASE \r\n            WHEN e.AnaBaslikNo IS NOT NULL AND y.AnaBaslikNo IS NOT NULL AND e.AnaBaslikNo != y.AnaBaslikNo THEN 1 \r\n            ELSE 0 \r\n        END as AnaBaslikDegisti,\r\n        @EskiDosyaAdi as EskiDosyaAdi,\r\n        @YeniDosyaAdi as YeniDosyaAdi,\r\n        @EskiTarih as EskiTarih,\r\n        @YeniTarih as YeniTarih\r\n    FROM EskiVersiyon e\r\n    FULL OUTER JOIN YeniVersiyon y ON e.SutKodu = y.SutKodu\r\n    WHERE \r\n        -- Sadece deÄŸiÅŸenleri gÃ¶ster\r\n        e.SutKodu IS NULL  -- Yeni eklenen\r\n        OR y.SutKodu IS NULL  -- Silinen\r\n        OR (e.Puan IS NOT NULL AND y.Puan IS NOT NULL AND e.Puan != y.Puan)  -- Puan deÄŸiÅŸen\r\n        OR (e.IslemAdi IS NOT NULL AND y.IslemAdi IS NOT NULL AND e.IslemAdi != y.IslemAdi)  -- Ä°ÅŸlem adÄ± deÄŸiÅŸen\r\n        OR (e.AnaBaslikNo IS NOT NULL AND y.AnaBaslikNo IS NOT NULL AND e.AnaBaslikNo != y.AnaBaslikNo)  -- Ana baÅŸlÄ±k deÄŸiÅŸen\r\n    ORDER BY \r\n        CASE \r\n            WHEN e.SutKodu IS NULL THEN 1  -- ADDED\r\n            WHEN y.SutKodu IS NULL THEN 3  -- DELETED\r\n            ELSE 2  -- UPDATED\r\n        END,\r\n        COALESCE(e.SutKodu, y.SutKodu);\r\nEND",
+      "created": "2026-02-12T13:29:29.080Z",
+      "lastAltered": "2026-02-12T13:29:29.080Z"
+    },
+    {
+      "schema": "dbo",
+      "name": "sp_TarihAraligindaDegişenler",
+      "definition": "CREATE PROCEDURE [dbo].[sp_TarihAraligindaDegişenler]\r\n    @BaslangicTarihi DATE,\r\n    @BitisTarihi DATE,\r\n    @AnaDalKodu INT = NULL\r\nAS\r\nBEGIN\r\n    SET NOCOUNT ON;\r\n    \r\n    IF @BaslangicTarihi IS NULL OR @BitisTarihi IS NULL\r\n    BEGIN\r\n        RAISERROR('BaslangicTarihi ve BitisTarihi parametreleri gereklidir', 16, 1);\r\n        RETURN;\r\n    END\r\n    \r\n    IF @BaslangicTarihi > @BitisTarihi\r\n    BEGIN\r\n        RAISERROR('BaslangicTarihi BitisTarihi''den büyük olamaz', 16, 1);\r\n        RETURN;\r\n    END\r\n    \r\n    -- Değişiklikleri bul\r\n    ;WITH PuanDegisiklikleri AS (\r\n        SELECT \r\n            v.IslemID,\r\n            v.HuvKodu,\r\n            v.IslemAdi,\r\n            v.Birim,\r\n            v.GecerlilikBaslangic,\r\n            v.GecerlilikBitis,\r\n            v.DegisiklikSebebi,\r\n            i.AnaDalKodu,\r\n            a.BolumAdi,\r\n            -- Önceki versiyonu bul\r\n            LAG(v.Birim) OVER (PARTITION BY v.IslemID ORDER BY v.GecerlilikBaslangic) as OncekiBirim,\r\n            LAG(v.GecerlilikBaslangic) OVER (PARTITION BY v.IslemID ORDER BY v.GecerlilikBaslangic) as OncekiBaslangic\r\n        FROM IslemVersionlar v\r\n        LEFT JOIN HuvIslemler i ON v.IslemID = i.IslemID\r\n        LEFT JOIN AnaDallar a ON i.AnaDalKodu = a.AnaDalKodu\r\n        WHERE (\r\n            -- Aralık içinde başlayan\r\n            (CAST(v.GecerlilikBaslangic AS DATE) >= CAST(@BaslangicTarihi AS DATE) \r\n             AND CAST(v.GecerlilikBaslangic AS DATE) <= CAST(@BitisTarihi AS DATE))\r\n            OR\r\n            -- Aralık içinde biten\r\n            (v.GecerlilikBitis IS NOT NULL \r\n             AND CAST(v.GecerlilikBitis AS DATE) >= CAST(@BaslangicTarihi AS DATE) \r\n             AND CAST(v.GecerlilikBitis AS DATE) <= CAST(@BitisTarihi AS DATE))\r\n            OR\r\n            -- Aralığı kapsayan (başlangıç önce, bitiş sonra)\r\n            (CAST(v.GecerlilikBaslangic AS DATE) < CAST(@BaslangicTarihi AS DATE) \r\n             AND (v.GecerlilikBitis IS NULL OR CAST(v.GecerlilikBitis AS DATE) > CAST(@BitisTarihi AS DATE)))\r\n        )\r\n        AND (@AnaDalKodu IS NULL OR i.AnaDalKodu = @AnaDalKodu)\r\n    ),\r\n    GercekDegisiklikler AS (\r\n        SELECT \r\n            IslemID,\r\n            HuvKodu,\r\n            IslemAdi,\r\n            Birim as YeniBirim,\r\n            OncekiBirim as EskiBirim,\r\n            Birim - ISNULL(OncekiBirim, 0) as Fark,\r\n            CASE \r\n                WHEN OncekiBirim IS NULL THEN NULL\r\n                WHEN OncekiBirim = 0 THEN NULL\r\n                ELSE ((Birim - OncekiBirim) / OncekiBirim) * 100\r\n            END as DegisimYuzdesi,\r\n            GecerlilikBaslangic as DegisiklikTarihi,\r\n            AnaDalKodu,\r\n            BolumAdi\r\n        FROM PuanDegisiklikleri\r\n        WHERE OncekiBirim IS NOT NULL \r\n          AND ABS(Birim - ISNULL(OncekiBirim, 0)) > 0.01  -- En az 0.01 TL fark\r\n    )\r\n    SELECT \r\n        HuvKodu,\r\n        IslemAdi,\r\n        EskiBirim,\r\n        YeniBirim,\r\n        Fark,\r\n        DegisimYuzdesi,\r\n        DegisiklikTarihi,\r\n        BolumAdi\r\n    FROM GercekDegisiklikler\r\n    ORDER BY DegisiklikTarihi DESC, HuvKodu;\r\nEND",
+      "created": "2026-02-16T14:49:52.647Z",
+      "lastAltered": "2026-02-16T14:49:52.647Z"
+    },
+    {
+      "schema": "dbo",
+      "name": "sp_TarihtekiFiyat",
+      "definition": "CREATE PROCEDURE [dbo].[sp_TarihtekiFiyat]\r\n    @HuvKodu FLOAT = NULL,\r\n    @IslemID INT = NULL,\r\n    @Tarih DATE\r\nAS\r\nBEGIN\r\n    SET NOCOUNT ON;\r\n    \r\n    -- Parametre kontrolü\r\n    IF @HuvKodu IS NULL AND @IslemID IS NULL\r\n    BEGIN\r\n        RAISERROR('HuvKodu veya IslemID parametresi gereklidir', 16, 1);\r\n        RETURN;\r\n    END\r\n    \r\n    IF @Tarih IS NULL\r\n    BEGIN\r\n        RAISERROR('Tarih parametresi gereklidir', 16, 1);\r\n        RETURN;\r\n    END\r\n    \r\n    IF @Tarih > CAST(GETDATE() AS DATE)\r\n    BEGIN\r\n        RAISERROR('Gelecek tarih için sorgu yapılamaz', 16, 1);\r\n        RETURN;\r\n    END\r\n    \r\n    -- En son geçerli versiyonu al\r\n    SELECT TOP 1\r\n        v.IslemID,\r\n        v.HuvKodu,\r\n        v.IslemAdi,\r\n        v.Birim,\r\n        v.SutKodu,\r\n        v.[Not],\r\n        v.GecerlilikBaslangic,\r\n        v.GecerlilikBitis,\r\n        v.ListeVersiyonID,\r\n        lv.DosyaAdi,\r\n        lv.YuklemeTarihi,\r\n        v.DegisiklikSebebi,\r\n        v.AktifMi,\r\n        i.AnaDalKodu,\r\n        a.BolumAdi\r\n    FROM IslemVersionlar v\r\n    LEFT JOIN ListeVersiyon lv ON v.ListeVersiyonID = lv.VersionID\r\n    LEFT JOIN HuvIslemler i ON v.IslemID = i.IslemID\r\n    LEFT JOIN AnaDallar a ON i.AnaDalKodu = a.AnaDalKodu\r\n    WHERE (@HuvKodu IS NULL OR v.HuvKodu = @HuvKodu)\r\n      AND (@IslemID IS NULL OR v.IslemID = @IslemID)\r\n      AND CAST(v.GecerlilikBaslangic AS DATE) <= CAST(@Tarih AS DATE)\r\n      AND (v.GecerlilikBitis IS NULL OR CAST(v.GecerlilikBitis AS DATE) >= CAST(@Tarih AS DATE))\r\n    ORDER BY v.GecerlilikBaslangic DESC;\r\nEND",
+      "created": "2026-02-16T14:49:52.633Z",
+      "lastAltered": "2026-02-16T14:49:52.633Z"
+    }
+  ],
+  "functions": [],
+  "relationships": [],
+  "indexes": [],
+  "constraints": [],
+  "statistics": {
+    "totalTables": 15,
+    "totalViews": 4,
+    "totalStoredProcedures": 16,
+    "totalFunctions": 0,
+    "totalRows": 70330,
+    "totalSpaceMB": 57.02,
+    "tablesWithData": 15,
+    "tablesWithoutData": 0
+  }
+}
