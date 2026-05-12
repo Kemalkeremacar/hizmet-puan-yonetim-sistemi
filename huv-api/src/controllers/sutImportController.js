@@ -260,17 +260,28 @@ const previewSutImport = async (req, res, next) => {
     const comparison = compareSutLists(mevcutData, normalizedData);
     const report = generateComparisonReport(comparison);
     
+    // Değişiklik dağılımını tüm güncellenenlerden hesapla
+    const changeDist = {};
+    comparison.updated.forEach(item => {
+      (item.changes || []).forEach(c => {
+        changeDist[c.field] = (changeDist[c.field] || 0) + 1;
+      });
+    });
+    
     return success(res, {
       dosyaAdi,
       listeTipi: 'SUT',
       summary: {
-        toplamOkunan: parseResult.rowCount,
-        gecerli: validation.stats.valid,
+        toplamOkunan: normalizedData.length,
+        gecerli: normalizedData.length,
+        hiyerarsi: hierarchyRows.length,
+        hatali: validation.stats.invalid,
+        atlanan: parseResult.rowCount - normalizedData.length - hierarchyRows.length - validation.stats.invalid,
         eklenen: comparison.summary.added,
         guncellenen: comparison.summary.updated,
         degismeyen: comparison.summary.unchanged,
         silinecek: comparison.summary.deleted,
-        hiyerarsi: hierarchyRows.length
+        degisiklikDagilimi: changeDist
       },
       comparison: report,
       uyarilar: validation.warnings.slice(0, 20),
@@ -471,7 +482,7 @@ const importSutList = async (req, res, next) => {
     const comparison = compareSutLists(mevcutData, normalizedData);
     
     // 7. Yeni versiyon oluştur
-    const kullaniciAdi = req.user?.username || 
+    const kullaniciAdi = req.user?.kullaniciAdi || 
                         req.headers['x-user-name'] || 
                         'admin';
     

@@ -4,6 +4,8 @@
 // Eski ve yeni SUT listelerini karşılaştırma
 // ============================================
 
+const he = require('he');
+
 // ============================================
 // İki SUT listesini karşılaştır
 // ============================================
@@ -128,11 +130,21 @@ const detectChanges = (oldItem, newItem) => {
     });
   }
   
-  // İşlem adı değişimi (newline farklarını normalize et)
   const normalizeText = (text) => {
     if (!text) return '';
-    // Tüm newline türlerini \n'e çevir ve trim
-    return text.replace(/\r\n/g, '\n').replace(/\r/g, '\n').trim();
+    let s = text.toString();
+    if (s.includes('&') && /&[a-zA-Z]+;|&#\d+;/.test(s)) {
+      s = he.decode(s);
+    }
+    return s
+      .replace(/\r\n/g, '\n').replace(/\r/g, '\n')
+      .replace(/[\u00A0\u2007\u202F]/g, ' ')
+      .replace(/[\u200B\u200C\u200D\uFEFF]/g, '')
+      .replace(/[\u2018\u2019\u201A\u0060]/g, "'")
+      .replace(/[\u201C\u201D\u201E]/g, '"')
+      .replace(/\t/g, ' ')
+      .replace(/ {2,}/g, ' ')
+      .trim();
   };
   
   const oldIslemAdi = normalizeText(oldItem.IslemAdi);
@@ -158,8 +170,10 @@ const detectChanges = (oldItem, newItem) => {
     });
   }
   
-  // Ana başlık değişimi
-  if (oldItem.AnaBaslikNo !== newItem.AnaBaslikNo) {
+  // Ana başlık değişimi — type-safe karşılaştırma
+  const oldAnaBaslikNo = oldItem.AnaBaslikNo != null ? Number(oldItem.AnaBaslikNo) : null;
+  const newAnaBaslikNo = newItem.AnaBaslikNo != null ? Number(newItem.AnaBaslikNo) : null;
+  if (oldAnaBaslikNo !== newAnaBaslikNo) {
     changes.push({
       field: 'AnaBaslikNo',
       oldValue: oldItem.AnaBaslikNo,

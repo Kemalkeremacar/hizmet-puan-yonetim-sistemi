@@ -177,7 +177,7 @@ const importIlKatsayiList = async (req, res, next) => {
     const comparison = compareIlKatsayiLists(mevcutData, normalizedData);
     
     // 7. Yeni versiyon oluştur
-    const kullaniciAdi = req.user?.username || 
+    const kullaniciAdi = req.user?.kullaniciAdi || 
                         req.headers['x-user-name'] || 
                         'admin';
     

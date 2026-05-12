@@ -46,7 +46,6 @@ import { adminService } from '../services/adminService';
 import { showError } from '../utils/toastManager';
 import { LoadingSpinner, ErrorAlert, EmptyState, PageHeader, DateDisplay } from '../components/common';
 import IlKatsayiExcelImportTab from '../components/admin/IlKatsayiExcelImportTab';
-import { formatDateTime } from '../utils/dateUtils';
 import { ilKatsayiService } from '../services/ilKatsayiService';
 import { TabPanel } from '../components/common';
 
@@ -67,7 +66,7 @@ function IlKatsayilariListesiTab() {
       setLoading(true);
       setError(null);
       const response = await ilKatsayiService.getAll();
-      const data = response?.data || [];
+      const data = response?.data?.data || response?.data || [];
       setIlKatsayilari(Array.isArray(data) ? data : []);
     } catch (err) {
       console.error('İl katsayıları yüklenemedi:', {
@@ -449,7 +448,7 @@ function VersiyonListesiTab() {
                           onClick={() => handleDetayAc(versiyon)}
                           sx={{
                             '&:hover': {
-                              bgcolor: 'primary.light',
+                              bgcolor: '#f8f9fa',
                               color: 'primary.contrastText',
                             },
                           }}
@@ -545,52 +544,50 @@ function VersiyonListesiTab() {
               </Typography>
               <Grid container spacing={2} sx={{ mb: 3 }}>
                 <Grid item xs={6} sm={3}>
-                  <Paper sx={{ p: 2, bgcolor: 'success.light', textAlign: 'center' }}>
-                    <Typography variant="h4" color="success.dark">
+                  <Paper variant="outlined" sx={{ p: 2, borderLeft: 3, borderColor: 'success.main' }}>
+                    <Typography variant="h4" fontWeight={700} color="success.main">
                       {versiyonDetay.summary?.eklenen || 0}
                     </Typography>
-                    <Typography variant="caption">Eklenen</Typography>
+                    <Typography variant="caption" color="text.secondary">Eklenen</Typography>
                   </Paper>
                 </Grid>
                 <Grid item xs={6} sm={3}>
-                  <Paper sx={{ p: 2, bgcolor: 'warning.light', textAlign: 'center' }}>
-                    <Typography variant="h4" color="warning.dark">
+                  <Paper variant="outlined" sx={{ p: 2, borderLeft: 3, borderColor: 'warning.main' }}>
+                    <Typography variant="h4" fontWeight={700} color="warning.main">
                       {versiyonDetay.summary?.guncellenen || 0}
                     </Typography>
-                    <Typography variant="caption">Güncellenen</Typography>
+                    <Typography variant="caption" color="text.secondary">Güncellenen</Typography>
                   </Paper>
                 </Grid>
                 <Grid item xs={6} sm={3}>
-                  <Paper sx={{ p: 2, bgcolor: 'error.light', textAlign: 'center' }}>
-                    <Typography variant="h4" color="error.dark">
+                  <Paper variant="outlined" sx={{ p: 2, borderLeft: 3, borderColor: 'error.main' }}>
+                    <Typography variant="h4" fontWeight={700} color="error.main">
                       {versiyonDetay.summary?.silinen || 0}
                     </Typography>
-                    <Typography variant="caption">Silinen</Typography>
+                    <Typography variant="caption" color="text.secondary">Silinen</Typography>
                   </Paper>
                 </Grid>
                 <Grid item xs={6} sm={3}>
-                  <Paper sx={{ p: 2, bgcolor: 'info.light', textAlign: 'center' }}>
-                    <Typography variant="h4" color="info.dark">
+                  <Paper variant="outlined" sx={{ p: 2, borderLeft: 3, borderColor: 'grey.400' }}>
+                    <Typography variant="h4" fontWeight={700} color="text.secondary">
                       {(versiyonDetay.summary?.eklenen || 0) + (versiyonDetay.summary?.guncellenen || 0) + (versiyonDetay.summary?.silinen || 0)}
                     </Typography>
-                    <Typography variant="caption">Toplam Değişiklik</Typography>
+                    <Typography variant="caption" color="text.secondary">Toplam Değişiklik</Typography>
                   </Paper>
                 </Grid>
               </Grid>
 
               {/* İlk Versiyon Kontrolü */}
-              {versiyonDetay?.summary &&
-               versiyonDetay.summary.eklenen > 0 &&
-               (versiyonDetay.summary.guncellenen || 0) === 0 &&
-               (versiyonDetay.summary.silinen || 0) === 0 && (
+              {versiyonDetay?.isFirstVersion && (
                 <Box sx={{ mt: 2, mb: 2, p: 3, bgcolor: 'rgba(76, 175, 80, 0.08)', borderRadius: 2, textAlign: 'center' }}>
                   <InfoIcon sx={{ fontSize: 48, color: 'success.main', mb: 1 }} />
                   <Typography variant="body1" fontWeight="medium" gutterBottom>
-                    Bu versiyon ilk versiyon
+                    İlk Versiyon
                   </Typography>
                   <Typography variant="body2" color="textSecondary">
-                    Tüm {versiyonDetay.summary.eklenen || 0} il katsayısı yeni kayıt olarak eklendi.
-                    Karşılaştırma yapmak için en az iki versiyon olmalıdır.
+                    Bu, sisteme yüklenen ilk versiyondur. 
+                    Toplam {versiyonDetay?.summary?.toplam?.toLocaleString('tr-TR') || 0} kayıt ile başlatıldı.
+                    Karşılaştırma yapılacak önceki versiyon bulunmamaktadır.
                   </Typography>
                 </Box>
               )}

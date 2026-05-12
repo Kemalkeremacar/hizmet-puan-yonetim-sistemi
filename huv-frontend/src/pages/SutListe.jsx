@@ -532,53 +532,36 @@ function SutListe() {
                       onClick={() => handleAnaBaslikClick(anaBaslik)}
                       sx={{
                         borderRadius: 1,
-                        mb: 0.5,
+                        mb: 0.25,
+                        py: 0.75,
                         '&.Mui-selected': {
-                          bgcolor: 'primary.main',
-                          color: 'white',
+                          bgcolor: 'action.selected',
                           '&:hover': {
-                            bgcolor: 'primary.dark',
+                            bgcolor: 'action.selected',
                           },
                         },
                       }}
                     >
-                      <ListItemIcon sx={{ minWidth: 35 }}>
-                        <ChevronRightIcon 
-                          sx={{ 
-                            color: selectedAnaBaslik?.AnaBaslikNo === anaBaslik.AnaBaslikNo ? 'white' : 'inherit' 
-                          }} 
-                        />
-                      </ListItemIcon>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexGrow: 1 }}>
-                        <Chip 
-                          label={anaBaslik.AnaBaslikNo} 
-                          size="small" 
-                          color="primary"
-                          sx={{ 
-                            minWidth: '40px', 
-                            fontWeight: 'bold',
-                            bgcolor: selectedAnaBaslik?.AnaBaslikNo === anaBaslik.AnaBaslikNo ? 'rgba(255,255,255,0.3)' : undefined,
-                            color: selectedAnaBaslik?.AnaBaslikNo === anaBaslik.AnaBaslikNo ? 'white' : undefined,
-                          }}
-                        />
-                        <ListItemText 
-                          primary={anaBaslik.AnaBaslikAdi}
-                          slotProps={{
-                            primary: {
-                              fontSize: '0.875rem',
-                              fontWeight: selectedAnaBaslik?.AnaBaslikNo === anaBaslik.AnaBaslikNo ? 600 : 400,
-                            },
-                          }}
-                        />
-                      </Box>
-                      <Chip 
-                        label={anaBaslik.IslemSayisi} 
-                        size="small" 
-                        sx={{ 
-                          bgcolor: selectedAnaBaslik?.AnaBaslikNo === anaBaslik.AnaBaslikNo ? 'rgba(255,255,255,0.2)' : 'action.hover',
-                          color: selectedAnaBaslik?.AnaBaslikNo === anaBaslik.AnaBaslikNo ? 'white' : 'text.secondary',
-                          fontSize: '0.75rem',
-                        }}
+                      <ListItemText 
+                        primary={
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <Typography variant="caption" color="text.secondary" fontFamily="monospace" sx={{ minWidth: 24 }}>
+                              {anaBaslik.AnaBaslikNo}
+                            </Typography>
+                            <Typography 
+                              variant="body2" 
+                              sx={{ 
+                                flexGrow: 1,
+                                fontWeight: selectedAnaBaslik?.AnaBaslikNo === anaBaslik.AnaBaslikNo ? 600 : 400,
+                              }}
+                            >
+                              {anaBaslik.AnaBaslikAdi}
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary">
+                              {anaBaslik.IslemSayisi}
+                            </Typography>
+                          </Box>
+                        }
                       />
                     </ListItemButton>
                   </ListItem>
@@ -608,11 +591,10 @@ function SutListe() {
               </Box>
             ) : (
               <>
-                <Box mb={2}>
-                  <Typography variant="h6" gutterBottom fontWeight={600} color="primary">
+                <Box sx={{ mb: 1.5, pb: 1, borderBottom: 1, borderColor: 'divider' }}>
+                  <Typography variant="subtitle1" fontWeight={600}>
                     {selectedAnaBaslik.AnaBaslikAdi}
                   </Typography>
-                  <Divider />
                 </Box>
 
                 {loading ? (
@@ -633,203 +615,88 @@ function SutListe() {
 
         {/* Alt Panel - Seçili İşlem Detayları */}
         {selectedSut && (
-          <Paper sx={{ p: 3 }}>
-            <Stack spacing={2}>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <Typography variant="h6" color="primary" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <DescriptionIcon />
-                  İşlem Detayları
-                </Typography>
-                <IconButton
-                  size="small"
-                  onClick={() => {
-                    setSelectedSut(null);
-                  }}
-                >
-                  <ClearIcon />
-                </IconButton>
-              </Box>
-
-              {/* Breadcrumb - Yol */}
-              {selectedSut.path && selectedSut.path.length > 0 && (
-                <Box sx={{ 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  gap: 0.5, 
-                  flexWrap: 'wrap',
-                  p: 1.5,
-                  bgcolor: 'grey.50',
-                  borderRadius: 1,
-                  border: '1px solid',
-                  borderColor: 'grey.200'
-                }}>
-                  <Typography variant="caption" color="textSecondary" fontWeight={600}>
-                    YOL:
+          <Paper variant="outlined" sx={{ p: 2.5 }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
+              <Box>
+                {/* Breadcrumb */}
+                {selectedSut.path && selectedSut.path.length > 0 && (
+                  <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
+                    {selectedAnaBaslik?.AnaBaslikAdi}
+                    {selectedSut.path.slice(0, -1).map((item) => ` › ${item.name}`).join('')}
                   </Typography>
-                  {selectedAnaBaslik && (
-                    <>
-                      <Chip 
-                        label={selectedAnaBaslik.AnaBaslikAdi}
-                        size="small"
-                        color="primary"
-                        variant="outlined"
-                        sx={{ height: 22, fontSize: '0.7rem' }}
-                      />
-                      <ChevronRightIcon fontSize="small" sx={{ color: 'text.secondary' }} />
-                    </>
-                  )}
-                  {selectedSut.path.slice(0, -1).map((item, index) => (
-                    <Box key={item.id} sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                      <Chip 
-                        label={item.name}
-                        size="small"
-                        variant="outlined"
-                        sx={{ height: 22, fontSize: '0.7rem' }}
-                      />
-                      <ChevronRightIcon fontSize="small" sx={{ color: 'text.secondary' }} />
-                    </Box>
-                  ))}
-                  <Chip 
-                    label={selectedSut.Adi}
-                    size="small"
-                    color="success"
-                    sx={{ height: 22, fontSize: '0.7rem', fontWeight: 600 }}
-                  />
-                </Box>
-              )}
+                )}
+                <Typography variant="body1" fontWeight={600}>
+                  {selectedSut.Adi}
+                </Typography>
+              </Box>
+              <IconButton size="small" onClick={() => setSelectedSut(null)}>
+                <ClearIcon fontSize="small" />
+              </IconButton>
+            </Box>
 
-              <Divider />
-
-              <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 3 }}>
-                {/* Sol Kolon - SUT Bilgileri */}
-                <Stack spacing={2}>
+            <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 3 }}>
+              {/* Sol Kolon - SUT Bilgileri */}
+              <Stack spacing={1.5}>
+                <Stack direction="row" spacing={3}>
                   <Box>
-                    <Typography variant="caption" color="textSecondary" fontWeight={600}>
-                      SUT KODU
-                    </Typography>
-                    <Typography 
-                      variant="h5" 
-                      fontWeight="bold"
-                      sx={{ 
-                        fontFamily: 'monospace',
-                        color: 'success.main',
-                        mt: 0.5
-                      }}
-                    >
+                    <Typography variant="caption" color="text.secondary">SUT Kodu</Typography>
+                    <Typography variant="body2" fontFamily="monospace" fontWeight={600}>
                       {selectedSut.SutKodu}
                     </Typography>
                   </Box>
-
                   <Box>
-                    <Typography variant="caption" color="textSecondary" fontWeight={600}>
-                      İŞLEM ADI
-                    </Typography>
-                    <Typography variant="body1" sx={{ mt: 0.5 }}>
-                      {selectedSut.Adi}
-                    </Typography>
-                  </Box>
-
-                  <Box>
-                    <Typography variant="caption" color="textSecondary" fontWeight={600}>
-                      PUAN
-                    </Typography>
-                    <Typography 
-                      variant="h6" 
-                      fontWeight="bold" 
-                      color={selectedSut.Puan > 0 ? 'success.main' : 'text.secondary'}
-                      sx={{ mt: 0.5 }}
-                    >
+                    <Typography variant="caption" color="text.secondary">Puan</Typography>
+                    <Typography variant="body2" fontWeight={600} color={selectedSut.Puan > 0 ? 'success.main' : 'text.secondary'}>
                       {selectedSut.Puan?.toFixed(2) || '0.00'}
                     </Typography>
                   </Box>
-
-                  {selectedSut.Aciklama && (
-                    <Box>
-                      <Typography variant="caption" color="textSecondary" fontWeight={600}>
-                        AÇIKLAMA
-                      </Typography>
-                      <Typography variant="body2" sx={{ mt: 0.5, whiteSpace: 'pre-wrap' }}>
-                        {selectedSut.Aciklama}
-                      </Typography>
-                    </Box>
-                  )}
                 </Stack>
 
-                {/* Sağ Kolon - Teminat Bilgileri */}
-                {selectedSut.teminatlar && (
-                  <Stack spacing={2}>
-                    <Typography variant="h6" color="primary" fontWeight={600}>
-                      Teminat Bilgileri
+                {selectedSut.Aciklama && (
+                  <Box>
+                    <Typography variant="caption" color="text.secondary">Açıklama</Typography>
+                    <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
+                      {selectedSut.Aciklama}
                     </Typography>
+                  </Box>
+                )}
+              </Stack>
 
-                    {/* SUT Üst Teminat */}
-                    <Box sx={{ 
-                      p: 2, 
-                      bgcolor: 'rgba(33, 150, 243, 0.08)', 
-                      borderRadius: 1,
-                      border: '1px solid',
-                      borderColor: 'info.light'
-                    }}>
-                      <Typography variant="caption" color="info.dark" fontWeight={600}>
-                        SUT ÜST TEMİNAT
-                      </Typography>
-                      <Typography variant="body2" sx={{ mt: 0.5, fontWeight: 500 }}>
+              {/* Sağ Kolon - Teminat Bilgileri */}
+              {selectedSut.teminatlar && (
+                <Stack spacing={1.5}>
+                  <Typography variant="subtitle2" fontWeight={600}>
+                    Teminat Eşleştirmesi
+                  </Typography>
+                  <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1.5 }}>
+                    <Paper variant="outlined" sx={{ p: 1.5, borderLeft: 3, borderColor: 'info.main' }}>
+                      <Typography variant="caption" color="text.secondary">SUT Üst Teminat</Typography>
+                      <Typography variant="body2" fontWeight={500}>
                         {selectedSut.teminatlar.sutUstTeminat}
                       </Typography>
-                    </Box>
-
-                    {/* SUT Alt Teminat */}
-                    <Box sx={{ 
-                      p: 2, 
-                      bgcolor: 'rgba(33, 150, 243, 0.08)', 
-                      borderRadius: 1,
-                      border: '1px solid',
-                      borderColor: 'info.light'
-                    }}>
-                      <Typography variant="caption" color="info.dark" fontWeight={600}>
-                        SUT ALT TEMİNAT
-                      </Typography>
-                      <Typography variant="body2" sx={{ mt: 0.5, fontWeight: 500 }}>
+                    </Paper>
+                    <Paper variant="outlined" sx={{ p: 1.5, borderLeft: 3, borderColor: 'info.main' }}>
+                      <Typography variant="caption" color="text.secondary">SUT Alt Teminat</Typography>
+                      <Typography variant="body2" fontWeight={500}>
                         {selectedSut.teminatlar.sutAltTeminat}
                       </Typography>
-                    </Box>
-
-                    {/* HUV Üst Teminat */}
-                    <Box sx={{ 
-                      p: 2, 
-                      bgcolor: 'rgba(76, 175, 80, 0.08)', 
-                      borderRadius: 1,
-                      border: '1px solid',
-                      borderColor: 'success.light'
-                    }}>
-                      <Typography variant="caption" color="success.dark" fontWeight={600}>
-                        HUV ÜST TEMİNAT
-                      </Typography>
-                      <Typography variant="body2" sx={{ mt: 0.5, fontWeight: 500 }}>
+                    </Paper>
+                    <Paper variant="outlined" sx={{ p: 1.5, borderLeft: 3, borderColor: 'success.main' }}>
+                      <Typography variant="caption" color="text.secondary">HUV Üst Teminat</Typography>
+                      <Typography variant="body2" fontWeight={500}>
                         {selectedSut.teminatlar.huvUstTeminat}
                       </Typography>
-                    </Box>
-
-                    {/* HUV Alt Teminat */}
-                    <Box sx={{ 
-                      p: 2, 
-                      bgcolor: 'rgba(76, 175, 80, 0.08)', 
-                      borderRadius: 1,
-                      border: '1px solid',
-                      borderColor: 'success.light'
-                    }}>
-                      <Typography variant="caption" color="success.dark" fontWeight={600}>
-                        HUV ALT TEMİNAT
-                      </Typography>
-                      <Typography variant="body2" sx={{ mt: 0.5, fontWeight: 500 }}>
+                    </Paper>
+                    <Paper variant="outlined" sx={{ p: 1.5, borderLeft: 3, borderColor: 'success.main' }}>
+                      <Typography variant="caption" color="text.secondary">HUV Alt Teminat</Typography>
+                      <Typography variant="body2" fontWeight={500}>
                         {selectedSut.teminatlar.huvAltTeminat}
                       </Typography>
-                    </Box>
-                  </Stack>
-                )}
-
-              </Box>
-            </Stack>
+                    </Paper>
+                  </Box>
+                </Stack>
+              )}
+            </Box>
           </Paper>
         )}
       </Box>

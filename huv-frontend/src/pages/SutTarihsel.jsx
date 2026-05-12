@@ -43,12 +43,13 @@ import { exportToExcel } from '../utils/export';
 import { LoadingSpinner, ErrorAlert, EmptyState, PageHeader } from '../components/common';
 import { 
   getTodayString, 
-  getDaysAgo, 
   isFutureDate, 
+  isBeforeMinDate,
   validateDateRange,
   formatDateShort,
   formatDateTime
 } from '../utils/dateUtils';
+import { MIN_QUERY_DATE, MIN_QUERY_DATE_DISPLAY } from '../app/config/constants';
 import { TabPanel } from '../components/common';
 
 function SutTarihsel() {
@@ -65,7 +66,7 @@ function SutTarihsel() {
 
   // Tab 2: Değişenler
   const [degisiklikForm, setDegisiklikForm] = useState({
-    baslangic: getDaysAgo(30),
+    baslangic: MIN_QUERY_DATE,
     bitis: getTodayString()
   });
   const [degisiklikResult, setDegisiklikResult] = useState([]);
@@ -92,6 +93,11 @@ function SutTarihsel() {
 
     if (isFutureDate(puanForm.tarih)) {
       showError('Gelecek tarih için sorgu yapılamaz');
+      return;
+    }
+
+    if (isBeforeMinDate(puanForm.tarih, MIN_QUERY_DATE)) {
+      showError(`${MIN_QUERY_DATE_DISPLAY} tarihinden önce sorgu yapılamaz`);
       return;
     }
 
@@ -169,7 +175,7 @@ function SutTarihsel() {
   // TAB 2: Değişenleri Sorgula
   // ============================================
   const handleDegisiklikSorgula = async () => {
-    const validation = validateDateRange(degisiklikForm.baslangic, degisiklikForm.bitis);
+    const validation = validateDateRange(degisiklikForm.baslangic, degisiklikForm.bitis, MIN_QUERY_DATE);
     if (!validation.valid) {
       showError(validation.error);
       return;
@@ -205,7 +211,7 @@ function SutTarihsel() {
       
       if (errorData?.errors?.tip === 'TARIH_BASLANGIC_ONDEN' || errorData?.errors?.tip === 'GECERSIZ_TARIH_ARALIGI') {
         const cozum = errorData.errors.cozum || '';
-        const baslangicTarihi = errorData.errors.baslangicTarihi || '2026-01-01';
+        const baslangicTarihi = errorData.errors.baslangicTarihi || MIN_QUERY_DATE_DISPLAY;
         showError(`${errorMessage}\n${cozum}\nBaşlangıç tarihi: ${baslangicTarihi}`);
       } else {
         showError(errorMessage);
@@ -384,9 +390,9 @@ function SutTarihsel() {
                 Bir SUT kodunun geçmişteki belirli bir tarihteki puanını sorgulayın
               </Alert>
               <Alert severity="warning" sx={{ mb: 2 }}>
-                <Typography variant="body2" fontWeight="600">Başlangıç Tarihi: 01.01.2026</Typography>
+                <Typography variant="body2" fontWeight="600">Başlangıç Tarihi: {MIN_QUERY_DATE_DISPLAY}</Typography>
                 <Typography variant="body2">
-                  SUT listesi için sorgu yapılabilecek en eski tarih <strong>01.01.2026</strong> tarihidir. 
+                  SUT listesi için sorgu yapılabilecek en eski tarih <strong>{MIN_QUERY_DATE_DISPLAY}</strong> tarihidir. 
                   Bu tarih, sistemdeki ilk import tarihidir.
                 </Typography>
               </Alert>
@@ -420,7 +426,7 @@ function SutTarihsel() {
                   onChange={(e) => setPuanForm({ ...puanForm, tarih: e.target.value })}
                   slotProps={{ 
                     inputLabel: { shrink: true },
-                    htmlInput: { max: getTodayString() }
+                    htmlInput: { min: MIN_QUERY_DATE, max: getTodayString() }
                   }}
                 />
               </Box>
@@ -475,7 +481,7 @@ function SutTarihsel() {
                       </Paper>
                     </Box>
                     <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(3, 1fr)' }, gap: 3, mt: 3 }}>
-                      <Paper sx={{ p: 2, bgcolor: 'primary.light' }}>
+                      <Paper sx={{ p: 2, bgcolor: '#f8f9fa' }}>
                         <Typography variant="caption" color="textSecondary" gutterBottom display="block">
                           Puan
                         </Typography>
@@ -535,6 +541,7 @@ function SutTarihsel() {
                   onChange={(e) => setDegisiklikForm({ ...degisiklikForm, baslangic: e.target.value })}
                   slotProps={{
                     inputLabel: { shrink: true },
+                    htmlInput: { min: MIN_QUERY_DATE, max: getTodayString() },
                     input: {
                       startAdornment: (
                         <InputAdornment position="start">
@@ -552,7 +559,10 @@ function SutTarihsel() {
                   type="date"
                   value={degisiklikForm.bitis}
                   onChange={(e) => setDegisiklikForm({ ...degisiklikForm, bitis: e.target.value })}
-                  slotProps={{ inputLabel: { shrink: true } }}
+                  slotProps={{ 
+                    inputLabel: { shrink: true },
+                    htmlInput: { min: MIN_QUERY_DATE, max: getTodayString() }
+                  }}
                 />
               </Box>
               <Box sx={{ flex: '0 1 200px', minWidth: 0 }}>
@@ -587,7 +597,7 @@ function SutTarihsel() {
                 <TableContainer component={Paper} variant="outlined">
                   <Table>
                     <TableHead>
-                      <TableRow sx={{ bgcolor: 'primary.light' }}>
+                      <TableRow sx={{ bgcolor: '#f8f9fa' }}>
                         <TableCell><strong>SUT Kodu</strong></TableCell>
                         <TableCell><strong>İşlem Adı</strong></TableCell>
                         <TableCell align="right"><strong>Eski Puan</strong></TableCell>
@@ -784,7 +794,7 @@ function SutTarihsel() {
                           </Typography>
                         </Paper>
                         {gecmisResult.mevcutMu && (
-                          <Paper sx={{ p: 2, bgcolor: 'primary.light' }}>
+                          <Paper sx={{ p: 2, bgcolor: '#f8f9fa' }}>
                             <Typography variant="caption" color="textSecondary" gutterBottom display="block">
                               Güncel Puan
                             </Typography>
@@ -813,7 +823,7 @@ function SutTarihsel() {
                     <TableContainer component={Paper} variant="outlined">
                       <Table size="small">
                         <TableHead>
-                          <TableRow sx={{ bgcolor: 'primary.light' }}>
+                          <TableRow sx={{ bgcolor: '#f8f9fa' }}>
                             <TableCell width="100"><strong>Versiyon</strong></TableCell>
                             <TableCell align="right" width="120"><strong>Puan</strong></TableCell>
                             <TableCell width="150"><strong>Başlangıç</strong></TableCell>
@@ -823,77 +833,136 @@ function SutTarihsel() {
                           </TableRow>
                         </TableHead>
                         <TableBody>
-                          {gecmisResult.versiyonlar.map((versiyon, index) => {
-                            const aktif = versiyon.AktifMi && !versiyon.GecerlilikBitis;
-                            const oncekiVersiyon = gecmisResult.versiyonlar[index + 1];
-                            const farkVar = oncekiVersiyon && versiyon.Puan !== oncekiVersiyon.Puan;
-                            const fark = farkVar ? versiyon.Puan - oncekiVersiyon.Puan : 0;
-                            
-                            return (
-                              <TableRow 
-                                key={index} 
-                                hover
-                                sx={{ 
-                                  '&:nth-of-type(odd)': { bgcolor: 'action.hover' },
-                                  bgcolor: aktif ? 'rgba(76, 175, 80, 0.08)' : undefined
-                                }}
-                              >
-                                <TableCell>
-                                  <Chip 
-                                    label={`V${versiyon.SutVersionID || versiyon.VersionID}`} 
-                                    size="small" 
-                                    color={aktif ? 'success' : 'default'}
-                                    variant={aktif ? 'filled' : 'outlined'}
-                                  />
-                                </TableCell>
-                                <TableCell align="right">
-                                  <Stack direction="column" spacing={0.5} alignItems="flex-end">
-                                    <Typography variant="body2" fontWeight="700">
-                                      {versiyon.Puan || '-'}
-                                    </Typography>
-                                    {farkVar && (
-                                      <Typography 
-                                        variant="caption" 
-                                        color={fark > 0 ? 'error.main' : 'success.main'}
-                                        fontWeight="600"
-                                      >
-                                        {fark > 0 ? '+' : ''}{fark.toFixed(2)}
+                          {(() => {
+                            const rows = [];
+                            const versiyonlar = gecmisResult.versiyonlar;
+                            let i = 0;
+                            while (i < versiyonlar.length) {
+                              const versiyon = versiyonlar[i];
+                              const aktif = versiyon.AktifMi && !versiyon.GecerlilikBitis;
+                              const oncekiVersiyon = versiyonlar[i + 1];
+                              const farkVar = oncekiVersiyon && versiyon.Puan !== oncekiVersiyon.Puan;
+                              const fark = farkVar ? versiyon.Puan - oncekiVersiyon.Puan : 0;
+                              const isDegisiklikYok = !farkVar && oncekiVersiyon && !aktif;
+
+                              if (isDegisiklikYok) {
+                                let groupEnd = i;
+                                while (
+                                  groupEnd + 1 < versiyonlar.length &&
+                                  versiyonlar[groupEnd + 1] &&
+                                  versiyonlar[groupEnd + 2] &&
+                                  versiyonlar[groupEnd + 1].Puan === versiyonlar[groupEnd + 2].Puan &&
+                                  !(versiyonlar[groupEnd + 1].AktifMi && !versiyonlar[groupEnd + 1].GecerlilikBitis)
+                                ) {
+                                  groupEnd++;
+                                }
+                                const groupCount = groupEnd - i + 1;
+                                if (groupCount >= 2) {
+                                  const firstV = versiyonlar[i];
+                                  const lastV = versiyonlar[groupEnd];
+                                  rows.push(
+                                    <TableRow key={`group-${i}`} sx={{ bgcolor: 'action.hover' }}>
+                                      <TableCell>
+                                        <Chip label={`V${firstV.SutVersionID || firstV.VersionID}–V${lastV.SutVersionID || lastV.VersionID}`} size="small" variant="outlined" />
+                                      </TableCell>
+                                      <TableCell align="right">
+                                        <Typography variant="body2" fontWeight="700">
+                                          {firstV.Puan || '-'}
+                                        </Typography>
+                                      </TableCell>
+                                      <TableCell>
+                                        <Typography variant="body2">
+                                          {lastV.GecerlilikBaslangic ? formatDateShort(lastV.GecerlilikBaslangic) : '-'}
+                                        </Typography>
+                                      </TableCell>
+                                      <TableCell>
+                                        <Typography variant="body2">
+                                          {firstV.GecerlilikBitis ? formatDateShort(firstV.GecerlilikBitis) : '-'}
+                                        </Typography>
+                                      </TableCell>
+                                      <TableCell align="center">
+                                        <Chip label="Geçmiş" size="small" variant="outlined" />
+                                      </TableCell>
+                                      <TableCell>
+                                        <Typography variant="body2" color="text.secondary" fontStyle="italic">
+                                          {groupCount} versiyon boyunca değişiklik yok
+                                        </Typography>
+                                      </TableCell>
+                                    </TableRow>
+                                  );
+                                  i = groupEnd + 1;
+                                  continue;
+                                }
+                              }
+
+                              rows.push(
+                                <TableRow 
+                                  key={i} 
+                                  hover
+                                  sx={{ 
+                                    '&:nth-of-type(odd)': { bgcolor: 'action.hover' },
+                                    bgcolor: aktif ? 'rgba(76, 175, 80, 0.08)' : undefined
+                                  }}
+                                >
+                                  <TableCell>
+                                    <Chip 
+                                      label={`V${versiyon.SutVersionID || versiyon.VersionID}`} 
+                                      size="small" 
+                                      color={aktif ? 'success' : 'default'}
+                                      variant={aktif ? 'filled' : 'outlined'}
+                                    />
+                                  </TableCell>
+                                  <TableCell align="right">
+                                    <Stack direction="column" spacing={0.5} alignItems="flex-end">
+                                      <Typography variant="body2" fontWeight="700">
+                                        {versiyon.Puan || '-'}
                                       </Typography>
-                                    )}
-                                  </Stack>
-                                </TableCell>
-                                <TableCell>
-                                  <Typography variant="body2">
-                                    {versiyon.GecerlilikBaslangic
-                                      ? formatDateShort(versiyon.GecerlilikBaslangic)
-                                      : '-'}
-                                  </Typography>
-                                </TableCell>
-                                <TableCell>
-                                  {versiyon.GecerlilikBitis ? (
+                                      {farkVar && (
+                                        <Typography 
+                                          variant="caption" 
+                                          color={fark > 0 ? 'error.main' : 'success.main'}
+                                          fontWeight="600"
+                                        >
+                                          {fark > 0 ? '+' : ''}{fark.toFixed(2)}
+                                        </Typography>
+                                      )}
+                                    </Stack>
+                                  </TableCell>
+                                  <TableCell>
                                     <Typography variant="body2">
-                                      {formatDateShort(versiyon.GecerlilikBitis)}
+                                      {versiyon.GecerlilikBaslangic
+                                        ? formatDateShort(versiyon.GecerlilikBaslangic)
+                                        : '-'}
                                     </Typography>
-                                  ) : (
-                                    <Chip label="Devam Ediyor" size="small" color="success" />
-                                  )}
-                                </TableCell>
-                                <TableCell align="center">
-                                  <Chip 
-                                    label={aktif ? 'Aktif' : 'Geçmiş'} 
-                                    size="small" 
-                                    color={aktif ? 'success' : 'default'}
-                                    variant="outlined"
-                                  />
-                                </TableCell>
-                                <TableCell>
-                                  <Typography variant="body2">
-                                    {versiyon.DegisiklikSebebi || '-'}
-                                  </Typography>
-                                </TableCell>
-                              </TableRow>
-                            );
-                          })}
+                                  </TableCell>
+                                  <TableCell>
+                                    {versiyon.GecerlilikBitis ? (
+                                      <Typography variant="body2">
+                                        {formatDateShort(versiyon.GecerlilikBitis)}
+                                      </Typography>
+                                    ) : (
+                                      <Chip label="Devam Ediyor" size="small" color="success" />
+                                    )}
+                                  </TableCell>
+                                  <TableCell align="center">
+                                    <Chip 
+                                      label={aktif ? 'Aktif' : 'Geçmiş'} 
+                                      size="small" 
+                                      color={aktif ? 'success' : 'default'}
+                                      variant="outlined"
+                                    />
+                                  </TableCell>
+                                  <TableCell>
+                                    <Typography variant="body2">
+                                      {versiyon.DegisiklikSebebi || '-'}
+                                    </Typography>
+                                  </TableCell>
+                                </TableRow>
+                              );
+                              i++;
+                            }
+                            return rows;
+                          })()}
                         </TableBody>
                       </Table>
                     </TableContainer>
@@ -911,7 +980,7 @@ function SutTarihsel() {
                   <TableContainer component={Paper} variant="outlined">
                     <Table size="small">
                       <TableHead>
-                        <TableRow sx={{ bgcolor: 'info.light' }}>
+                        <TableRow sx={{ bgcolor: '#f8f9fa' }}>
                           <TableCell width="200"><strong>Tarih</strong></TableCell>
                           <TableCell width="150"><strong>Durum</strong></TableCell>
                           <TableCell><strong>Açıklama</strong></TableCell>

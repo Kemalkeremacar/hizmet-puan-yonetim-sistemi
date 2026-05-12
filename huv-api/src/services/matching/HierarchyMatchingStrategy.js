@@ -22,7 +22,7 @@ class HierarchyMatchingStrategy extends MatchingStrategy {
   constructor(dbPool) {
     super();
     this.dbPool = dbPool;
-    this.threshold = 0.70; // Minimum %70 benzerlik
+    this.threshold = 0.80; // Minimum %80 benzerlik
   }
   
   /**
@@ -83,15 +83,21 @@ class HierarchyMatchingStrategy extends MatchingStrategy {
    * Match SUT işlem with HUV teminatlar using hierarchy strategy
    * @param {Object} sutIslem - SUT işlem object
    * @param {Array} huvList - Array of HUV teminat objects
+   * @param {Map|null} hierarchyCache - Pre-loaded hierarchy cache (hiyerarsiId → titles[])
    * @returns {Promise<Object>} Match result
    */
-  async match(sutIslem, huvList) {
+  async match(sutIslem, huvList, hierarchyCache = null) {
     if (!sutIslem || !huvList || huvList.length === 0) {
       return { matched: false, ruleType: this.getRuleType() };
     }
     
-    // Get hierarchy titles
-    const hierarchyTitles = await this.getHierarchyTitles(sutIslem);
+    // Use cache if available, otherwise query DB
+    let hierarchyTitles;
+    if (hierarchyCache && sutIslem.hiyerarsiId) {
+      hierarchyTitles = hierarchyCache.get(sutIslem.hiyerarsiId) || [];
+    } else {
+      hierarchyTitles = await this.getHierarchyTitles(sutIslem);
+    }
     
     if (hierarchyTitles.length === 0) {
       return { matched: false, ruleType: this.getRuleType() };
@@ -100,9 +106,9 @@ class HierarchyMatchingStrategy extends MatchingStrategy {
     // Calculate similarity with all HUV teminatlar
     let bestMatch = null;
     let bestScore = 0;
+    let bestTitle = '';
     
     for (const huv of huvList) {
-      // Try each hierarchy title
       for (const hierarchyTitle of hierarchyTitles) {
         const similarity = SimilarityCalculator.calculateSimilarity(
           hierarchyTitle,
@@ -112,16 +118,22 @@ class HierarchyMatchingStrategy extends MatchingStrategy {
         if (similarity > bestScore) {
           bestScore = similarity;
           bestMatch = huv;
+          bestTitle = hierarchyTitle;
         }
       }
     }
     
-    // Check if best match exceeds threshold
     if (bestScore < this.threshold) {
       return { matched: false, ruleType: this.getRuleType() };
     }
     
-    // Calculate confidence score - STANDART FORMÜL
+    if (bestScore < 0.95 && bestMatch) {
+      const wordOverlap = this._calculateWordOverlap(bestTitle, bestMatch.altTeminatAdi);
+      if (wordOverlap < 0.30) {
+        return { matched: false, ruleType: this.getRuleType() };
+      }
+    }
+    
     const confidence = bestScore * 100;
     
     return {
@@ -130,6 +142,56 @@ class HierarchyMatchingStrategy extends MatchingStrategy {
       confidence: Math.round(confidence * 100) / 100,
       ruleType: this.getRuleType()
     };
+  }
+  
+  _calculateWordOverlap(str1, str2) {
+    const normalize = (s) => SimilarityCalculator.normalizeString(s);
+    const words1 = normalize(str1).split(/\s+/).filter(w => w.length > 2);
+    const words2 = normalize(str2).split(/\s+/).filter(w => w.length > 2);
+    if (words1.length === 0 || words2.length === 0) return 0;
+
+    const matched1 = new Set();
+    const matched2 = new Set();
+
+    for (let i = 0; i < words1.length; i++) {
+      for (let j = 0; j < words2.length; j++) {
+        if (matched2.has(j)) continue;
+        if (this._wordsMatch(words1[i], words2[j])) {
+          matched1.add(i);
+          matched2.add(j);
+          break;
+        }
+      }
+    }
+
+    const uniqueWords = new Set([...words1, ...words2]).size;
+    return matched1.size / uniqueWords;
+  }
+
+  _wordsMatch(w1, w2) {
+    if (w1 === w2) return true;
+    const shorter = w1.length <= w2.length ? w1 : w2;
+    const longer = w1.length > w2.length ? w1 : w2;
+    if (shorter.length >= 4 && longer.startsWith(shorter)) return true;
+    let common = 0;
+    const limit = Math.min(w1.length, w2.length);
+    for (let i = 0; i < limit; i++) {
+      if (w1[i] === w2[i]) common++;
+      else break;
+    }
+    if (common >= 4 && common / shorter.length >= 0.70) return true;
+    if (shorter.length >= 4) {
+      const sim = SimilarityCalculator.jaroSimilarity(w1, w2);
+      let prefixLen = 0;
+      const maxPfx = Math.min(4, w1.length, w2.length);
+      for (let i = 0; i < maxPfx; i++) {
+        if (w1[i] === w2[i]) prefixLen++;
+        else break;
+      }
+      const winkler = sim + (prefixLen * 0.1 * (1 - sim));
+      if (winkler >= 0.85) return true;
+    }
+    return false;
   }
   
   /**

@@ -191,7 +191,7 @@ export const isValidDate = (dateString) => {
  * @param {string} endDate - Bitiş tarihi
  * @returns {object} { valid: boolean, error: string }
  */
-export const validateDateRange = (startDate, endDate) => {
+export const validateDateRange = (startDate, endDate, minDate = null) => {
   if (!startDate || !endDate) {
     return { valid: false, error: 'Başlangıç ve bitiş tarihleri zorunludur' };
   }
@@ -200,11 +200,20 @@ export const validateDateRange = (startDate, endDate) => {
     return { valid: false, error: 'Geçersiz tarih formatı' };
   }
   
+  if (minDate && compareDates(startDate, minDate) < 0) {
+    return { valid: false, error: `Başlangıç tarihi ${formatDateShort(minDate)} tarihinden önce olamaz` };
+  }
+  
   if (compareDates(startDate, endDate) > 0) {
     return { valid: false, error: 'Başlangıç tarihi bitiş tarihinden sonra olamaz' };
   }
   
   return { valid: true, error: null };
+};
+
+export const isBeforeMinDate = (date, minDate) => {
+  if (!date || !minDate) return false;
+  return compareDates(date, minDate) < 0;
 };
 
 /**

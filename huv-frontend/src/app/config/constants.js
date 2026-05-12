@@ -24,6 +24,9 @@ export const PAGINATION = {
   pageSizeOptions: [10, 25, 50, 100],
 };
 
+export const MIN_QUERY_DATE = '2026-02-05';
+export const MIN_QUERY_DATE_DISPLAY = '05.02.2026';
+
 export const DATE_FORMATS = {
   display: 'dd.MM.yyyy',
   displayWithTime: 'dd.MM.yyyy HH:mm',

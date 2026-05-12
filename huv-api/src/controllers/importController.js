@@ -73,6 +73,14 @@ const previewImport = async (req, res, next) => {
     //   fs.unlinkSync(uploadedFile);
     // }
     
+    // Değişiklik dağılımını tüm güncellenenlerden hesapla
+    const changeDist = {};
+    comparison.updated.forEach(item => {
+      (item.changes || []).forEach(c => {
+        changeDist[c.field] = (changeDist[c.field] || 0) + 1;
+      });
+    });
+    
     return success(res, {
       dosyaAdi,
       listeTipi: 'HUV',
@@ -82,7 +90,8 @@ const previewImport = async (req, res, next) => {
         eklenen: comparison.summary.added,
         guncellenen: comparison.summary.updated,
         degismeyen: comparison.summary.unchanged,
-        silinecek: comparison.summary.deleted
+        silinecek: comparison.summary.deleted,
+        degisiklikDagilimi: changeDist
       },
       comparison: report,
       uyarilar: validation.warnings.slice(0, 20),
@@ -181,7 +190,7 @@ const importHuvList = async (req, res, next) => {
     // 7. Yeni versiyon oluştur
     
     // Kullanıcı adını al (şimdilik req.user veya header'dan)
-    const kullaniciAdi = req.user?.username || 
+    const kullaniciAdi = req.user?.kullaniciAdi || 
                         req.headers['x-user-name'] || 
                         'admin';
     

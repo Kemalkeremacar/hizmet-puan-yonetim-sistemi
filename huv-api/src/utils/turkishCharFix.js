@@ -68,7 +68,9 @@ const fixTurkishEncoding = (str) => {
     .replace(/â†'/g, '→')
     .replace(/â€"/g, '–')
     .replace(/â€™/g, "'")
+    .replace(/â€˜/g, "'")
     .replace(/â€œ/g, '"')
+    .replace(/â€\u009D/g, '"')
     .replace(/â€/g, '"');
   
   return fixed.trim();

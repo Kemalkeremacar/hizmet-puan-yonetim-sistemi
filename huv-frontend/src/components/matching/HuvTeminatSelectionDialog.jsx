@@ -128,125 +128,87 @@ function HuvTeminatSelectionDialog({ open, onClose, match, onMatchChanged, showS
   };
 
   // ============================================
-  // Gelişmiş benzerlik hesaplama
+  // Jaro-Winkler benzerlik hesaplama
+  // Backend ile aynı algoritma
   // ============================================
-  const calculateSimilarity = (sutIslem, huvTeminat) => {
-    if (!sutIslem || !huvTeminat) return 0;
-    
-    // Normalize: küçük harf, Türkçe karakterler
-    const normalize = (str) => {
-      return str
-        .toLowerCase()
-        .replace(/ı/g, 'i')
-        .replace(/ğ/g, 'g')
-        .replace(/ü/g, 'u')
-        .replace(/ş/g, 's')
-        .replace(/ö/g, 'o')
-        .replace(/ç/g, 'c')
-        .replace(/[^a-z0-9\s]/g, ' ')
-        .replace(/\s+/g, ' ')
-        .trim();
-    };
-    
-    const normSut = normalize(sutIslem);
-    const normHuv = normalize(huvTeminat);
-    
-    // ============================================
-    // ÖZEL DURUM 1: Laboratuvar tek harf teminatları (A, B, C, D, vb.)
-    // ============================================
-    if (normHuv.length <= 2) {
-      // Laboratuvar anahtar kelimeleri
-      const labKeywords = ['kan', 'tahlil', 'test', 'analiz', 'hemogram', 'biyokimya', 
-                          'hormon', 'vitamin', 'mineral', 'enzim', 'protein', 'lipid',
-                          'glukoz', 'kolesterol', 'trigliserid', 'kreatinin', 'ure',
-                          'ast', 'alt', 'ggt', 'ldh', 'cpk', 'troponin', 'bnp',
-                          'tsh', 'ft3', 'ft4', 'ferritin', 'demir', 'b12', 'folik',
-                          'hba1c', 'sedim', 'crp', 'rf', 'ana', 'anti'];
-      
-      // SUT işleminde laboratuvar kelimesi var mı?
-      const hasLabKeyword = labKeywords.some(keyword => normSut.includes(keyword));
-      
-      if (hasLabKeyword) {
-        // Laboratuvar işlemi + tek harf teminat → Orta-yüksek skor
-        return 0.65; // %65 - manuel kontrol gerekebilir
-      } else {
-        // Laboratuvar değil ama tek harf → Düşük skor
-        return 0.15;
+  const normalizeString = (str) => {
+    if (!str) return '';
+    return str
+      .replace(/[şŞ]/g, 's')
+      .replace(/[ğĞ]/g, 'g')
+      .replace(/[üÜ]/g, 'u')
+      .replace(/[öÖ]/g, 'o')
+      .replace(/[çÇ]/g, 'c')
+      .replace(/[ıİ]/g, 'i')
+      .toLowerCase()
+      .replace(/^\d+(\.\d+)*\.?\s*/g, '')
+      .replace(/[^\w\s]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+  };
+
+  const jaroSimilarity = (s1, s2) => {
+    const len1 = s1.length;
+    const len2 = s2.length;
+    if (len1 === 0 && len2 === 0) return 1.0;
+    if (len1 === 0 || len2 === 0) return 0.0;
+
+    const matchDistance = Math.floor(Math.max(len1, len2) / 2) - 1;
+    if (matchDistance < 0) return 0.0;
+
+    const s1Matches = new Array(len1).fill(false);
+    const s2Matches = new Array(len2).fill(false);
+    let matches = 0;
+    let transpositions = 0;
+
+    for (let i = 0; i < len1; i++) {
+      const start = Math.max(0, i - matchDistance);
+      const end = Math.min(i + matchDistance + 1, len2);
+      for (let j = start; j < end; j++) {
+        if (s2Matches[j] || s1[i] !== s2[j]) continue;
+        s1Matches[i] = true;
+        s2Matches[j] = true;
+        matches++;
+        break;
       }
     }
-    
-    // ============================================
-    // ÖZEL DURUM 2: Tam eşleşme
-    // ============================================
-    if (normSut === normHuv) return 1.0;
-    
-    // ============================================
-    // ÖZEL DURUM 3: Substring kontrolü
-    // ============================================
-    if (normSut.includes(normHuv)) {
-      // HUV teminat SUT içinde geçiyor (örn: "LABORATUVAR" → "laboratuvar testi")
-      const lengthRatio = normHuv.length / normSut.length;
-      return 0.75 + (lengthRatio * 0.2); // 0.75-0.95 arası
+    if (matches === 0) return 0.0;
+
+    let k = 0;
+    for (let i = 0; i < len1; i++) {
+      if (!s1Matches[i]) continue;
+      while (!s2Matches[k]) k++;
+      if (s1[i] !== s2[k]) transpositions++;
+      k++;
     }
-    
-    if (normHuv.includes(normSut)) {
-      // SUT işlem HUV içinde geçiyor
-      const lengthRatio = normSut.length / normHuv.length;
-      return 0.70 + (lengthRatio * 0.2); // 0.70-0.90 arası
+
+    return (matches / len1 + matches / len2 + (matches - transpositions / 2) / matches) / 3;
+  };
+
+  const calculateSimilarity = (str1, str2) => {
+    if (!str1 || !str2) return 0;
+    const s1 = normalizeString(str1);
+    const s2 = normalizeString(str2);
+    if (s1 === s2) return 1.0;
+    if (s1.length === 0 || s2.length === 0) return 0.0;
+
+    const jaroSim = jaroSimilarity(s1, s2);
+    let prefixLen = 0;
+    const maxPrefix = Math.min(4, s1.length, s2.length);
+    for (let i = 0; i < maxPrefix; i++) {
+      if (s1[i] === s2[i]) prefixLen++;
+      else break;
     }
-    
-    // ============================================
-    // GENEL DURUM: Kelime bazlı benzerlik
-    // ============================================
-    const words1 = normSut.split(' ').filter(w => w.length >= 3); // En az 3 karakter
-    const words2 = normHuv.split(' ').filter(w => w.length >= 3);
-    
-    if (words1.length === 0 || words2.length === 0) return 0.1;
-    
-    // Ortak kelime sayısı
-    let matchScore = 0;
-    const words2Set = new Set(words2);
-    const words2Array = Array.from(words2Set);
-    
-    for (const word1 of words1) {
-      let bestMatch = 0;
-      
-      for (const word2 of words2Array) {
-        // Tam eşleşme
-        if (word1 === word2) {
-          bestMatch = Math.max(bestMatch, 1.0);
-          continue;
-        }
-        
-        // Substring eşleşmesi (en az 4 karakter)
-        if (word1.length >= 4 && word2.length >= 4) {
-          if (word1.includes(word2) || word2.includes(word1)) {
-            const lengthRatio = Math.min(word1.length, word2.length) / Math.max(word1.length, word2.length);
-            bestMatch = Math.max(bestMatch, 0.7 * lengthRatio);
-          }
-          
-          // İlk N karakter eşleşmesi
-          const prefixLen = Math.min(word1.length, word2.length, 5);
-          if (word1.substring(0, prefixLen) === word2.substring(0, prefixLen)) {
-            bestMatch = Math.max(bestMatch, 0.5);
-          }
-        }
-      }
-      
-      matchScore += bestMatch;
+    let score = jaroSim + (prefixLen * 0.1 * (1 - jaroSim));
+
+    const minLen = Math.min(s1.length, s2.length);
+    const maxLen = Math.max(s1.length, s2.length);
+    const lengthRatio = minLen / maxLen;
+    if (lengthRatio < 0.5) {
+      score *= (0.5 + lengthRatio);
     }
-    
-    if (matchScore === 0) return 0.1;
-    
-    // Skor hesaplama - her iki tarafın kelime sayısını dikkate al
-    const avgWords = (words1.length + words2.length) / 2;
-    let finalScore = matchScore / avgWords;
-    
-    // Kelime sayısı farkı çok fazlaysa skoru azalt
-    const wordCountRatio = Math.min(words1.length, words2.length) / Math.max(words1.length, words2.length);
-    finalScore = finalScore * (0.6 + wordCountRatio * 0.4);
-    
-    return Math.min(0.95, Math.max(0.1, finalScore)); // 0.1 - 0.95 arası
+
+    return score;
   };
 
   // ============================================

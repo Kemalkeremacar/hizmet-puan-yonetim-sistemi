@@ -136,7 +136,7 @@ const getSutKodlari = async (req, res, next) => {
     }
 
     if (anaBaslikNo) {
-      countQuery += ' AND AnaBaslikID = @anaBaslikNo';
+      countQuery += ' AND AnaBaslikNo = @anaBaslikNo';
       countParams.push({ name: 'anaBaslikNo', type: sql.Int, value: parseInt(anaBaslikNo) });
     }
 
@@ -165,7 +165,7 @@ const getSutKodlari = async (req, res, next) => {
     }
 
     if (anaBaslikNo) {
-      dataQuery += ' AND AnaBaslikID = @anaBaslikNo';
+      dataQuery += ' AND AnaBaslikNo = @anaBaslikNo';
     }
 
     if (search) {

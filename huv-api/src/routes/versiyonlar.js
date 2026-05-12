@@ -66,6 +66,11 @@ router.get('/:id', async (req, res, next) => {
     const version = versionResult.recordset[0];
     const listeTipi = version.ListeTipi;
     
+    const firstVersionResult = await pool.request()
+      .input('listeTipi', sql.NVarChar(50), listeTipi)
+      .query('SELECT MIN(VersionID) as MinVersionID FROM ListeVersiyon WHERE ListeTipi = @listeTipi');
+    const isFirstVersion = firstVersionResult.recordset[0].MinVersionID === parseInt(id);
+    
     // Değişmeyen sayısını hesapla
     const toplamKayit = version.KayitSayisi || 0;
     const eklenen = version.EklenenSayisi || 0;
@@ -97,13 +102,28 @@ router.get('/:id', async (req, res, next) => {
             i.SutID, i.SutKodu, i.IslemAdi,
             v_curr.Puan as YeniPuan,
             v_prev.Puan as EskiPuan,
+            v_curr.IslemAdi as YeniIslemAdi,
             v_prev.IslemAdi as EskiIslemAdi,
+            v_curr.Aciklama as YeniAciklama,
             v_prev.Aciklama as EskiAciklama,
+            v_curr.DegisiklikSebebi,
             ab.AnaBaslikAdi,
-            -- Hangi alanlar değişmiş
-            CASE WHEN ABS(ISNULL(v_curr.Puan, 0) - ISNULL(v_prev.Puan, 0)) > 0.01 THEN 1 ELSE 0 END as PuanDegisti,
-            CASE WHEN v_curr.IslemAdi != v_prev.IslemAdi THEN 1 ELSE 0 END as IslemAdiDegisti,
-            CASE WHEN ISNULL(v_curr.Aciklama, '') != ISNULL(v_prev.Aciklama, '') THEN 1 ELSE 0 END as AciklamaDegisti
+            -- Hangi alanlar değişmiş (DegisiklikSebebi'ni de kontrol et)
+            CASE 
+              WHEN v_curr.DegisiklikSebebi LIKE '%Puan:%' THEN 1
+              WHEN ABS(ISNULL(v_curr.Puan, 0) - ISNULL(v_prev.Puan, 0)) > 0.01 THEN 1 
+              ELSE 0 
+            END as PuanDegisti,
+            CASE 
+              WHEN v_curr.DegisiklikSebebi LIKE '%İşlem Adı değişti%' THEN 1
+              WHEN LTRIM(RTRIM(ISNULL(v_curr.IslemAdi, ''))) != LTRIM(RTRIM(ISNULL(v_prev.IslemAdi, ''))) THEN 1 
+              ELSE 0 
+            END as IslemAdiDegisti,
+            CASE 
+              WHEN v_curr.DegisiklikSebebi LIKE '%Açıklama değişti%' THEN 1
+              WHEN LTRIM(RTRIM(ISNULL(v_curr.Aciklama, ''))) != LTRIM(RTRIM(ISNULL(v_prev.Aciklama, ''))) THEN 1 
+              ELSE 0 
+            END as AciklamaDegisti
           FROM SutIslemVersionlar v_curr
           INNER JOIN SutIslemler i ON v_curr.SutID = i.SutID
           LEFT JOIN SutAnaBasliklar ab ON i.AnaBaslikNo = ab.AnaBaslikNo
@@ -123,25 +143,21 @@ router.get('/:id', async (req, res, next) => {
         .input('versionId', sql.Int, parseInt(id))
         .query(`
           SELECT TOP 100
-            i.SutID, i.SutKodu, i.IslemAdi, i.Puan,
+            v.SutID, COALESCE(i.SutKodu, v.SutKodu) as SutKodu, 
+            COALESCE(i.IslemAdi, v.IslemAdi) as IslemAdi, 
+            COALESCE(v.Puan, i.Puan) as Puan,
             ab.AnaBaslikAdi
           FROM SutIslemVersionlar v
-          INNER JOIN SutIslemler i ON v.SutID = i.SutID
+          LEFT JOIN SutIslemler i ON v.SutID = i.SutID
           LEFT JOIN SutAnaBasliklar ab ON i.AnaBaslikNo = ab.AnaBaslikNo
-          WHERE v.GecerlilikBitis IS NOT NULL
-          AND v.GecerlilikBitis >= (SELECT YuklemeTarihi FROM ListeVersiyon WHERE VersionID = @versionId)
-          AND v.GecerlilikBitis < DATEADD(DAY, 1, (SELECT YuklemeTarihi FROM ListeVersiyon WHERE VersionID = @versionId))
-          AND NOT EXISTS (
-            SELECT 1 FROM SutIslemVersionlar v2
-            WHERE v2.SutID = v.SutID
-            AND v2.ListeVersiyonID = @versionId
-            AND v2.AktifMi = 1
-          )
-          ORDER BY i.SutKodu
+          WHERE v.ListeVersiyonID = @versionId
+          AND v.DegisiklikSebebi = 'Silindi'
+          ORDER BY COALESCE(i.SutKodu, v.SutKodu)
         `);
       
       return success(res, {
         version,
+        isFirstVersion,
         summary: {
           eklenen: eklenen,
           guncellenen: guncellenen,
@@ -150,7 +166,19 @@ router.get('/:id', async (req, res, next) => {
           toplam: toplamKayit
         },
         eklenenler: addedResult.recordset,
-        guncellenenler: updatedResult.recordset,
+        guncellenenler: updatedResult.recordset.map(row => {
+          if (row.PuanDegisti && row.DegisiklikSebebi) {
+            const puanMatch = row.DegisiklikSebebi.match(/Puan:\s*([\d.,]+)\s*→\s*([\d.,]+)/);
+            if (puanMatch) {
+              const eskiPuan = parseFloat(puanMatch[1].replace(',', '.'));
+              const yeniPuan = parseFloat(puanMatch[2].replace(',', '.'));
+              if (!isNaN(eskiPuan)) row.EskiPuan = eskiPuan;
+              if (!isNaN(yeniPuan)) row.YeniPuan = yeniPuan;
+            }
+          }
+          delete row.DegisiklikSebebi;
+          return row;
+        }),
         silinenler: deletedResult.recordset
       }, 'Versiyon detayı başarıyla getirildi');
       
@@ -213,15 +241,14 @@ router.get('/:id', async (req, res, next) => {
             ik.DonemBitis
           FROM IlKatsayiVersionlar v
           INNER JOIN IlKatsayilari ik ON v.IlKatsayiID = ik.IlKatsayiID
-          WHERE v.GecerlilikBitis IS NOT NULL
-          AND v.GecerlilikBitis >= (SELECT YuklemeTarihi FROM ListeVersiyon WHERE VersionID = @versionId)
-          AND v.GecerlilikBitis < DATEADD(DAY, 1, (SELECT YuklemeTarihi FROM ListeVersiyon WHERE VersionID = @versionId))
+          WHERE v.ListeVersiyonID = @versionId
           AND v.DegisiklikSebebi = 'İl katsayısı silindi'
           ORDER BY ik.IlAdi
         `);
       
       return success(res, {
         version,
+        isFirstVersion,
         summary: {
           eklenen: eklenen,
           guncellenen: guncellenen,
@@ -261,9 +288,9 @@ router.get('/:id', async (req, res, next) => {
             v_prev.[Not] as EskiNot,
             a.BolumAdi,
             CASE WHEN ABS(ISNULL(v_curr.Birim, 0) - ISNULL(v_prev.Birim, 0)) > 0.01 THEN 1 ELSE 0 END as BirimDegisti,
-            CASE WHEN v_curr.IslemAdi != v_prev.IslemAdi THEN 1 ELSE 0 END as IslemAdiDegisti,
-            CASE WHEN ISNULL(v_curr.SutKodu, '') != ISNULL(v_prev.SutKodu, '') THEN 1 ELSE 0 END as SutKoduDegisti,
-            CASE WHEN ISNULL(v_curr.[Not], '') != ISNULL(v_prev.[Not], '') THEN 1 ELSE 0 END as NotDegisti
+            CASE WHEN LTRIM(RTRIM(ISNULL(v_curr.IslemAdi, ''))) != LTRIM(RTRIM(ISNULL(v_prev.IslemAdi, ''))) THEN 1 ELSE 0 END as IslemAdiDegisti,
+            CASE WHEN LTRIM(RTRIM(ISNULL(v_curr.SutKodu, ''))) != LTRIM(RTRIM(ISNULL(v_prev.SutKodu, ''))) THEN 1 ELSE 0 END as SutKoduDegisti,
+            CASE WHEN LTRIM(RTRIM(ISNULL(v_curr.[Not], ''))) != LTRIM(RTRIM(ISNULL(v_prev.[Not], ''))) THEN 1 ELSE 0 END as NotDegisti
           FROM IslemVersionlar v_curr
           INNER JOIN HuvIslemler i ON v_curr.IslemID = i.IslemID
           LEFT JOIN AnaDallar a ON i.AnaDalKodu = a.AnaDalKodu
@@ -282,25 +309,21 @@ router.get('/:id', async (req, res, next) => {
         .input('versionId', sql.Int, parseInt(id))
         .query(`
           SELECT TOP 100
-            i.IslemID, i.HuvKodu, i.IslemAdi, i.Birim,
+            v.IslemID, COALESCE(i.HuvKodu, v.HuvKodu) as HuvKodu, 
+            COALESCE(i.IslemAdi, v.IslemAdi) as IslemAdi, 
+            COALESCE(v.Birim, i.Birim) as Birim,
             a.BolumAdi
           FROM IslemVersionlar v
-          INNER JOIN HuvIslemler i ON v.IslemID = i.IslemID
+          LEFT JOIN HuvIslemler i ON v.IslemID = i.IslemID
           LEFT JOIN AnaDallar a ON i.AnaDalKodu = a.AnaDalKodu
-          WHERE v.GecerlilikBitis IS NOT NULL
-          AND v.GecerlilikBitis >= (SELECT YuklemeTarihi FROM ListeVersiyon WHERE VersionID = @versionId)
-          AND v.GecerlilikBitis < DATEADD(DAY, 1, (SELECT YuklemeTarihi FROM ListeVersiyon WHERE VersionID = @versionId))
-          AND NOT EXISTS (
-            SELECT 1 FROM IslemVersionlar v2
-            WHERE v2.IslemID = v.IslemID
-            AND v2.ListeVersiyonID = @versionId
-            AND v2.AktifMi = 1
-          )
-          ORDER BY i.HuvKodu
+          WHERE v.ListeVersiyonID = @versionId
+          AND v.DegisiklikSebebi = 'İşlem Excel''den kaldırıldı'
+          ORDER BY COALESCE(i.HuvKodu, v.HuvKodu)
         `);
       
       return success(res, {
         version,
+        isFirstVersion,
         summary: {
           eklenen: eklenen,
           guncellenen: guncellenen,

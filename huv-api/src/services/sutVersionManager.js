@@ -51,24 +51,7 @@ const updateSutIslemWithVersion = async (sutID, yeniData, versionID, yuklemeTari
     }
     
     try {
-      // 1. Eski versiyonları kapat (GecerlilikBitis set et)
-      await transaction.request()
-        .input('SutID', sql.Int, sutID)
-        .input('BitisTarihi', sql.Date, bitisTarihi)
-        .query(`
-          UPDATE SutIslemVersionlar
-          SET 
-            GecerlilikBitis = @BitisTarihi,
-            AktifMi = 0
-          WHERE SutID = @SutID 
-            AND AktifMi = 1
-            AND GecerlilikBitis IS NULL
-        `);
-      
-      // 2. Yeni versiyon kaydı oluştur
-      const degisiklikSebebi = [];
-      
-      // Mevcut veriyi al
+      // 1. Mevcut veriyi al (kapanacak versiyonu güncellemek ve değişiklik sebebi için)
       const mevcutResult = await transaction.request()
         .input('SutID', sql.Int, sutID)
         .query(`
@@ -77,9 +60,32 @@ const updateSutIslemWithVersion = async (sutID, yeniData, versionID, yuklemeTari
           WHERE SutID = @SutID
         `);
       
-      if (mevcutResult.recordset.length > 0) {
-        const mevcut = mevcutResult.recordset[0];
-        
+      const mevcut = mevcutResult.recordset.length > 0 ? mevcutResult.recordset[0] : null;
+
+      // 2. Eski versiyonları kapat — kapanış anındaki gerçek değerlerle güncelle
+      await transaction.request()
+        .input('SutID', sql.Int, sutID)
+        .input('BitisTarihi', sql.Date, bitisTarihi)
+        .input('Puan', sql.Float, mevcut?.Puan)
+        .input('IslemAdi', sql.NVarChar, mevcut?.IslemAdi)
+        .input('Aciklama', sql.NVarChar, mevcut?.Aciklama)
+        .query(`
+          UPDATE SutIslemVersionlar
+          SET 
+            GecerlilikBitis = @BitisTarihi,
+            AktifMi = 0,
+            Puan = ISNULL(@Puan, Puan),
+            IslemAdi = ISNULL(@IslemAdi, IslemAdi),
+            Aciklama = ISNULL(@Aciklama, Aciklama)
+          WHERE SutID = @SutID 
+            AND AktifMi = 1
+            AND GecerlilikBitis IS NULL
+        `);
+      
+      // 3. Yeni versiyon kaydı oluştur
+      const degisiklikSebebi = [];
+      
+      if (mevcut) {
         if (mevcut.Puan !== yeniData.Puan) {
           degisiklikSebebi.push(`Puan: ${mevcut.Puan} → ${yeniData.Puan}`);
         }

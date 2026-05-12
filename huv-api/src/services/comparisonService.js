@@ -4,6 +4,8 @@
 // Eski ve yeni HUV listelerini karşılaştırma
 // ============================================
 
+const he = require('he');
+
 // ============================================
 // İki HUV listesini karşılaştır
 // oldData: Şu anda Islemler tablosunda olan kayıtlar (aktif)
@@ -95,21 +97,48 @@ const compareHuvLists = (oldData, newData) => {
 const detectChanges = (oldItem, newItem) => {
   const changes = [];
   
-  // Birim (fiyat) değişimi
-  if (oldItem.Birim !== newItem.Birim) {
+  const normalizeText = (text) => {
+    if (!text) return '';
+    let s = text.toString();
+    // HTML entity decode (DB'de &ouml; &uuml; &ccedil; vb. kalabilir)
+    if (s.includes('&') && /&[a-zA-Z]+;|&#\d+;/.test(s)) {
+      s = he.decode(s);
+    }
+    return s
+      .replace(/\r\n/g, '\n').replace(/\r/g, '\n')
+      .replace(/[\u00A0\u2007\u202F]/g, ' ')
+      .replace(/[\u200B\u200C\u200D\uFEFF]/g, '')
+      .replace(/[\u2018\u2019\u201A\u0060]/g, "'")
+      .replace(/[\u201C\u201D\u201E]/g, '"')
+      .replace(/\t/g, ' ')
+      .replace(/ {2,}/g, ' ')
+      .trim();
+  };
+  
+  const normalizeNullable = (val) => {
+    if (val === null || val === undefined) return '';
+    return normalizeText(val);
+  };
+  
+  // Birim (fiyat) değişimi — float toleransı ile
+  const oldBirim = oldItem.Birim || 0;
+  const newBirim = newItem.Birim || 0;
+  if (Math.abs(oldBirim - newBirim) > 0.01) {
     changes.push({
       field: 'Birim',
       oldValue: oldItem.Birim,
       newValue: newItem.Birim,
-      change: newItem.Birim - oldItem.Birim,
-      changePercent: oldItem.Birim ? 
-        ((newItem.Birim - oldItem.Birim) / oldItem.Birim * 100).toFixed(2) : 
+      change: newBirim - oldBirim,
+      changePercent: oldBirim ? 
+        ((newBirim - oldBirim) / oldBirim * 100).toFixed(2) : 
         null
     });
   }
   
-  // İşlem adı değişimi
-  if (oldItem.IslemAdi !== newItem.IslemAdi) {
+  // İşlem adı değişimi — newline normalize + trim
+  const oldIslemAdi = normalizeText(oldItem.IslemAdi);
+  const newIslemAdi = normalizeText(newItem.IslemAdi);
+  if (oldIslemAdi !== newIslemAdi) {
     changes.push({
       field: 'IslemAdi',
       oldValue: oldItem.IslemAdi,
@@ -117,12 +146,25 @@ const detectChanges = (oldItem, newItem) => {
     });
   }
   
-  // SUT kodu değişimi
-  if (oldItem.SutKodu !== newItem.SutKodu) {
+  // SUT kodu değişimi — null/empty normalizasyonu
+  const oldSutKodu = normalizeNullable(oldItem.SutKodu);
+  const newSutKodu = normalizeNullable(newItem.SutKodu);
+  if (oldSutKodu !== newSutKodu) {
     changes.push({
       field: 'SutKodu',
       oldValue: oldItem.SutKodu,
       newValue: newItem.SutKodu
+    });
+  }
+
+  // Not değişimi — newline normalize + null/empty normalizasyonu
+  const oldNot = normalizeText(oldItem.Not);
+  const newNot = normalizeText(newItem.Not);
+  if (oldNot !== newNot) {
+    changes.push({
+      field: 'Not',
+      oldValue: oldItem.Not,
+      newValue: newItem.Not
     });
   }
   

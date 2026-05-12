@@ -64,15 +64,20 @@ const deleteFile = (filePath) => {
 };
 
 const decodeDosyaAdi = (originalname) => {
+  if (!originalname) return originalname;
+  
+  try {
+    const decoded = Buffer.from(originalname, 'latin1').toString('utf8');
+    if (!decoded.includes('\ufffd')) {
+      return decoded;
+    }
+  } catch { /* ignore */ }
+  
   try {
     return decodeURIComponent(originalname);
-  } catch {
-    try {
-      return Buffer.from(originalname, 'latin1').toString('utf8');
-    } catch {
-      return originalname;
-    }
-  }
+  } catch { /* ignore */ }
+  
+  return originalname;
 };
 
 module.exports = {

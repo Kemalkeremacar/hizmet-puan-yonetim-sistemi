@@ -27,21 +27,148 @@ import {
   Tabs,
   Tab,
   IconButton,
-  Tooltip
+  Tooltip,
+  Collapse,
+  Stack
 } from '@mui/material';
 import {
   Refresh as RefreshIcon,
   Info as InfoIcon,
   CloudUpload as CloudUploadIcon,
   Assessment as AssessmentIcon,
-  Close as CloseIcon
+  Close as CloseIcon,
+  KeyboardArrowDown as ExpandIcon,
+  KeyboardArrowUp as CollapseIcon,
+  SwapHoriz as SwapIcon
 } from '@mui/icons-material';
 import { adminService } from '../services/adminService';
 import { showError } from '../utils/toastManager';
 import { LoadingSpinner, ErrorAlert, EmptyState, PageHeader, DateDisplay } from '../components/common';
 import SutExcelImportTab from '../components/admin/SutExcelImportTab';
-import { formatDateTime } from '../utils/dateUtils';
 import { TabPanel } from '../components/common';
+
+// ============================================
+// Güncellenen Satır Bileşeni (Expandable) - SUT
+// ============================================
+function SutVersiyonGuncellenenRow({ item }) {
+  const [expanded, setExpanded] = useState(false);
+
+  const degisiklikler = [];
+  if (item.PuanDegisti) degisiklikler.push({ field: 'Puan', color: 'warning' });
+  if (item.IslemAdiDegisti) degisiklikler.push({ field: 'İşlem Adı', color: 'info' });
+  if (item.AciklamaDegisti) degisiklikler.push({ field: 'Açıklama', color: 'default' });
+
+  const hasNonPuanChanges = item.IslemAdiDegisti || item.AciklamaDegisti;
+  const fark = item.YeniPuan != null && item.EskiPuan != null ? item.YeniPuan - item.EskiPuan : null;
+
+  const formatPuan = (v) => v != null ? parseFloat(v).toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '-';
+  const truncate = (s, n) => s && s.length > n ? s.substring(0, n) + '...' : s;
+
+  return (
+    <>
+      <TableRow
+        hover
+        onClick={() => hasNonPuanChanges && setExpanded(!expanded)}
+        sx={{ cursor: hasNonPuanChanges ? 'pointer' : 'default' }}
+      >
+        <TableCell sx={{ pr: 0 }}>
+          {hasNonPuanChanges && (
+            <IconButton size="small" sx={{ p: 0.25 }}>
+              {expanded ? <CollapseIcon fontSize="small" /> : <ExpandIcon fontSize="small" />}
+            </IconButton>
+          )}
+        </TableCell>
+        <TableCell>
+          <Chip label={item.SutKodu} size="small" color="warning" variant="outlined" />
+        </TableCell>
+        <TableCell>
+          <Typography variant="body2" noWrap sx={{ maxWidth: 300 }}>{item.IslemAdi}</Typography>
+        </TableCell>
+        <TableCell align="center">
+          <Stack direction="row" spacing={0.5} justifyContent="center" flexWrap="wrap" useFlexGap>
+            {degisiklikler.map((d, i) => (
+              <Chip key={i} label={d.field} size="small" color={d.color} variant="outlined" sx={{ fontSize: '0.7rem', height: 22 }} />
+            ))}
+          </Stack>
+        </TableCell>
+        <TableCell align="right">
+          {item.PuanDegisti ? (
+            <Stack direction="row" spacing={0.5} alignItems="center" justifyContent="flex-end">
+              <Typography variant="body2" color="text.secondary" sx={{ textDecoration: 'line-through' }}>
+                {formatPuan(item.EskiPuan)}
+              </Typography>
+              <SwapIcon sx={{ fontSize: 14, color: 'text.disabled' }} />
+              <Typography variant="body2" fontWeight="600">
+                {formatPuan(item.YeniPuan)}
+              </Typography>
+            </Stack>
+          ) : (
+            <Typography variant="body2" color="text.secondary">{formatPuan(item.EskiPuan || item.YeniPuan)}</Typography>
+          )}
+        </TableCell>
+        <TableCell align="center">
+          {fark !== null && item.PuanDegisti ? (
+            <Chip
+              label={fark > 0 ? `+${fark.toFixed(2)}` : fark.toFixed(2)}
+              size="small"
+              color={fark > 0 ? 'error' : 'success'}
+              variant="outlined"
+              sx={{ fontSize: '0.75rem' }}
+            />
+          ) : (
+            !item.PuanDegisti && <Chip label="—" size="small" variant="outlined" sx={{ fontSize: '0.7rem' }} />
+          )}
+        </TableCell>
+      </TableRow>
+      {hasNonPuanChanges && (
+        <TableRow>
+          <TableCell colSpan={6} sx={{ py: 0, borderBottom: expanded ? undefined : 'none' }}>
+            <Collapse in={expanded} timeout="auto" unmountOnExit>
+              <Box sx={{ py: 1.5, px: 2, my: 1, bgcolor: '#f8f9fa', borderRadius: 1, borderLeft: '3px solid', borderLeftColor: 'info.main' }}>
+                <Typography variant="caption" fontWeight="600" color="text.secondary" sx={{ mb: 1, display: 'block' }}>
+                  Detaylı Değişiklikler
+                </Typography>
+                <Stack spacing={1}>
+                  {item.IslemAdiDegisti && (
+                    <Box>
+                      <Typography variant="caption" fontWeight="600" color="text.secondary">İşlem Adı:</Typography>
+                      <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 0.25 }}>
+                        <Typography variant="caption" sx={{ color: 'error.main', textDecoration: 'line-through' }}>
+                          {truncate(item.EskiIslemAdi, 80) || '(boş)'}
+                        </Typography>
+                        <SwapIcon sx={{ fontSize: 12, color: 'text.disabled' }} />
+                        <Typography variant="caption" fontWeight="600" color="success.dark">
+                          {truncate(item.IslemAdi, 80) || '(boş)'}
+                        </Typography>
+                      </Stack>
+                    </Box>
+                  )}
+                  {item.AciklamaDegisti && (
+                    <Box>
+                      <Typography variant="caption" fontWeight="600" color="text.secondary">Açıklama:</Typography>
+                      <Stack spacing={0.5} sx={{ mt: 0.5 }}>
+                        <Box sx={{ p: 1, bgcolor: '#fff3f3', borderRadius: 0.5 }}>
+                          <Typography variant="caption" color="error.dark" sx={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+                            {truncate(item.EskiAciklama, 200) || '(boş)'}
+                          </Typography>
+                        </Box>
+                        <Box sx={{ p: 1, bgcolor: '#f0fff0', borderRadius: 0.5 }}>
+                          <Typography variant="caption" color="success.dark" sx={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+                            {truncate(item.YeniAciklama, 200) || '(boş)'}
+                          </Typography>
+                        </Box>
+                      </Stack>
+                    </Box>
+                  )}
+                </Stack>
+              </Box>
+            </Collapse>
+          </TableCell>
+        </TableRow>
+      )}
+    </>
+  );
+}
 
 // ============================================
 // Versiyon Listesi Tab
@@ -134,8 +261,6 @@ function VersiyonListesiTab() {
           <Table size="small" stickyHeader>
             <TableHead>
               <TableRow>
-                <TableCell sx={{ bgcolor: 'background.paper', fontWeight: 600 }}>Versiyon</TableCell>
-                <TableCell sx={{ bgcolor: 'background.paper', fontWeight: 600 }}>Liste Tipi</TableCell>
                 <TableCell sx={{ bgcolor: 'background.paper', fontWeight: 600 }}>Dosya Adı</TableCell>
                 <TableCell align="right" sx={{ bgcolor: 'background.paper', fontWeight: 600 }}>Kayıt Sayısı</TableCell>
                 <TableCell sx={{ bgcolor: 'background.paper', fontWeight: 600 }}>Yükleme Tarihi</TableCell>
@@ -146,13 +271,13 @@ function VersiyonListesiTab() {
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={7} align="center" sx={{ py: 5 }}>
+                  <TableCell colSpan={5} align="center" sx={{ py: 5 }}>
                     <LoadingSpinner size={40} />
                   </TableCell>
                 </TableRow>
               ) : versiyonlar.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} align="center" sx={{ py: 5 }}>
+                  <TableCell colSpan={5} align="center" sx={{ py: 5 }}>
                     <EmptyState message="Versiyon bulunamadı" />
                   </TableCell>
                 </TableRow>
@@ -160,33 +285,12 @@ function VersiyonListesiTab() {
                 versiyonlar.filter(v => v && v.VersionID).map((versiyon) => (
                   <TableRow key={versiyon.VersionID} hover>
                     <TableCell>
-                      <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-                        <Chip 
-                          label={`V${versiyon.VersionID}`} 
-                          color="primary" 
-                          size="small" 
-                        />
-                        {versiyonlar.length > 0 && versiyonlar[versiyonlar.length - 1]?.VersionID === versiyon.VersionID && (
-                          <Chip label="İlk Yükleme" size="small" variant="outlined" color="success" />
-                        )}
-                      </Box>
-                    </TableCell>
-                    <TableCell>
-                      <Chip 
-                        label={versiyon.ListeTipi} 
-                        color="secondary" 
-                        size="small" 
-                      />
-                    </TableCell>
-                    <TableCell>
                       <Typography variant="body2" fontSize="0.85rem">
                         {versiyon.DosyaAdi}
                       </Typography>
-                      {versiyon.Aciklama && (
-                        <Typography variant="caption" color="text.secondary" display="block">
-                          {versiyon.Aciklama}
-                        </Typography>
-                      )}
+                      <Typography variant="caption" color="text.secondary" display="block">
+                        {versiyon.Aciklama || (versiyonlar[versiyonlar.length - 1]?.VersionID === versiyon.VersionID ? 'İlk yükleme' : '')}
+                      </Typography>
                     </TableCell>
                     <TableCell align="right">
                       <Typography variant="body2" fontWeight="700">
@@ -195,7 +299,7 @@ function VersiyonListesiTab() {
                     </TableCell>
                     <TableCell>
                       <Typography variant="body2" fontSize="0.85rem">
-                        <DateDisplay date={versiyon.YuklemeTarihi} format="datetime" />
+                        <DateDisplay date={versiyon.YuklemeTarihi} format="short" />
                       </Typography>
                     </TableCell>
                     <TableCell>
@@ -240,12 +344,6 @@ function VersiyonListesiTab() {
               <Typography variant="h5" fontWeight="600">
                 Versiyon Karşılaştırma
               </Typography>
-              <Chip 
-                label={`V${secilenVersiyon?.VersionID}`} 
-                color="primary" 
-                size="small"
-                sx={{ mt: 1 }}
-              />
             </Box>
             <IconButton
               onClick={() => setDetayDialog(false)}
@@ -293,7 +391,7 @@ function VersiyonListesiTab() {
                       Yükleme Tarihi
                     </Typography>
                     <Typography variant="body2" fontWeight="500" sx={{ mt: 0.5 }}>
-                      {formatDateTime(versiyonDetay?.version.YuklemeTarihi)}
+                      {versiyonDetay?.version.YuklemeTarihi ? new Date(versiyonDetay.version.YuklemeTarihi).toLocaleDateString('tr-TR') : '-'}
                     </Typography>
                   </Grid>
                   <Grid item xs={12}>
@@ -333,84 +431,36 @@ function VersiyonListesiTab() {
                   Değişiklik Özeti
                 </Typography>
                 <Grid container spacing={2}>
-                  <Grid item xs={12} md={3}>
-                    <Paper 
-                      sx={{ 
-                        p: 2.5, 
-                        bgcolor: 'success.main', 
-                        color: 'white',
-                        borderRadius: 2,
-                        boxShadow: 2,
-                        transition: 'transform 0.2s',
-                        '&:hover': { transform: 'translateY(-2px)' }
-                      }}
-                    >
-                      <Typography variant="h3" fontWeight="bold" gutterBottom>
+                  <Grid item xs={6} md={3}>
+                    <Paper variant="outlined" sx={{ p: 2, borderLeft: 3, borderColor: 'success.main', borderRadius: 1 }}>
+                      <Typography variant="h4" fontWeight="700" color="success.main">
                         {versiyonDetay?.summary?.eklenen || 0}
                       </Typography>
-                      <Typography variant="body2" sx={{ opacity: 0.9 }}>
-                        Eklenen İşlem
-                      </Typography>
+                      <Typography variant="caption" color="text.secondary">Eklenen</Typography>
                     </Paper>
                   </Grid>
-                  <Grid item xs={12} md={3}>
-                    <Paper 
-                      sx={{ 
-                        p: 2.5, 
-                        bgcolor: 'warning.main', 
-                        color: 'white',
-                        borderRadius: 2,
-                        boxShadow: 2,
-                        transition: 'transform 0.2s',
-                        '&:hover': { transform: 'translateY(-2px)' }
-                      }}
-                    >
-                      <Typography variant="h3" fontWeight="bold" gutterBottom>
+                  <Grid item xs={6} md={3}>
+                    <Paper variant="outlined" sx={{ p: 2, borderLeft: 3, borderColor: 'warning.main', borderRadius: 1 }}>
+                      <Typography variant="h4" fontWeight="700" color="warning.main">
                         {versiyonDetay?.summary?.guncellenen || 0}
                       </Typography>
-                      <Typography variant="body2" sx={{ opacity: 0.9 }}>
-                        Güncellenen İşlem
-                      </Typography>
+                      <Typography variant="caption" color="text.secondary">Güncellenen</Typography>
                     </Paper>
                   </Grid>
-                  <Grid item xs={12} md={3}>
-                    <Paper 
-                      sx={{ 
-                        p: 2.5, 
-                        bgcolor: 'error.main', 
-                        color: 'white',
-                        borderRadius: 2,
-                        boxShadow: 2,
-                        transition: 'transform 0.2s',
-                        '&:hover': { transform: 'translateY(-2px)' }
-                      }}
-                    >
-                      <Typography variant="h3" fontWeight="bold" gutterBottom>
+                  <Grid item xs={6} md={3}>
+                    <Paper variant="outlined" sx={{ p: 2, borderLeft: 3, borderColor: 'error.main', borderRadius: 1 }}>
+                      <Typography variant="h4" fontWeight="700" color="error.main">
                         {versiyonDetay?.summary?.silinen || 0}
                       </Typography>
-                      <Typography variant="body2" sx={{ opacity: 0.9 }}>
-                        Silinen İşlem
-                      </Typography>
+                      <Typography variant="caption" color="text.secondary">Silinen</Typography>
                     </Paper>
                   </Grid>
-                  <Grid item xs={12} md={3}>
-                    <Paper 
-                      sx={{ 
-                        p: 2.5, 
-                        bgcolor: 'info.main', 
-                        color: 'white',
-                        borderRadius: 2,
-                        boxShadow: 2,
-                        transition: 'transform 0.2s',
-                        '&:hover': { transform: 'translateY(-2px)' }
-                      }}
-                    >
-                      <Typography variant="h3" fontWeight="bold" gutterBottom>
+                  <Grid item xs={6} md={3}>
+                    <Paper variant="outlined" sx={{ p: 2, borderLeft: 3, borderColor: 'grey.400', borderRadius: 1 }}>
+                      <Typography variant="h4" fontWeight="700" color="text.secondary">
                         {versiyonDetay?.summary?.degismeyen || 0}
                       </Typography>
-                      <Typography variant="body2" sx={{ opacity: 0.9 }}>
-                        Değişmeyen İşlem
-                      </Typography>
+                      <Typography variant="caption" color="text.secondary">Değişmeyen</Typography>
                     </Paper>
                   </Grid>
                 </Grid>
@@ -426,20 +476,16 @@ function VersiyonListesiTab() {
               </Box>
 
               {/* İlk Versiyon Kontrolü */}
-              {(!versiyonDetay?.summary || 
-                (versiyonDetay.summary.eklenen > 0 &&
-                 versiyonDetay.summary.guncellenen === 0 &&
-                 versiyonDetay.summary.silinen === 0 &&
-                 versiyonDetay.summary.degismeyen === 0 &&
-                 versiyonDetay.summary.eklenen === versiyonDetay.summary.toplam)) ? (
+              {versiyonDetay?.isFirstVersion ? (
                 <Box sx={{ mt: 2, p: 3, bgcolor: (theme) => theme.palette.success.light + '22', borderRadius: 2, textAlign: 'center' }}>
                   <InfoIcon sx={{ fontSize: 48, color: 'success.main', mb: 1 }} />
                   <Typography variant="body1" fontWeight="medium" gutterBottom>
-                    Bu versiyon ilk versiyon
+                    İlk Versiyon
                   </Typography>
                   <Typography variant="body2" color="textSecondary">
-                    Tüm {versiyonDetay?.summary?.eklenen || 0} işlem yeni kayıt olarak eklendi. 
-                    Karşılaştırma yapmak için en az iki versiyon olmalıdır.
+                    Bu, sisteme yüklenen ilk versiyondur. 
+                    Toplam {versiyonDetay?.summary?.toplam?.toLocaleString('tr-TR') || 0} kayıt ile başlatıldı. 
+                    Karşılaştırma yapılacak önceki versiyon bulunmamaktadır.
                   </Typography>
                 </Box>
               ) : versiyonDetay?.summary?.eklenen === 0 &&
@@ -511,81 +557,22 @@ function VersiyonListesiTab() {
                       <Typography variant="h6" gutterBottom fontWeight="600" color="warning.main">
                         Güncellenen İşlemler ({versiyonDetay.guncellenenler.length})
                       </Typography>
-                      <TableContainer component={Paper} variant="outlined" sx={{ maxHeight: 300 }}>
+                      <TableContainer component={Paper} variant="outlined" sx={{ maxHeight: 400 }}>
                         <Table size="small" stickyHeader>
                           <TableHead>
                             <TableRow>
+                              <TableCell sx={{ width: 40 }} />
                               <TableCell sx={{ fontWeight: 600 }}>SUT Kodu</TableCell>
                               <TableCell sx={{ fontWeight: 600 }}>İşlem Adı</TableCell>
-                              <TableCell align="right" sx={{ fontWeight: 600 }}>Eski Puan</TableCell>
-                              <TableCell align="right" sx={{ fontWeight: 600 }}>Yeni Puan</TableCell>
-                              <TableCell align="right" sx={{ fontWeight: 600 }}>Fark</TableCell>
-                              <TableCell sx={{ fontWeight: 600 }}>Değişen Alanlar</TableCell>
+                              <TableCell align="center" sx={{ fontWeight: 600 }}>Değişen Alanlar</TableCell>
+                              <TableCell align="right" sx={{ fontWeight: 600 }}>Puan</TableCell>
+                              <TableCell align="center" sx={{ fontWeight: 600, width: 90 }}>Fark</TableCell>
                             </TableRow>
                           </TableHead>
                           <TableBody>
-                            {versiyonDetay.guncellenenler.map((item, idx) => {
-                              const fark = item.YeniPuan && item.EskiPuan 
-                                ? item.YeniPuan - item.EskiPuan 
-                                : null;
-                              
-                              // Değişen alanları tespit et
-                              const degisiklikler = [];
-                              if (item.PuanDegisti) degisiklikler.push('Puan');
-                              if (item.IslemAdiDegisti) degisiklikler.push('İşlem Adı');
-                              if (item.AciklamaDegisti) degisiklikler.push('Açıklama');
-                              
-                              return (
-                                <TableRow key={idx} hover>
-                                  <TableCell>
-                                    <Chip label={item.SutKodu} size="small" color="warning" variant="outlined" />
-                                  </TableCell>
-                                  <TableCell>
-                                    <Typography variant="body2" noWrap sx={{ maxWidth: 300 }}>
-                                      {item.IslemAdi}
-                                    </Typography>
-                                    {item.IslemAdiDegisti && item.EskiIslemAdi && (
-                                      <Typography variant="caption" color="text.secondary" display="block" sx={{ textDecoration: 'line-through' }}>
-                                        {item.EskiIslemAdi}
-                                      </Typography>
-                                    )}
-                                  </TableCell>
-                                  <TableCell align="right">
-                                    <Typography variant="body2" color="textSecondary">
-                                      {item.EskiPuan?.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '-'}
-                                    </Typography>
-                                  </TableCell>
-                                  <TableCell align="right">
-                                    <Typography variant="body2" fontWeight="600">
-                                      {item.YeniPuan?.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '-'}
-                                    </Typography>
-                                  </TableCell>
-                                  <TableCell align="right">
-                                    {fark !== null && (
-                                      <Chip 
-                                        label={fark > 0 ? `+${fark.toFixed(2)}` : fark.toFixed(2)}
-                                        size="small"
-                                        color={fark > 0 ? 'error' : 'success'}
-                                        variant="outlined"
-                                      />
-                                    )}
-                                  </TableCell>
-                                  <TableCell>
-                                    <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
-                                      {degisiklikler.map((deg, i) => (
-                                        <Chip 
-                                          key={i}
-                                          label={deg} 
-                                          size="small" 
-                                          color="warning"
-                                          variant="outlined"
-                                        />
-                                      ))}
-                                    </Box>
-                                  </TableCell>
-                                </TableRow>
-                              );
-                            })}
+                            {versiyonDetay.guncellenenler.map((item, idx) => (
+                              <SutVersiyonGuncellenenRow key={idx} item={item} />
+                            ))}
                           </TableBody>
                         </Table>
                       </TableContainer>

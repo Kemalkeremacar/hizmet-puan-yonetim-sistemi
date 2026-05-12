@@ -36,10 +36,7 @@ function BatchMatchingPanel({ onBatchComplete, stats }) {
   const [summary, setSummary] = useState(null);
   const [error, setError] = useState(null);
   
-  // Toplam kayıt sayısı
-  // Stats yüklenmemişse veya totalIslemler 0 ise default 7129 kullan
-  const defaultTotal = 7129;
-  const actualTotal = stats?.totalIslemler || defaultTotal;
+  const actualTotal = stats?.totalIslemler || 0;
   const actualUnmatched = stats?.unmatchedCount || 0;
   
   // - Eğer hiç eşleşme yoksa: tüm kayıtlar

@@ -25,9 +25,11 @@ class DirectSutCodeStrategy extends MatchingStrategy {
   }
   
   /**
-   * Match SUT işlem with HUV teminat using direct SUT code lookup
+   * Match SUT işlem with HUV teminat using direct SUT code lookup.
+   * Finds a HUV işlem sharing the same SUT code, then resolves its
+   * AltTeminat via UstBaslik hierarchy + AnaDalKodu.
    * @param {Object} sutIslem - SUT işlem object with sutKodu
-   * @param {Array} huvList - Array of HUV teminat objects (not used, we query directly)
+   * @param {Array} huvList - not used
    * @returns {Promise<Object>} Match result
    */
   async match(sutIslem, huvList) {
@@ -36,39 +38,85 @@ class DirectSutCodeStrategy extends MatchingStrategy {
     }
     
     try {
-      // Query HuvIslemler for matching SutKodu
       const result = await this.dbPool.request()
         .input('sutKodu', sutIslem.sutKodu)
         .query(`
-          SELECT TOP 1
-            h.AltTeminatID,
+          SELECT
+            h.IslemID,
             h.IslemAdi as HuvIslemAdi,
-            a.AltTeminatAdi
+            h.UstBaslik,
+            h.AnaDalKodu
           FROM HuvIslemler h
-          INNER JOIN HuvAltTeminatlar a ON h.AltTeminatID = a.AltTeminatID
           WHERE h.SutKodu = @sutKodu 
             AND h.AktifMi = 1
-            AND a.AktifMi = 1
         `);
       
       if (result.recordset.length === 0) {
         return { matched: false, ruleType: this.getRuleType() };
       }
       
-      const match = result.recordset[0];
+      for (const huvIslem of result.recordset) {
+        const altTeminatId = await this._resolveAltTeminat(
+          huvIslem.UstBaslik,
+          huvIslem.AnaDalKodu
+        );
+        
+        if (altTeminatId) {
+          return {
+            matched: true,
+            altTeminatId,
+            confidence: 100.0,
+            ruleType: this.getRuleType(),
+            huvIslemAdi: huvIslem.HuvIslemAdi
+          };
+        }
+      }
       
-      return {
-        matched: true,
-        altTeminatId: match.AltTeminatID,
-        confidence: 100.0, // %100 güven - direkt SUT kodu eşleşmesi
-        ruleType: this.getRuleType(),
-        huvIslemAdi: match.HuvIslemAdi // Debug için
-      };
+      return { matched: false, ruleType: this.getRuleType() };
       
     } catch (error) {
       console.error('Error in DirectSutCodeStrategy:', error);
       return { matched: false, ruleType: this.getRuleType() };
     }
+  }
+  
+  /**
+   * Resolve AltTeminatID from a HUV işlem's UstBaslik hierarchy path.
+   * Tries each segment from last to first (skipping segment 0 which is the
+   * Ana Dal name) until a matching AltTeminat is found.
+   * Example: "ANESTEZİYOLOJİ→ALGOLOJİ/AĞRI TEDAVİSİ→ENJEKSİYONLAR"
+   *   tries: ENJEKSİYONLAR → ALGOLOJİ/AĞRI TEDAVİSİ → (stops, found)
+   */
+  async _resolveAltTeminat(ustBaslik, anaDalKodu) {
+    if (!ustBaslik) return null;
+    
+    const segments = ustBaslik.split('→').map(s => s.trim());
+    
+    for (let i = segments.length - 1; i >= 1; i--) {
+      const candidate = segments[i];
+      if (!candidate) continue;
+      
+      try {
+        const result = await this.dbPool.request()
+          .input('altTeminatAdi', candidate)
+          .input('anaDalKodu', anaDalKodu)
+          .query(`
+            SELECT TOP 1 AltTeminatID
+            FROM HuvAltTeminatlar
+            WHERE AltTeminatAdi = @altTeminatAdi
+              AND AnaDalKodu = @anaDalKodu
+              AND AktifMi = 1
+          `);
+        
+        if (result.recordset.length > 0) {
+          return result.recordset[0].AltTeminatID;
+        }
+      } catch (error) {
+        console.error('Error resolving AltTeminat:', error);
+      }
+    }
+    
+    return null;
   }
   
   /**

@@ -411,43 +411,20 @@ function HiyerarsiAgaci() {
               {node.label}
             </Typography>
             
-            <Stack direction="row" spacing={1} alignItems="center">
-              <Chip 
-                label={`HUV: ${node.huvKodu ?? '-'}`} 
-                size="small" 
-                variant="outlined"
-                sx={{ fontSize: '0.7rem' }}
-              />
+            <Stack direction="row" spacing={0.75} alignItems="center">
+              {node.huvKodu && (
+                <Typography variant="caption" color="text.secondary" sx={{ fontFamily: 'monospace' }}>
+                  {node.huvKodu}
+                </Typography>
+              )}
               
-              <Chip 
-                label={`Seviye: ${node.seviye ?? '-'}`} 
-                size="small" 
-                color="primary"
-                sx={{ fontSize: '0.7rem' }}
-              />
-              
-              {node.birim !== null && node.birim !== undefined ? (
-                node.birim === 0 ? (
-                  <Chip 
-                    label="Açıklama" 
-                    size="small" 
-                    color="info"
-                    sx={{ fontSize: '0.7rem' }}
-                  />
-                ) : (
-                  <Chip 
-                    label={`${node.birim.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} TL`} 
-                    size="small" 
-                    color="success"
-                    sx={{ fontSize: '0.7rem', fontWeight: 'bold' }}
-                  />
-                )
-              ) : (
+              {node.birim !== null && node.birim !== undefined && node.birim > 0 && (
                 <Chip 
-                  label="Kategori" 
+                  label={`${node.birim.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} TL`} 
                   size="small" 
-                  color="default"
-                  sx={{ fontSize: '0.7rem' }}
+                  color="success"
+                  variant="outlined"
+                  sx={{ fontSize: '0.7rem', fontWeight: 600, height: 22 }}
                 />
               )}
             </Stack>
@@ -456,22 +433,23 @@ function HiyerarsiAgaci() {
         sx={{
           '& .MuiTreeItem-content': {
             borderRadius: 1,
-            mb: 0.5,
-            py: 1,
+            mb: 0.25,
+            py: 0.5,
+            px: 1,
             '&:hover': {
               backgroundColor: 'action.hover'
             },
             '&.Mui-selected': {
-              backgroundColor: 'primary.light',
+              backgroundColor: 'action.selected',
               '&:hover': {
-                backgroundColor: 'primary.light'
+                backgroundColor: 'action.selected'
               }
             }
           },
           '& .MuiTreeItem-group': {
-            marginLeft: 3,
-            paddingLeft: 2,
-            borderLeft: (t) => `1px dashed ${t.palette.divider}`
+            marginLeft: 2.5,
+            paddingLeft: 1.5,
+            borderLeft: (t) => `1px solid ${t.palette.divider}`
           }
         }}
       >
@@ -578,86 +556,49 @@ function HiyerarsiAgaci() {
       />
 
       {/* Filtreler */}
-      <Paper sx={{ p: 3, mb: 3 }}>
-        <Stack spacing={2}>
-          {/* Ana Dal ve Butonlar */}
-          <Stack direction="row" spacing={2} alignItems="center">
-            <FormControl sx={{ minWidth: 300 }}>
-              <InputLabel>Ana Dal Seçin</InputLabel>
-              <Select
-                value={selectedAnaDal}
-                onChange={(e) => {
-                  setSelectedAnaDal(e.target.value);
-                }}
-                label="Ana Dal Seçin"
-                disabled={loading}
-              >
-                <MenuItem value="">
-                  <em>Seçim Yapın</em>
+      <Paper sx={{ p: 2, mb: 2 }}>
+        <Stack direction="row" spacing={1.5} alignItems="center" flexWrap="wrap">
+          <FormControl size="small" sx={{ minWidth: 280 }}>
+            <InputLabel>Ana Dal Seçin</InputLabel>
+            <Select
+              value={selectedAnaDal}
+              onChange={(e) => {
+                setSelectedAnaDal(e.target.value);
+              }}
+              label="Ana Dal Seçin"
+              disabled={loading}
+            >
+              <MenuItem value="">
+                <em>Seçim Yapın</em>
+              </MenuItem>
+              {anaDallar.map((anaDal) => (
+                <MenuItem key={anaDal.AnaDalKodu} value={anaDal.AnaDalKodu}>
+                  <Typography variant="body2">
+                    <strong>{anaDal.AnaDalKodu}</strong> — {anaDal.BolumAdi}
+                  </Typography>
                 </MenuItem>
-                {anaDallar.map((anaDal) => (
-                  <MenuItem key={anaDal.AnaDalKodu} value={anaDal.AnaDalKodu}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <Chip 
-                        label={anaDal.AnaDalKodu} 
-                        size="small" 
-                        color="primary" 
-                        sx={{ minWidth: '40px', fontWeight: 'bold' }}
-                      />
-                      <Typography>{anaDal.BolumAdi}</Typography>
-                    </Box>
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
+              ))}
+            </Select>
+          </FormControl>
 
-            <Button
-              variant="outlined"
-              onClick={handleExpandAll}
-              disabled={treeData.length === 0 || loading}
-            >
-              Tümünü Genişlet
-            </Button>
-
-            <Button
-              variant="outlined"
-              onClick={handleCollapseAll}
-              disabled={treeData.length === 0 || loading}
-            >
-              Tümünü Daralt
-            </Button>
-
-            <Button
-              variant="outlined"
-              startIcon={<FileDownloadIcon />}
-              onClick={handleExport}
-              disabled={islemler.length === 0 || loading}
-              color="success"
-            >
-              Excel'e Aktar
-            </Button>
-          </Stack>
-
-          {/* Arama Kutusu */}
           {treeData.length > 0 && (
             <TextField
-              fullWidth
-              placeholder="İşlem adı veya HUV kodu ile ara..."
+              placeholder="Ara..."
               value={searchText}
               onChange={(e) => setSearchText(e.target.value)}
               InputProps={{
                 startAdornment: (
                   <InputAdornment position="start">
-                    <SearchIcon color="action" />
+                    <SearchIcon color="action" fontSize="small" />
                   </InputAdornment>
                 ),
                 endAdornment: searchText && (
                   <InputAdornment position="end">
-                    <Tooltip title="Aramayı Temizle">
+                    <Tooltip title="Temizle">
                       <Button
                         size="small"
                         onClick={handleClearSearch}
-                        sx={{ minWidth: 'auto', p: 0.5 }}
+                        sx={{ minWidth: 'auto', p: 0.25 }}
                       >
                         <ClearIcon fontSize="small" />
                       </Button>
@@ -666,8 +607,39 @@ function HiyerarsiAgaci() {
                 )
               }}
               size="small"
+              sx={{ flex: 1, minWidth: 200 }}
             />
           )}
+
+          <Stack direction="row" spacing={1} sx={{ ml: 'auto' }}>
+            <Button
+              size="small"
+              variant="text"
+              onClick={handleExpandAll}
+              disabled={treeData.length === 0 || loading}
+            >
+              Genişlet
+            </Button>
+
+            <Button
+              size="small"
+              variant="text"
+              onClick={handleCollapseAll}
+              disabled={treeData.length === 0 || loading}
+            >
+              Daralt
+            </Button>
+
+            <Button
+              size="small"
+              variant="outlined"
+              startIcon={<FileDownloadIcon />}
+              onClick={handleExport}
+              disabled={islemler.length === 0 || loading}
+            >
+              Excel
+            </Button>
+          </Stack>
         </Stack>
       </Paper>
 
@@ -700,33 +672,20 @@ function HiyerarsiAgaci() {
 
       {/* İstatistikler */}
       {islemler.length > 0 && (
-        <Alert 
-          severity={islemler.length >= 5000 ? "warning" : "info"} 
-          sx={{ mb: 3 }}
-        >
-          <Stack direction="row" spacing={3} flexWrap="wrap">
-            <Typography variant="body2">
-              <strong>Toplam Kayıt:</strong> {islemler.length}
-              {islemler.length >= 5000 && (
-                <Chip 
-                  label="Limit" 
-                  size="small" 
-                  color="warning" 
-                  sx={{ ml: 1, fontSize: '0.7rem' }}
-                />
-              )}
+        <Box sx={{ mb: 2, px: 1 }}>
+          <Stack direction="row" spacing={2} flexWrap="wrap" alignItems="center">
+            <Typography variant="caption" color="text.secondary">
+              {islemler.length.toLocaleString('tr-TR')} kayıt
+              {islemler.length >= 5000 && ' (limit)'}
             </Typography>
-            <Typography variant="body2">
-              <strong>Fiyatlı İşlem (Birim &gt; 0):</strong> {islemler.filter(i => i.Birim !== null && i.Birim !== undefined && i.Birim > 0).length}
+            <Typography variant="caption" color="text.secondary">
+              {islemler.filter(i => i.Birim !== null && i.Birim !== undefined && i.Birim > 0).length} fiyatlı
             </Typography>
-            <Typography variant="body2">
-              <strong>Açıklama (Birim = 0):</strong> {islemler.filter(i => i.Birim === 0).length}
-            </Typography>
-            <Typography variant="body2">
-              <strong>Kategori (Birim = NULL):</strong> {islemler.filter(i => i.Birim === null || i.Birim === undefined).length}
+            <Typography variant="caption" color="text.secondary">
+              {islemler.filter(i => i.Birim === null || i.Birim === undefined).length} kategori
             </Typography>
           </Stack>
-        </Alert>
+        </Box>
       )}
 
       {/* Tree View */}
@@ -798,108 +757,64 @@ function HiyerarsiAgaci() {
 
           {/* Detay Paneli */}
           {selectedNodeDetails && (
-            <Paper sx={{ p: 3 }}>
-              <Stack spacing={2}>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <Typography variant="h6" color="primary">
-                    Seçili İşlem Detayları
+            <Paper variant="outlined" sx={{ p: 2.5, mt: 1 }}>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1.5 }}>
+                <Box>
+                  <Typography variant="body1" fontWeight={600}>
+                    {selectedNodeDetails.label}
                   </Typography>
-                  <Button
-                    size="small"
-                    onClick={() => {
-                      setSelectedNodeDetails(null);
-                    }}
-                    startIcon={<ClearIcon />}
-                  >
-                    Kapat
-                  </Button>
-                </Box>
-
-                <Stack spacing={1.5}>
-                  <Box>
-                    <Typography variant="caption" color="textSecondary">
-                      İşlem Adı
-                    </Typography>
-                    <Typography variant="body1" fontWeight="bold">
-                      {selectedNodeDetails.label}
-                    </Typography>
-                  </Box>
-
-                  <Stack direction="row" spacing={3}>
-                    <Box>
-                      <Typography variant="caption" color="textSecondary">
-                        HUV Kodu
-                      </Typography>
-                      <Typography variant="body2">
-                        {selectedNodeDetails.huvKodu ?? '-'}
-                      </Typography>
-                    </Box>
-
-                    <Box>
-                      <Typography variant="caption" color="textSecondary">
-                        Hiyerarşi Seviyesi
-                      </Typography>
-                      <Typography variant="body2">
-                        {selectedNodeDetails.seviye ?? '-'}
-                      </Typography>
-                    </Box>
-
-                    <Box>
-                      <Typography variant="caption" color="textSecondary">
-                        Birim Fiyat
-                      </Typography>
-                      <Typography variant="body2" fontWeight="bold" color="success.main">
-                        {selectedNodeDetails.birim 
-                          ? `${selectedNodeDetails.birim.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} TL`
-                          : 'Kategori (Fiyat Yok)'}
-                      </Typography>
-                    </Box>
-
-                    <Box>
-                      <Typography variant="caption" color="textSecondary">
-                        Alt İşlem Sayısı
-                      </Typography>
-                      <Typography variant="body2">
-                        {selectedNodeDetails.children?.length || 0}
-                      </Typography>
-                    </Box>
-                  </Stack>
-
                   {selectedNodeDetails.ustBaslik && (
-                    <Box>
-                      <Typography variant="caption" color="textSecondary">
-                        Üst Başlık
-                      </Typography>
-                      <Typography variant="body2">
-                        {selectedNodeDetails.ustBaslik}
-                      </Typography>
-                    </Box>
+                    <Typography variant="caption" color="text.secondary">
+                      {selectedNodeDetails.ustBaslik}
+                    </Typography>
                   )}
+                </Box>
+                <Button
+                  size="small"
+                  onClick={() => setSelectedNodeDetails(null)}
+                  sx={{ minWidth: 'auto', p: 0.5 }}
+                >
+                  <ClearIcon fontSize="small" />
+                </Button>
+              </Box>
 
-                  {selectedNodeDetails.not && (
-                    <Box>
-                      <Typography variant="caption" color="textSecondary">
-                        Not
-                      </Typography>
-                      <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
-                        {selectedNodeDetails.not}
-                      </Typography>
-                    </Box>
-                  )}
-
-                  {selectedNodeDetails.guncellemeTarihi && (
-                    <Box>
-                      <Typography variant="caption" color="textSecondary">
-                        Son Güncelleme
-                      </Typography>
-                      <Typography variant="body2">
-                        {new Date(selectedNodeDetails.guncellemeTarihi).toLocaleString('tr-TR')}
-                      </Typography>
-                    </Box>
-                  )}
-
-                </Stack>
+              <Stack direction="row" spacing={3} flexWrap="wrap">
+                <Box>
+                  <Typography variant="caption" color="text.secondary">HUV Kodu</Typography>
+                  <Typography variant="body2" fontFamily="monospace">{selectedNodeDetails.huvKodu ?? '-'}</Typography>
+                </Box>
+                <Box>
+                  <Typography variant="caption" color="text.secondary">Seviye</Typography>
+                  <Typography variant="body2">{selectedNodeDetails.seviye ?? '-'}</Typography>
+                </Box>
+                <Box>
+                  <Typography variant="caption" color="text.secondary">Birim Fiyat</Typography>
+                  <Typography variant="body2" fontWeight={600} color={selectedNodeDetails.birim ? 'success.main' : 'text.secondary'}>
+                    {selectedNodeDetails.birim 
+                      ? `${selectedNodeDetails.birim.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} TL`
+                      : 'Kategori'}
+                  </Typography>
+                </Box>
+                <Box>
+                  <Typography variant="caption" color="text.secondary">Alt İşlem</Typography>
+                  <Typography variant="body2">{selectedNodeDetails.children?.length || 0}</Typography>
+                </Box>
+                {selectedNodeDetails.guncellemeTarihi && (
+                  <Box>
+                    <Typography variant="caption" color="text.secondary">Son Güncelleme</Typography>
+                    <Typography variant="body2">{new Date(selectedNodeDetails.guncellemeTarihi).toLocaleString('tr-TR')}</Typography>
+                  </Box>
+                )}
               </Stack>
+
+              {selectedNodeDetails.not && (
+                <Box sx={{ mt: 1.5, pt: 1.5, borderTop: 1, borderColor: 'divider' }}>
+                  <Typography variant="caption" color="text.secondary">Not</Typography>
+                  <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
+                    {selectedNodeDetails.not}
+                  </Typography>
+                </Box>
+              )}
             </Paper>
           )}
         </>

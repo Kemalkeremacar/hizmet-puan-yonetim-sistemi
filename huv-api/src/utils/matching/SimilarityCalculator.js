@@ -15,17 +15,14 @@ class SimilarityCalculator {
   static calculateSimilarity(str1, str2) {
     if (!str1 || !str2) return 0.0;
     
-    // Normalize strings (preserve Turkish characters)
     const s1 = this.normalizeString(str1);
     const s2 = this.normalizeString(str2);
     
     if (s1 === s2) return 1.0;
     if (s1.length === 0 || s2.length === 0) return 0.0;
     
-    // Calculate Jaro similarity
     const jaroSim = this.jaroSimilarity(s1, s2);
     
-    // Calculate common prefix length (max 4)
     let prefixLen = 0;
     const maxPrefix = Math.min(4, s1.length, s2.length);
     for (let i = 0; i < maxPrefix; i++) {
@@ -36,17 +33,25 @@ class SimilarityCalculator {
       }
     }
     
-    // Jaro-Winkler similarity with scaling factor p = 0.1
     const p = 0.1;
-    return jaroSim + (prefixLen * p * (1 - jaroSim));
+    let score = jaroSim + (prefixLen * p * (1 - jaroSim));
+    
+    const minLen = Math.min(s1.length, s2.length);
+    const maxLen = Math.max(s1.length, s2.length);
+    const lengthRatio = minLen / maxLen;
+    if (lengthRatio < 0.5) {
+      score *= (0.5 + lengthRatio);
+    }
+    
+    return score;
   }
   
   /**
    * Normalize string for comparison
    * - Convert to lowercase
-   * - Trim whitespace
-   * - Replace multiple spaces with single space
-   * - Preserve Turkish characters (ç, ğ, ı, ö, ş, ü)
+   * - Normalize Turkish characters to ASCII equivalents
+   * - Remove non-alphanumeric characters (except spaces)
+   * - Trim whitespace and collapse multiple spaces
    * @param {string} str - String to normalize
    * @returns {string} Normalized string
    */
@@ -54,9 +59,17 @@ class SimilarityCalculator {
     if (!str) return '';
     
     return str
+      .replace(/[şŞ]/g, 's')
+      .replace(/[ğĞ]/g, 'g')
+      .replace(/[üÜ]/g, 'u')
+      .replace(/[öÖ]/g, 'o')
+      .replace(/[çÇ]/g, 'c')
+      .replace(/[ıİ]/g, 'i')
       .toLowerCase()
-      .trim()
-      .replace(/\s+/g, ' ');
+      .replace(/^\d+(\.\d+)*\.?\s*/g, '')
+      .replace(/[^\w\s]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
   }
   
   /**
