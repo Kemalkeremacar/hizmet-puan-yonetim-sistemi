@@ -390,7 +390,6 @@ huv-api/
 │       ├── dateUtils.js          # Tarih işlemleri
 │       ├── turkishCharFix.js     # Türkçe encoding düzeltme
 │       ├── fileCleanup.js        # Upload klasörü temizleme
-│       ├── cache.js              # Basit cache mekanizması
 │       ├── BatchProcessor.js     # Batch işleme utility
 │       └── matching/
 │           ├── StringNormalizer.js # String normalizasyon
@@ -554,20 +553,17 @@ huv-frontend/
 │   │   ├── common/
 │   │   │   ├── DataTable.jsx            # Ortak veri tablosu
 │   │   │   ├── PageHeader.jsx           # Sayfa başlığı
-│   │   │   ├── StatCard.jsx             # İstatistik kartı
 │   │   │   ├── LoadingSpinner.jsx       # Yükleniyor animasyonu
 │   │   │   ├── ErrorBoundary.jsx        # React error boundary
 │   │   │   ├── ErrorAlert.jsx           # Hata uyarısı
 │   │   │   ├── ConfirmDialog.jsx        # Onay dialog'u
 │   │   │   ├── EmptyState.jsx           # Boş durum gösterimi
-│   │   │   ├── SafeText.jsx             # Güvenli metin render
 │   │   │   ├── DateDisplay.jsx          # Tarih gösterimi
 │   │   │   ├── TabPanel.jsx             # Tab panel wrapper
 │   │   │   └── ProtectedRoute.jsx       # Auth korumalı route
 │   │   └── matching/
 │   │       ├── BatchMatchingPanel.jsx   # Toplu eşleştirme paneli
-│   │       ├── HuvTeminatSelectionDialog.jsx # HUV teminat seçim dialog'u
-│   │       └── MatchingStatsCharts.jsx  # Eşleştirme grafikleri
+│   │       └── HuvTeminatSelectionDialog.jsx # HUV teminat seçim dialog'u
 │   ├── pages/
 │   │   ├── Login.jsx             # Giriş sayfası
 │   │   ├── HiyerarsiAgaci.jsx   # HUV hiyerarşi ağacı
@@ -592,11 +588,9 @@ huv-frontend/
 │   │   └── externalService.js    # Dış servis API çağrıları
 │   └── utils/
 │       ├── dateUtils.js          # Tarih formatları ve validasyon
-│       ├── textUtils.js          # Metin işlemleri
 │       ├── stringUtils.js        # String yardımcıları
 │       ├── export.js             # Dışa aktarma
-│       ├── toast.js              # Toast bildirim
-│       └── toastManager.js       # Toast yöneticisi
+│       └── toastManager.js       # Toast bildirimleri
 └── vite.config.js
 ```
 
@@ -1151,7 +1145,7 @@ Excel dosyaları farklı encoding'lerde (Windows-1254, UTF-8, vb.) gelebilir. SQ
 | HTML entity | `turkishCharFix.js` | `he.decode()` ile HTML entity decode |
 | DB collation | `database.js` | Turkish_CI_AS collation kontrolü |
 | Sayı parse | `turkishCharFix.js` | Türkçe virgül → nokta dönüşümü |
-| Frontend render | `SafeText.jsx` | Güvenli metin gösterimi |
+| Frontend API yanıtı | `axios.js` (interceptor) | `fixTurkishChars` ile string alanları |
 
 ### 16.3. Karakter Haritası
 

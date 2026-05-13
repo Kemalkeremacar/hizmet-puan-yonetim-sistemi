@@ -202,11 +202,17 @@ function Tarihsel() {
         bitis: degisiklikForm.bitis
       });
 
-      const data = response.data?.data || response.data || [];
+      const body = response?.success !== undefined ? response : response?.data;
+      const raw = body?.data;
+      const data = Array.isArray(raw)
+        ? raw
+        : raw && typeof raw === 'object'
+          ? [raw]
+          : [];
       setDegisiklikResult(data);
       
       if (data.length === 0) {
-        const uyari = response.data?.uyari || 'Bu tarih aralığında değişiklik bulunamadı';
+        const uyari = body?.uyari || 'Bu tarih aralığında değişiklik bulunamadı';
         showInfo(uyari);
       } else {
         showSuccess(`${data.length} değişiklik bulundu`);

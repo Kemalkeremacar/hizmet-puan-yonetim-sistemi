@@ -119,7 +119,6 @@ HUV/
 │   │   │
 │   │   ├── utils/                  # Yardımcı fonksiyonlar
 │   │   │   ├── response.js         # Response helpers
-│   │   │   ├── cache.js            # Cache yönetimi
 │   │   │   ├── dateUtils.js        # Tarih işlemleri
 │   │   │   ├── fileCleanup.js      # Dosya temizleme
 │   │   │   └── matching/           # Eşleştirme utils

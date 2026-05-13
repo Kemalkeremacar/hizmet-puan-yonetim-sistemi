@@ -114,7 +114,7 @@ const getPuanByTarih = async (req, res, next) => {
 // ============================================
 // GET /api/tarihsel/sut/degisen
 // Tarih aralığında değişen SUT kodları
-// SP: sp_SutTarihAraligindaDegişenler
+// Not: SP önce filtre sonra LAG + GROUP BY kullanımı satırları yutuyordu; her geçerli değişim bir satır.
 // Query Params: baslangic, bitis (zorunlu), anaBaslikNo
 // ============================================
 const getDegişenler = async (req, res, next) => {
@@ -136,15 +136,52 @@ const getDegişenler = async (req, res, next) => {
 
     const pool = await getPool();
 
-    // sp_SutTarihAraligindaDegis kullan (Türkçe karakter olmadan)
     const result = await pool.request()
       .input('BaslangicTarihi', sql.Date, baslangic)
       .input('BitisTarihi', sql.Date, bitis)
-      .input('AnaBaslikNo', sql.Int, anaBaslikNo ? parseInt(anaBaslikNo) : null)
-      .execute('sp_SutTarihAraligindaDegis');
+      .input('AnaBaslikNo', sql.Int, anaBaslikNo ? parseInt(anaBaslikNo, 10) : null)
+      .query(`
+        WITH Zincir AS (
+          SELECT
+            v.SutID,
+            v.SutKodu,
+            v.IslemAdi,
+            v.AnaBaslikNo,
+            v.Puan,
+            v.GecerlilikBaslangic,
+            LAG(v.Puan) OVER (PARTITION BY v.SutID ORDER BY v.GecerlilikBaslangic) AS OncekiPuan
+          FROM SutIslemVersionlar v
+          WHERE (@AnaBaslikNo IS NULL OR v.AnaBaslikNo = @AnaBaslikNo)
+        )
+        SELECT
+          z.SutID,
+          z.SutKodu,
+          z.IslemAdi,
+          z.AnaBaslikNo,
+          z.Puan AS YeniPuan,
+          z.OncekiPuan AS EskiPuan,
+          (z.Puan - z.OncekiPuan) AS PuanDegisimi,
+          CASE
+            WHEN z.OncekiPuan > 0 THEN
+              CAST(((z.Puan - z.OncekiPuan) / z.OncekiPuan) * 100 AS DECIMAL(10, 2))
+            ELSE NULL
+          END AS PuanDegisimYuzdesi,
+          z.GecerlilikBaslangic AS IlkDegisiklik,
+          z.GecerlilikBaslangic AS SonDegisiklik,
+          1 AS DegisiklikSayisi,
+          s.AktifMi
+        FROM Zincir z
+        LEFT JOIN SutIslemler s ON z.SutID = s.SutID
+        WHERE z.OncekiPuan IS NOT NULL
+          AND ABS(z.Puan - z.OncekiPuan) > 0.01
+          AND CAST(z.GecerlilikBaslangic AS DATE) >= CAST(@BaslangicTarihi AS DATE)
+          AND CAST(z.GecerlilikBaslangic AS DATE) <= CAST(@BitisTarihi AS DATE)
+        ORDER BY ABS(z.Puan - z.OncekiPuan) DESC, z.GecerlilikBaslangic DESC, z.SutKodu;
+      `);
 
+    const rows = result.recordset || [];
     // Frontend uyumluluğu için field mapping
-    const mappedData = result.recordset.map(item => ({
+    const mappedData = rows.map(item => ({
       ...item,
       Fark: item.PuanDegisimi || item.Fark, // PuanDegisimi -> Fark
       DegisimYuzdesi: item.PuanDegisimYuzdesi || item.DegisimYuzdesi, // PuanDegisimYuzdesi -> DegisimYuzdesi

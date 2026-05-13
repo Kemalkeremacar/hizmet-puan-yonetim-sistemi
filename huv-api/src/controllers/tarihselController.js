@@ -83,7 +83,7 @@ const getFiyatByTarih = async (req, res, next) => {
 // ============================================
 // GET /api/tarihsel/degisen
 // Tarih aralığında değişen işlemler
-// SP: sp_TarihAraligindaDegişenler
+// Not: SP önce filtre sonra LAG kullandığı için zincir kopuyordu; doğru LAG için sorgu burada.
 // Query Params: baslangic, bitis (zorunlu), anaDalKodu
 // ============================================
 const getDegişenler = async (req, res, next) => {
@@ -105,14 +105,49 @@ const getDegişenler = async (req, res, next) => {
 
     const pool = await getPool();
 
-    // sp_TarihAraligindaDegişenler kullan
     const result = await pool.request()
       .input('BaslangicTarihi', sql.Date, baslangic)
       .input('BitisTarihi', sql.Date, bitis)
-      .input('AnaDalKodu', sql.Int, anaDalKodu ? parseInt(anaDalKodu) : null)
-      .execute('sp_TarihAraligindaDegişenler');
+      .input('AnaDalKodu', sql.Int, anaDalKodu ? parseInt(anaDalKodu, 10) : null)
+      .query(`
+        WITH Zincir AS (
+          SELECT
+            v.IslemID,
+            v.HuvKodu,
+            v.IslemAdi,
+            v.Birim,
+            v.GecerlilikBaslangic,
+            i.AnaDalKodu,
+            a.BolumAdi,
+            LAG(v.Birim) OVER (PARTITION BY v.IslemID ORDER BY v.GecerlilikBaslangic) AS OncekiBirim
+          FROM IslemVersionlar v
+          LEFT JOIN HuvIslemler i ON v.IslemID = i.IslemID
+          LEFT JOIN AnaDallar a ON i.AnaDalKodu = a.AnaDalKodu
+          WHERE (@AnaDalKodu IS NULL OR i.AnaDalKodu = @AnaDalKodu)
+        )
+        SELECT
+          HuvKodu,
+          IslemAdi,
+          OncekiBirim AS EskiBirim,
+          Birim AS YeniBirim,
+          Birim - OncekiBirim AS Fark,
+          CASE
+            WHEN OncekiBirim IS NOT NULL AND OncekiBirim <> 0
+            THEN CAST(((Birim - OncekiBirim) / OncekiBirim) * 100 AS DECIMAL(18, 4))
+            ELSE NULL
+          END AS DegisimYuzdesi,
+          GecerlilikBaslangic AS DegisiklikTarihi,
+          BolumAdi
+        FROM Zincir
+        WHERE OncekiBirim IS NOT NULL
+          AND ABS(Birim - OncekiBirim) > 0.01
+          AND CAST(GecerlilikBaslangic AS DATE) >= CAST(@BaslangicTarihi AS DATE)
+          AND CAST(GecerlilikBaslangic AS DATE) <= CAST(@BitisTarihi AS DATE)
+        ORDER BY DegisiklikTarihi DESC, HuvKodu;
+      `);
 
-    return success(res, result.recordset, `${result.recordset.length} işlem değişikliği bulundu`);
+    const rows = result.recordset || [];
+    return success(res, rows, `${rows.length} işlem değişikliği bulundu`);
   } catch (err) {
     next(err);
   }

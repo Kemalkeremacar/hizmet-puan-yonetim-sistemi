@@ -13,5 +13,4 @@ export { default as DateDisplay } from './DateDisplay';
 export { default as ProtectedRoute } from './ProtectedRoute';
 export { default as TabPanel } from './TabPanel';
 export { default as DataTable } from './DataTable';
-export { default as StatCard } from './StatCard';
 export { default as ConfirmDialog } from './ConfirmDialog';
