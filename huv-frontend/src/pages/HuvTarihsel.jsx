@@ -47,8 +47,7 @@ import {
   isFutureDate, 
   isBeforeMinDate,
   validateDateRange,
-  formatDateShort,
-  formatDateTime
+  formatDateShort
 } from '../utils/dateUtils';
 import { MIN_QUERY_DATE, MIN_QUERY_DATE_DISPLAY } from '../app/config/constants';
 import { TabPanel } from '../components/common';
@@ -167,7 +166,7 @@ function Tarihsel() {
       const data = [{
         'HUV Kodu': fiyatResult.HuvKodu || '-',
         'İşlem Adı': fiyatResult.IslemAdi || '-',
-        'Birim (TL)': fiyatResult.Birim || '-',
+        'Birim (TL)': fiyatResult.Birim != null ? fiyatResult.Birim : '-',
         'Tarih': formatDateShort(fiyatForm.tarih),
         'Geçerlilik Başlangıç': fiyatResult.GecerlilikBaslangic ? formatDateShort(fiyatResult.GecerlilikBaslangic) : '-',
         'Geçerlilik Bitiş': fiyatResult.GecerlilikBitis ? formatDateShort(fiyatResult.GecerlilikBitis) : 'Devam Ediyor',
@@ -250,9 +249,9 @@ function Tarihsel() {
       const data = degisiklikResult.map(item => ({
         'HUV Kodu': item.HuvKodu || '-',
         'İşlem Adı': item.IslemAdi || '-',
-        'Eski Birim (TL)': item.EskiBirim || item.IlkBirim ? (item.EskiBirim || item.IlkBirim).toFixed(2) : '-',
-        'Yeni Birim (TL)': item.YeniBirim || item.SonBirim ? (item.YeniBirim || item.SonBirim).toFixed(2) : '-',
-        'Fark (TL)': item.Fark || item.BirimDegisimi ? (item.Fark || item.BirimDegisimi).toFixed(2) : '-',
+        'Eski Birim (TL)': (item.EskiBirim ?? item.IlkBirim) != null ? (item.EskiBirim ?? item.IlkBirim).toFixed(2) : '-',
+        'Yeni Birim (TL)': (item.YeniBirim ?? item.SonBirim) != null ? (item.YeniBirim ?? item.SonBirim).toFixed(2) : '-',
+        'Fark (TL)': (item.Fark ?? item.BirimDegisimi) != null ? (item.Fark ?? item.BirimDegisimi).toFixed(2) : '-',
         'Değişim %': item.DegisimYuzdesi ? `${parseFloat(item.DegisimYuzdesi).toFixed(2)}%` : '-',
         'İlk Değişiklik': item.IlkDegisiklik ? formatDateShort(item.IlkDegisiklik) : '-',
         'Son Değişiklik': item.SonDegisiklik ? formatDateShort(item.SonDegisiklik) : item.DegisiklikTarihi ? formatDateShort(item.DegisiklikTarihi) : '-',
@@ -327,9 +326,15 @@ function Tarihsel() {
 
     try {
       // Versiyon geçmişi
+      const isSilmeKaydi = (v) => {
+        if (v.DegisiklikSebebi && v.DegisiklikSebebi.toLowerCase().includes('kaldırıldı')) return true;
+        if (v.GecerlilikBaslangic && v.GecerlilikBitis && new Date(v.GecerlilikBaslangic) > new Date(v.GecerlilikBitis)) return true;
+        return false;
+      };
+
       const versiyonData = gecmisResult.versiyonlar.map((versiyon, index) => {
+        const silmeKaydi = isSilmeKaydi(versiyon);
         const oncekiVersiyon = gecmisResult.versiyonlar[index + 1];
-        // BirimDegisimi varsa onu kullan, yoksa hesapla
         const fark = versiyon.BirimDegisimi !== null && versiyon.BirimDegisimi !== undefined
           ? versiyon.BirimDegisimi
           : (oncekiVersiyon && versiyon.Birim && oncekiVersiyon.Birim 
@@ -340,54 +345,22 @@ function Tarihsel() {
           'Versiyon ID': versiyon.VersionID || versiyon.IslemVersionID || '-',
           'HUV Kodu': gecmisResult.islem?.HuvKodu || '-',
           'İşlem Adı': gecmisResult.islem?.IslemAdi || '-',
-          'Birim (TL)': versiyon.Birim || '-',
+          'Birim (TL)': versiyon.Birim != null ? versiyon.Birim : '-',
           'Fark (TL)': fark !== null ? (fark > 0 ? '+' : '') + fark.toFixed(2) : '-',
           'Değişim %': versiyon.BirimDegisimYuzdesi ? `${parseFloat(versiyon.BirimDegisimYuzdesi).toFixed(2)}%` : '-',
-          'Geçerlilik Başlangıç': versiyon.GecerlilikBaslangic ? formatDateShort(versiyon.GecerlilikBaslangic) : '-',
-          'Geçerlilik Bitiş': versiyon.GecerlilikBitis ? formatDateShort(versiyon.GecerlilikBitis) : 'Devam Ediyor',
-          'Durum': versiyon.AktifMi && !versiyon.GecerlilikBitis ? 'Aktif' : 'Geçmiş',
+          'Geçerlilik Başlangıç': silmeKaydi
+            ? (versiyon.GecerlilikBaslangic ? formatDateShort(versiyon.GecerlilikBaslangic) + ' (Silme)' : '-')
+            : (versiyon.GecerlilikBaslangic ? formatDateShort(versiyon.GecerlilikBaslangic) : '-'),
+          'Geçerlilik Bitiş': silmeKaydi
+            ? '-'
+            : (versiyon.GecerlilikBitis ? formatDateShort(versiyon.GecerlilikBitis) : 'Devam Ediyor'),
+          'Durum': silmeKaydi ? 'Silindi' : (!versiyon.GecerlilikBitis ? 'Aktif' : 'Geçmiş'),
           'Değişiklik Sebebi': versiyon.DegisiklikSebebi || '-'
         };
       });
 
-    // Yaşam döngüsü
-    const yasamData = [];
-    
-    // İlk ekleme
-    if (gecmisResult.versiyonlar.length > 0) {
-      const ilkVersiyon = gecmisResult.versiyonlar[gecmisResult.versiyonlar.length - 1];
-      const ilkEklemeAudit = gecmisResult.auditGecmisi?.find(a => a.IslemTipi === 'INSERT');
-      
-      yasamData.push({
-        'Tarih': ilkEklemeAudit?.DegisiklikTarihi 
-          ? formatDateTime(ilkEklemeAudit.DegisiklikTarihi)
-          : formatDateTime(ilkVersiyon.GecerlilikBaslangic),
-        'İşlem': 'Eklendi',
-        'Açıklama': ilkEklemeAudit?.Aciklama || 'İlk kayıt oluşturuldu'
-      });
-    }
-    
-    // Silme ve tekrar ekleme işlemleri
-    gecmisResult.auditGecmisi?.forEach(audit => {
-      if (audit.IslemTipi === 'DELETE' || (audit.IslemTipi === 'INSERT' && yasamData.length > 0)) {
-        yasamData.push({
-          'Tarih': formatDateTime(audit.DegisiklikTarihi),
-          'İşlem': audit.IslemTipi === 'INSERT' ? 'Eklendi' : 'Silindi',
-          'Açıklama': audit.Aciklama || '-'
-        });
-      }
-    });
-    
-      // Şu anki durum
-      yasamData.push({
-      'Tarih': formatDateTime(new Date()),
-      'İşlem': 'Şu Anki Durum',
-      'Açıklama': gecmisResult.mevcutMu ? 'Aktif' : 'Silinmiş'
-    });
-
       const workbook = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(versiyonData), 'Versiyon Geçmişi');
-      XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(yasamData), 'Yaşam Döngüsü');
+      XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(versiyonData), 'Fiyat Geçmişi');
       XLSX.writeFile(workbook, `fiyat_gecmisi_${gecmisResult.islem?.HuvKodu || 'bilinmeyen'}.xlsx`);
       
       showSuccess('Excel dosyası başarıyla indirildi');
@@ -563,7 +536,7 @@ function Tarihsel() {
                             Birim (Fiyat)
                           </Typography>
                           <Typography variant="h4" color="primary.main" fontWeight="700">
-                            {fiyatResult.Birim ? `${fiyatResult.Birim.toFixed(2)} TL` : 'Belirtilmemiş'}
+                            {fiyatResult.Birim != null ? `${fiyatResult.Birim.toFixed(2)} TL` : 'Belirtilmemiş'}
                           </Typography>
                         </Paper>
                       </Grid>
@@ -694,7 +667,7 @@ function Tarihsel() {
                     </TableHead>
                     <TableBody>
                       {degisiklikResult.map((item, index) => {
-                        const fark = (item.YeniBirim || 0) - (item.EskiBirim || 0);
+                        const fark = (item.YeniBirim ?? 0) - (item.EskiBirim ?? 0);
                         const yuzde = item.EskiBirim ? ((fark / item.EskiBirim) * 100) : 0;
                         const artis = fark > 0;
                         
@@ -714,12 +687,12 @@ function Tarihsel() {
                             </TableCell>
                             <TableCell align="right">
                               <Typography variant="body2" color="textSecondary">
-                                {item.EskiBirim ? `${item.EskiBirim.toFixed(2)} TL` : '-'}
+                                {item.EskiBirim != null ? `${item.EskiBirim.toFixed(2)} TL` : '-'}
                               </Typography>
                             </TableCell>
                             <TableCell align="right">
                               <Typography variant="body2" fontWeight="600">
-                                {item.YeniBirim ? `${item.YeniBirim.toFixed(2)} TL` : '-'}
+                                {item.YeniBirim != null ? `${item.YeniBirim.toFixed(2)} TL` : '-'}
                               </Typography>
                             </TableCell>
                             <TableCell align="right">
@@ -820,21 +793,6 @@ function Tarihsel() {
             {/* Sonuç */}
             {gecmisResult && gecmisResult.islem && (
               <Stack spacing={3}>
-                {/* Başlangıç Tarihi Bilgisi */}
-                {gecmisResult.baslangicTarihi && (
-                  <Alert severity="info" icon={<InfoIcon />}>
-                    <Typography variant="body2" fontWeight="600">Başlangıç Tarihi: {gecmisResult.baslangicTarihi}</Typography>
-                    <Typography variant="body2">
-                      HUV listesi için sorgu yapılabilecek en eski tarih <strong>{gecmisResult.baslangicTarihi}</strong> tarihidir.
-                    </Typography>
-                    {gecmisResult.uyari && (
-                      <Typography variant="body2" sx={{ mt: 1, fontStyle: 'italic' }}>
-                        {gecmisResult.uyari}
-                      </Typography>
-                    )}
-                  </Alert>
-                )}
-                
                 {/* Silindi Uyarısı */}
                 {!gecmisResult.mevcutMu && (
                   <Alert severity="warning" icon={<InfoIcon />}>
@@ -888,7 +846,7 @@ function Tarihsel() {
                                 Güncel Birim
                               </Typography>
                               <Typography variant="h5" color="primary.main" fontWeight="700">
-                                {gecmisResult.islem?.GuncelBirim ? `${gecmisResult.islem.GuncelBirim.toFixed(2)} TL` : '-'}
+                                {gecmisResult.islem?.GuncelBirim != null ? `${gecmisResult.islem.GuncelBirim.toFixed(2)} TL` : '-'}
                               </Typography>
                             </Paper>
                           </Grid>
@@ -904,7 +862,13 @@ function Tarihsel() {
                     Fiyat Değişim Geçmişi
                   </Typography>
 
-                  {gecmisResult.versiyonlar && gecmisResult.versiyonlar.length === 1 && (
+                  {gecmisResult.versiyonlar && (() => {
+                    const normalCount = gecmisResult.versiyonlar.filter(v => 
+                      !(v.DegisiklikSebebi && v.DegisiklikSebebi.toLowerCase().includes('kaldırıldı')) &&
+                      !(v.GecerlilikBaslangic && v.GecerlilikBitis && new Date(v.GecerlilikBaslangic) > new Date(v.GecerlilikBitis))
+                    ).length;
+                    return normalCount === 1;
+                  })() && (
                     <Alert severity="info" sx={{ mb: 2 }}>
                       Bu işlem için henüz tek bir versiyon kaydı bulunmaktadır. Fiyat karşılaştırması yapabilmek için sisteme en az iki farklı liste yüklenmiş olmalıdır.
                     </Alert>
@@ -927,24 +891,88 @@ function Tarihsel() {
                           {(() => {
                             const rows = [];
                             const versiyonlar = gecmisResult.versiyonlar;
+
+                            const isSilmeKaydi = (v) => {
+                              if (v.DegisiklikSebebi && v.DegisiklikSebebi.toLowerCase().includes('kaldırıldı')) return true;
+                              if (v.GecerlilikBaslangic && v.GecerlilikBitis && new Date(v.GecerlilikBaslangic) > new Date(v.GecerlilikBitis)) return true;
+                              return false;
+                            };
+
+                            const findNextNormal = (startIdx) => {
+                              for (let j = startIdx + 1; j < versiyonlar.length; j++) {
+                                if (!isSilmeKaydi(versiyonlar[j])) return versiyonlar[j];
+                              }
+                              return null;
+                            };
+
                             let i = 0;
                             while (i < versiyonlar.length) {
                               const versiyon = versiyonlar[i];
-                              const aktif = versiyon.AktifMi && !versiyon.GecerlilikBitis;
-                              const oncekiVersiyon = versiyonlar[i + 1];
-                              const farkVar = oncekiVersiyon && versiyon.Birim !== oncekiVersiyon.Birim;
-                              const fark = farkVar ? versiyon.Birim - oncekiVersiyon.Birim : 0;
-                              const isDegisiklikYok = !farkVar && oncekiVersiyon && !aktif;
+
+                              if (isSilmeKaydi(versiyon)) {
+                                rows.push(
+                                  <TableRow 
+                                    key={i} 
+                                    hover
+                                    sx={{ bgcolor: 'rgba(244, 67, 54, 0.06)' }}
+                                  >
+                                    <TableCell>
+                                      <Chip 
+                                        label={`V${versiyon.VersionID}`} 
+                                        size="small" 
+                                        color="error"
+                                        variant="outlined"
+                                      />
+                                    </TableCell>
+                                    <TableCell align="right">
+                                      <Typography variant="body2" fontWeight="700" color="text.secondary">
+                                        {versiyon.Birim != null ? versiyon.Birim.toFixed(2) : '-'}
+                                      </Typography>
+                                    </TableCell>
+                                    <TableCell colSpan={2}>
+                                      <Typography variant="body2" color="error.main" fontWeight="600">
+                                        {versiyon.GecerlilikBaslangic
+                                          ? formatDateShort(versiyon.GecerlilikBaslangic)
+                                          : '-'}
+                                        {' — Silindi'}
+                                      </Typography>
+                                    </TableCell>
+                                    <TableCell align="center">
+                                      <Chip 
+                                        label="Silindi" 
+                                        size="small" 
+                                        color="error"
+                                        variant="filled"
+                                      />
+                                    </TableCell>
+                                    <TableCell>
+                                      <Typography variant="body2">
+                                        {versiyon.DegisiklikSebebi || 'İşlem listeden kaldırıldı'}
+                                      </Typography>
+                                    </TableCell>
+                                  </TableRow>
+                                );
+                                i++;
+                                continue;
+                              }
+
+                              const aktif = !versiyon.GecerlilikBitis;
+                              const oncekiNormal = findNextNormal(i);
+                              const farkVar = oncekiNormal && versiyon.Birim != null && oncekiNormal.Birim != null && versiyon.Birim !== oncekiNormal.Birim;
+                              const fark = farkVar ? versiyon.Birim - oncekiNormal.Birim : 0;
+                              const isDegisiklikYok = !farkVar && oncekiNormal && !aktif;
 
                               if (isDegisiklikYok) {
                                 let groupEnd = i;
                                 while (
                                   groupEnd + 1 < versiyonlar.length &&
-                                  versiyonlar[groupEnd + 1] &&
-                                  versiyonlar[groupEnd + 2] &&
-                                  versiyonlar[groupEnd + 1].Birim === versiyonlar[groupEnd + 2].Birim &&
-                                  !(versiyonlar[groupEnd + 1].AktifMi && !versiyonlar[groupEnd + 1].GecerlilikBitis)
+                                  !isSilmeKaydi(versiyonlar[groupEnd + 1])
                                 ) {
+                                  const nextV = versiyonlar[groupEnd + 1];
+                                  const nextNormal = findNextNormal(groupEnd + 1);
+                                  if (!nextNormal) break;
+                                  if (nextV.Birim !== nextNormal.Birim) break;
+                                  if (!nextV.GecerlilikBitis) break;
                                   groupEnd++;
                                 }
                                 const groupCount = groupEnd - i + 1;
@@ -958,7 +986,7 @@ function Tarihsel() {
                                       </TableCell>
                                       <TableCell align="right">
                                         <Typography variant="body2" fontWeight="700">
-                                          {firstV.Birim ? firstV.Birim.toFixed(2) : '-'}
+                                          {firstV.Birim != null ? firstV.Birim.toFixed(2) : '-'}
                                         </Typography>
                                       </TableCell>
                                       <TableCell>
@@ -1006,7 +1034,7 @@ function Tarihsel() {
                                   <TableCell align="right">
                                     <Stack direction="column" spacing={0.5} alignItems="flex-end">
                                       <Typography variant="body2" fontWeight="700">
-                                        {versiyon.Birim ? versiyon.Birim.toFixed(2) : '-'}
+                                        {versiyon.Birim != null ? versiyon.Birim.toFixed(2) : '-'}
                                       </Typography>
                                       {farkVar && (
                                         <Typography 
@@ -1064,193 +1092,23 @@ function Tarihsel() {
                   )}
                 </Box>
 
-                {/* Yaşam Döngüsü (Silme/Ekleme Kayıtları) */}
-                <Box>
-                  <Typography variant="h6" gutterBottom fontWeight="600" sx={{ mb: 2 }}>
-                    İşlem Yaşam Döngüsü
-                  </Typography>
-                  <TableContainer component={Paper} variant="outlined">
-                    <Table size="small">
-                      <TableHead>
-                        <TableRow sx={{ bgcolor: '#f8f9fa' }}>
-                          <TableCell width="200"><strong>Tarih</strong></TableCell>
-                          <TableCell width="150"><strong>Durum</strong></TableCell>
-                          <TableCell><strong>Açıklama</strong></TableCell>
-                        </TableRow>
-                      </TableHead>
-                      <TableBody>
-                        {(() => {
-                          const timeline = [];
-                          
-                          // Audit kayıtlarını tarihe göre sırala (en eski önce)
-                          const sortedAudit = gecmisResult.auditGecmisi 
-                            ? [...gecmisResult.auditGecmisi].sort((a, b) => 
-                                new Date(a.DegisiklikTarihi) - new Date(b.DegisiklikTarihi)
-                              )
-                            : [];
-                          
-                          // Duplicate kayıtları filtrele (aynı saniyede aynı tip)
-                          const seenKeys = new Set();
-                          const filteredAudit = sortedAudit.filter(audit => {
-                            const key = `${audit.IslemTipi}_${new Date(audit.DegisiklikTarihi).getTime()}`;
-                            if (seenKeys.has(key)) {
-                              return false; // Duplicate, atla
-                            }
-                            seenKeys.add(key);
-                            return true;
-                          });
-                          
-                          // Aynı gün içinde DELETE + INSERT varsa birleştir
-                          const mergedAudit = [];
-                          for (let i = 0; i < filteredAudit.length; i++) {
-                            const current = filteredAudit[i];
-                            const next = filteredAudit[i + 1];
-                            
-                            // Aynı gün içinde DELETE sonra INSERT varsa, "Güncellendi" olarak birleştir
-                            if (current.IslemTipi === 'DELETE' && next && next.IslemTipi === 'INSERT') {
-                              const currentDate = new Date(current.DegisiklikTarihi).toDateString();
-                              const nextDate = new Date(next.DegisiklikTarihi).toDateString();
-                              
-                              if (currentDate === nextDate) {
-                                // Aynı gün içinde silme + ekleme = Güncelleme (import)
-                                mergedAudit.push({
-                                  ...current,
-                                  IslemTipi: 'UPDATE',
-                                  Aciklama: 'Yeni versiyon import edildi (değişiklik yok)'
-                                });
-                                i++; // Bir sonraki kaydı atla
-                                continue;
-                              }
-                            }
-                            
-                            mergedAudit.push(current);
-                          }
-                          
-                          // Timeline oluştur
-                          mergedAudit.forEach((audit, index) => {
-                            if (audit.IslemTipi === 'INSERT') {
-                              const isIlkEkleme = index === 0 || 
-                                mergedAudit.slice(0, index).every(a => a.IslemTipi !== 'INSERT');
-                              
-                              timeline.push({
-                                tarih: audit.DegisiklikTarihi,
-                                tip: 'INSERT',
-                                aciklama: audit.Aciklama || (isIlkEkleme ? 'İlk kayıt oluşturuldu' : 'İşlem tekrar eklendi'),
-                                kesin: true
-                              });
-                            } else if (audit.IslemTipi === 'DELETE') {
-                              timeline.push({
-                                tarih: audit.DegisiklikTarihi,
-                                tip: 'DELETE',
-                                aciklama: audit.Aciklama || 'İşlem silindi',
-                                kesin: true
-                              });
-                            } else if (audit.IslemTipi === 'UPDATE') {
-                              timeline.push({
-                                tarih: audit.DegisiklikTarihi,
-                                tip: 'UPDATE',
-                                aciklama: audit.Aciklama || 'Versiyon güncellendi',
-                                kesin: true
-                              });
-                            }
-                          });
-                          
-                          // Eğer audit kaydı yoksa ama versiyon varsa, ilk eklemeyi tahmin et
-                          if (timeline.length === 0 && gecmisResult.versiyonlar && gecmisResult.versiyonlar.length > 0) {
-                            const ilkVersiyon = gecmisResult.versiyonlar[gecmisResult.versiyonlar.length - 1];
-                            timeline.push({
-                              tarih: ilkVersiyon.GecerlilikBaslangic,
-                              tip: 'INSERT',
-                              aciklama: 'İlk kayıt oluşturuldu (tahmini)',
-                              kesin: false
-                            });
-                          }
-                          
-                          // Eğer şu anda silinmişse ama son işlem DELETE değilse, bilinmeyen silme ekle
-                          if (!gecmisResult.mevcutMu && timeline.length > 0) {
-                            const sonIslem = timeline[timeline.length - 1];
-                            if (sonIslem.tip !== 'DELETE') {
-                              timeline.push({
-                                tarih: null,
-                                tip: 'DELETE',
-                                aciklama: 'İşlem sistemden kaldırılmış (silme tarihi bilinmiyor)',
-                                kesin: false
-                              });
-                            }
-                          }
-                          
-                          // Tarihe göre sırala (en yeni üstte - gösterim için)
-                          timeline.sort((a, b) => {
-                            if (!a.tarih) return -1;
-                            if (!b.tarih) return 1;
-                            return new Date(b.tarih) - new Date(a.tarih);
-                          });
-                          
-                          return timeline.length > 0 ? timeline.map((item, index) => (
-                            <TableRow 
-                              key={index} 
-                              hover
-                              sx={{ 
-                                '&:nth-of-type(odd)': { bgcolor: 'action.hover' },
-                                opacity: item.kesin ? 1 : 0.7
-                              }}
-                            >
-                              <TableCell>
-                                <Typography variant="body2" fontWeight={item.kesin ? 600 : 400}>
-                                  {item.tarih 
-                                    ? formatDateTime(item.tarih)
-                                    : 'Tarih bilinmiyor'}
-                                </Typography>
-                              </TableCell>
-                              <TableCell>
-                                <Chip 
-                                  label={item.tip === 'INSERT' ? 'Eklendi' : item.tip === 'DELETE' ? 'Silindi' : 'Güncellendi'} 
-                                  size="small" 
-                                  color={item.tip === 'INSERT' ? 'success' : item.tip === 'DELETE' ? 'error' : 'info'}
-                                  variant={item.kesin ? 'filled' : 'outlined'}
-                                />
-                              </TableCell>
-                              <TableCell>
-                                <Typography variant="body2">
-                                  {item.aciklama}
-                                  {!item.kesin && (
-                                    <Typography component="span" variant="caption" color="textSecondary" sx={{ ml: 1 }}>
-                                      (tahmini)
-                                    </Typography>
-                                  )}
-                                </Typography>
-                              </TableCell>
-                            </TableRow>
-                          )) : (
-                            <TableRow>
-                              <TableCell colSpan={3} align="center" sx={{ py: 4 }}>
-                                <EmptyState message="Yaşam döngüsü bilgisi bulunamadı" />
-                              </TableCell>
-                            </TableRow>
-                          );
-                        })()}
-                      </TableBody>
-                    </Table>
-                  </TableContainer>
-                  
-                  {/* Şu anki durum özeti */}
-                  <Box sx={{ mt: 2, p: 2, bgcolor: gecmisResult.mevcutMu ? 'rgba(76, 175, 80, 0.08)' : 'rgba(244, 67, 54, 0.08)', borderRadius: 1 }}>
-                    <Stack direction="row" spacing={1} alignItems="center">
-                      <Chip 
-                        label={gecmisResult.mevcutMu ? 'AKTİF' : 'SİLİNMİŞ'} 
-                        size="small" 
-                        color={gecmisResult.mevcutMu ? 'success' : 'error'}
-                      />
-                      <Typography variant="body2" fontWeight="600">
-                        Şu Anki Durum:
-                      </Typography>
-                      <Typography variant="body2">
-                        {gecmisResult.mevcutMu 
-                          ? 'İşlem sistemde aktif olarak bulunuyor'
-                          : 'İşlem sistemde bulunmuyor (silinmiş)'}
-                      </Typography>
-                    </Stack>
-                  </Box>
+                {/* Şu anki durum özeti */}
+                <Box sx={{ mt: 2, p: 2, bgcolor: gecmisResult.mevcutMu ? 'rgba(76, 175, 80, 0.08)' : 'rgba(244, 67, 54, 0.08)', borderRadius: 1 }}>
+                  <Stack direction="row" spacing={1} alignItems="center">
+                    <Chip 
+                      label={gecmisResult.mevcutMu ? 'AKTİF' : 'SİLİNMİŞ'} 
+                      size="small" 
+                      color={gecmisResult.mevcutMu ? 'success' : 'error'}
+                    />
+                    <Typography variant="body2" fontWeight="600">
+                      Şu Anki Durum:
+                    </Typography>
+                    <Typography variant="body2">
+                      {gecmisResult.mevcutMu 
+                        ? 'İşlem sistemde aktif olarak bulunuyor'
+                        : 'İşlem sistemde bulunmuyor (silinmiş)'}
+                    </Typography>
+                  </Stack>
                 </Box>
 
 
